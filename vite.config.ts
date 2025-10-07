@@ -33,5 +33,29 @@ export default defineConfig({
   optimizeDeps: {
     exclude: ['vuetify'],
     entries: ['./src/**/*.vue']
+  },
+  
+  // ===== PŘIDÁNO: Proxy pro API =====
+  server: {
+    port: 5173,
+    proxy: {
+      '/api': {
+        target: 'https://smart-int-be.naturalprotein.net',
+        changeOrigin: true,
+        secure: false,
+        configure: (proxy, options) => {
+          proxy.on('proxyReq', (proxyReq, req, res) => {
+            console.log('→ Proxy request:', req.method, req.url);
+          });
+          proxy.on('proxyRes', (proxyRes, req, res) => {
+            console.log('← Proxy response:', proxyRes.statusCode, req.url);
+          });
+          proxy.on('error', (err, req, res) => {
+            console.error('✗ Proxy error:', err.message);
+          });
+        }
+      }
+    }
   }
+  // ===== KONEC =====
 });

@@ -1,69 +1,103 @@
-import type { User, LoginCredentials, RegisterData } from '@/types/auth';
+// src/services/authService.ts
+export interface User {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  userName: string;
+  role: 'admin' | 'user';
+  token: string;
+  type?: string;
+}
 
-const MOCK_USERS = [
-  {
-    id: 1,
-    email: 'admin@naturalprotein.cz',
-    password: 'admin123',
-    firstName: 'Admin',
-    lastName: 'User',
-    role: 'admin',
-    token: 'mock-jwt-token-admin'
-  },
-  {
-    id: 2,
-    email: 'user@naturalprotein.cz',
-    password: 'user123',
-    firstName: 'Jan',
-    lastName: 'Novák',
-    role: 'user',
-    token: 'mock-jwt-token-user'
-  }
-];
+export interface LoginCredentials {
+  username: string;
+  password: string;
+}
+
+export interface EspoCRMResponse {
+  user: {
+    id: string;
+    name: string;
+    userName: string;
+    type: string;
+    firstName: string;
+    lastName: string;
+    emailAddress: string | null;
+    token: string;
+  };
+}
+
+// DŮLEŽITÉ: V development módu používáme POUZE proxy endpoint
+const API_BASE_URL = '/api/v1';
 
 export const authService = {
   async login(credentials: LoginCredentials): Promise<User> {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 500));
+    try {
+      console.log('🔐 Attempting login for:', credentials.username);
+      
+      const authHeader = 'Basic ' + btoa(`${credentials.username}:${credentials.password}`);
+      
+      console.log('📡 Calling API:', `${API_BASE_URL}/App/user`);
+      
+      const response = await fetch(`${API_BASE_URL}/App/user`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': authHeader,
+          'Accept': 'application/json'
+        }
+      });
 
-    const user = MOCK_USERS.find(
-      u => u.email === credentials.email && u.password === credentials.password
-    );
+      console.log('📥 Response status:', response.status);
 
-    if (!user) {
-      throw new Error('Nesprávné přihlašovací údaje');
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('Nesprávné přihlašovací údaje');
+        }
+        const errorText = await response.text();
+        console.error('❌ API Error:', errorText);
+        throw new Error('Chyba při přihlášení');
+      }
+
+      const data: EspoCRMResponse = await response.json();
+      console.log('✅ Login successful:', data.user.userName);
+      
+      const user: User = {
+        id: data.user.id,
+        email: data.user.emailAddress || data.user.userName,
+        firstName: data.user.firstName,
+        lastName: data.user.lastName,
+        userName: data.user.userName,
+        role: data.user.type === 'admin' ? 'admin' : 'user',
+        token: data.user.token,
+        type: data.user.type
+      };
+
+      localStorage.setItem('authToken', data.user.token);
+      localStorage.setItem('authUsername', credentials.username);
+      localStorage.setItem('authPassword', credentials.password);
+
+      return user;
+    } catch (error) {
+      console.error('❌ Login error:', error);
+      if (error instanceof Error) {
+        throw error;
+      }
+      throw new Error('Chyba při přihlášení');
     }
-
-    const { password, ...userWithoutPassword } = user;
-    return userWithoutPassword as User;
-  },
-
-  async register(data: RegisterData): Promise<User> {
-    await new Promise(resolve => setTimeout(resolve, 500));
-
-    // Check if user already exists
-    const exists = MOCK_USERS.find(u => u.email === data.email);
-    if (exists) {
-      throw new Error('Uživatel s tímto emailem již existuje');
-    }
-
-    const newUser = {
-      id: MOCK_USERS.length + 1,
-      email: data.email,
-      firstName: data.firstName,
-      lastName: data.lastName,
-      role: 'user',
-      token: `mock-jwt-token-${Date.now()}`
-    };
-
-    MOCK_USERS.push({ ...newUser, password: data.password } as any);
-
-    return newUser as User;
   },
 
   async logout(): Promise<void> {
-    await new Promise(resolve => setTimeout(resolve, 200));
-    localStorage.removeItem('user');
+    try {
+      localStorage.removeItem('user');
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('authUsername');
+      localStorage.removeItem('authPassword');
+      console.log('✅ Logout successful');
+    } catch (error) {
+      console.error('❌ Logout error:', error);
+    }
   },
 
   async getCurrentUser(): Promise<User | null> {
@@ -77,8 +111,32 @@ export const authService = {
     }
   },
 
+  async verifySession(): Promise<boolean> {
+    const username = localStorage.getItem('authUsername');
+    const password = localStorage.getItem('authPassword');
+    
+    if (!username || !password) return false;
+
+    try {
+      const authHeader = 'Basic ' + btoa(`${username}:${password}`);
+      
+      const response = await fetch(`${API_BASE_URL}/App/user`, {
+        method: 'GET',
+        headers: {
+          'Authorization': authHeader,
+          'Accept': 'application/json'
+        }
+      });
+
+      return response.ok;
+    } catch {
+      return false;
+    }
+  },
+
   async refreshToken(): Promise<string> {
-    await new Promise(resolve => setTimeout(resolve, 300));
-    return `refreshed-token-${Date.now()}`;
+    const token = localStorage.getItem('authToken');
+    if (!token) throw new Error('No token found');
+    return token;
   }
 };

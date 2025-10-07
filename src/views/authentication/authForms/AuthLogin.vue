@@ -1,25 +1,22 @@
-<!-- src/views/authentication/authForms/AuthLogin.vue -->
 <script setup lang="ts">
 import { ref } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 
 const authStore = useAuthStore();
 
-const email = ref('admin@naturalprotein.cz');
-const password = ref('admin123');
+const username = ref('');
+const password = ref('');
 const showPassword = ref(false);
 const rememberMe = ref(false);
 const loading = ref(false);
 const errorMessage = ref('');
 
-const emailRules = [
-  (v: string) => !!v || 'Email je povinný',
-  (v: string) => /.+@.+\..+/.test(v) || 'Email musí být platný'
+const usernameRules = [
+  (v: string) => !!v || 'Uživatelské jméno je povinné'
 ];
 
 const passwordRules = [
-  (v: string) => !!v || 'Heslo je povinné',
-  (v: string) => v.length >= 6 || 'Heslo musí mít alespoň 6 znaků'
+  (v: string) => !!v || 'Heslo je povinné'
 ];
 
 const handleSubmit = async () => {
@@ -28,7 +25,7 @@ const handleSubmit = async () => {
 
   try {
     await authStore.login({
-      email: email.value,
+      username: username.value,
       password: password.value
     });
   } catch (error: any) {
@@ -41,26 +38,17 @@ const handleSubmit = async () => {
 
 <template>
   <div class="mt-5">
-    <!-- Demo credentials info -->
-    <v-alert type="info" variant="tonal" class="mb-4">
-      <div class="text-subtitle-2">
-        <strong>Demo přihlášení:</strong><br>
-        Admin: admin@naturalprotein.cz / admin123<br>
-        User: user@naturalprotein.cz / user123
-      </div>
-    </v-alert>
-
     <v-form @submit.prevent="handleSubmit">
       <v-text-field
-        v-model="email"
-        :rules="emailRules"
-        label="Email"
-        type="email"
+        v-model="username"
+        :rules="usernameRules"
+        label="Uživatelské jméno"
         variant="outlined"
         color="primary"
-        prepend-inner-icon="mdi-email-outline"
+        prepend-inner-icon="mdi-account-outline"
         class="mb-4"
         required
+        autocomplete="username"
       ></v-text-field>
 
       <v-text-field
@@ -75,6 +63,7 @@ const handleSubmit = async () => {
         @click:append-inner="showPassword = !showPassword"
         class="mb-2"
         required
+        autocomplete="current-password"
       ></v-text-field>
 
       <div class="d-flex align-center justify-space-between mb-4">
@@ -107,21 +96,20 @@ const handleSubmit = async () => {
         size="large"
         block
         :loading="loading"
-        :disabled="loading"
+        :disabled="loading || !username || !password"
       >
         Přihlásit se
       </v-btn>
     </v-form>
 
-    <!--<div class="text-center mt-4">
-      <v-divider class="my-4"></v-divider>
-      <span class="text-body-2 text-medium-emphasis">
-        Nemáte účet?
-        <router-link to="/register" class="text-primary text-decoration-none font-weight-medium">
-          Zaregistrujte se
-        </router-link>
-      </span>
-    </div>-->
+    <div class="text-center mt-6">
+      <div class="text-caption text-medium-emphasis">
+        Natural Protein CRM System
+      </div>
+      <div class="text-caption text-medium-emphasis mt-1">
+        Powered by EspoCRM
+      </div>
+    </div>
   </div>
 </template>
 
