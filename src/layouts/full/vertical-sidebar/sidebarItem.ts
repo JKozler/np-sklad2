@@ -1,14 +1,14 @@
+// src/layouts/full/vertical-sidebar/sidebarItem.ts
 import {
   CircleIcon,
-  WindmillIcon,
-  TypographyIcon,
-  ShadowIcon,
-  PaletteIcon,
-  KeyIcon,
-  BugIcon,
   DashboardIcon,
-  BrandChromeIcon,
-  HelpIcon,
+  ShoppingCartIcon,
+  UsersIcon,
+  PackageIcon,
+  FileInvoiceIcon,
+  TruckDeliveryIcon,
+  ChartBarIcon,
+  SettingsIcon,
   BrandProducthuntIcon
 } from 'vue-tabler-icons';
 
@@ -31,75 +31,74 @@ export interface menu {
 const sidebarItem: menu[] = [
   { header: 'Dashboard' },
   {
-    title: 'Default',
+    title: 'Přehled',
     icon: DashboardIcon,
     to: '/dashboard/default'
   },
+  
   { divider: true },
-  { header: 'Pages' },
+  { header: 'Obchod' },
   {
-    title: 'Authentication',
-    icon: KeyIcon,
-    to: '/auth',
-    children: [
-      {
-        title: 'Login',
-        icon: CircleIcon,
-        to: '/login1'
-      },
-      {
-        title: 'Register',
-        icon: CircleIcon,
-        to: '/register'
-      }
-    ]
+    title: 'Objednávky',
+    icon: ShoppingCartIcon,
+    to: '/orders'
   },
   {
-    title: 'Error 404',
-    icon: BugIcon,
-    to: '/error'
+    title: 'Zákazníci',
+    icon: UsersIcon,
+    to: '/customers'
   },
+  {
+    title: 'Faktury',
+    icon: FileInvoiceIcon,
+    to: '/invoices'
+  },
+  
   { divider: true },
-  { header: 'Nákup a sklad' },
+  { header: 'Sklad' },
   {
     title: 'Produkty',
     icon: BrandProducthuntIcon,
-    to: '/utils/products'
-  },
-  /*{
-    title: 'Typography',
-    icon: TypographyIcon,
-    to: '/utils/typography'
+    to: '/products'
   },
   {
-    title: 'Shadows',
-    icon: ShadowIcon,
-    to: '/utils/shadows'
+    title: 'Nákupní žádosti',
+    icon: PackageIcon,
+    to: '/purchase-requests'
   },
   {
-    title: 'Colors',
-    icon: PaletteIcon,
-    to: '/utils/colors'
+    title: 'Dodavatelé',
+    icon: TruckDeliveryIcon,
+    to: '/suppliers'
   },
-
+  
+  { divider: true },
+  { header: 'Statistiky' },
   {
-    title: 'Icons',
-    icon: WindmillIcon,
-    to: '/forms/radio',
+    title: 'Reporty',
+    icon: ChartBarIcon,
+    to: '/reports'
+  },
+  
+  { divider: true },
+  { header: 'Nastavení' },
+  {
+    title: 'Systém',
+    icon: SettingsIcon,
+    to: '/settings',
     children: [
       {
-        title: 'Tabler Icons',
+        title: 'Uživatelé',
         icon: CircleIcon,
-        to: '/icons/tabler'
+        to: '/settings/users'
       },
       {
-        title: 'Material Icons',
+        title: 'Obecné',
         icon: CircleIcon,
-        to: '/icons/material'
+        to: '/settings/general'
       }
     ]
-  },*/
-  { divider: true }
+  }
 ];
 
 export default sidebarItem;

@@ -1,70 +1,38 @@
+<!-- src/views/utilities/products/ProductsPage.vue -->
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import BaseBreadcrumb from '@/components/shared/BaseBreadcrumb.vue';
 import UiParentCard from '@/components/shared/UiParentCard.vue';
+import { productsService } from '@/services/productsService';
+import type { Product } from '@/types/product';
 
 const page = ref({ title: 'Sklad expedice' });
 const breadcrumbs = ref([
-  {
-    title: 'Produkty',
-    disabled: false,
-    href: '#'
-  },
-  {
-    title: 'Sklad expedice',
-    disabled: true,
-    href: '#'
-  }
+  { title: 'Produkty', disabled: false, href: '#' },
+  { title: 'Sklad expedice', disabled: true, href: '#' }
 ]);
 
-// Search and pagination
 const search = ref('');
 const itemsPerPage = ref(10);
 const currentPage = ref(1);
+const products = ref<Product[]>([]);
+const loading = ref(false);
 
-// Table headers
 const headers = ref([
   { title: 'Název', key: 'name', sortable: true },
+  { title: 'SKU', key: 'sku', sortable: true },
   { title: 'Měsíční spotřeba', key: 'monthlyConsumption', sortable: true },
-  { title: 'Minimální sklad', key: 'minStock', sortable: true },
+  { title: 'Min. sklad', key: 'minStock', sortable: true },
   { title: 'Celkové množství', key: 'totalQuantity', sortable: true },
   { title: 'Nákladová cena', key: 'costPrice', sortable: true },
-  { title: 'Celková cena zásob', key: 'totalStockPrice', sortable: true }
+  { title: 'Celková cena zásob', key: 'totalStockPrice', sortable: true },
+  { title: 'Akce', key: 'actions', sortable: false }
 ]);
 
-// Sample data based on the screenshot
-const products = ref([
-  { id: 1, name: '3x Maca 60 cps', monthlyConsumption: 195.33, minStock: '300 ks', totalQuantity: '572 ks', costPrice: '80,90 Kč', totalStockPrice: '46 274,80 Kč' },
-  { id: 2, name: 'ACAI 70g', monthlyConsumption: 45, minStock: '20 ks', totalQuantity: '123 ks', costPrice: '105,69 Kč', totalStockPrice: '13 000,21 Kč' },
-  { id: 3, name: 'Acerola 60 kapslí', monthlyConsumption: 188.17, minStock: '300 ks', totalQuantity: '381 ks', costPrice: '62,00 Kč', totalStockPrice: '23 622,00 Kč' },
-  { id: 4, name: 'Acerola Dárek 4 cps', monthlyConsumption: 0, minStock: '0 ks', totalQuantity: '0 ks', costPrice: '4,85 Kč', totalStockPrice: '0,00 Kč' },
-  { id: 5, name: 'ALFA ALFA 60g', monthlyConsumption: 36.17, minStock: '20 ks', totalQuantity: '156 ks', costPrice: '20,94 Kč', totalStockPrice: '3 267,08 Kč' },
-  { id: 6, name: 'Arašídové máslo v prášku 200g', monthlyConsumption: 64.33, minStock: '30 ks', totalQuantity: '66 ks', costPrice: '151,30 Kč', totalStockPrice: '9 985,80 Kč' },
-  { id: 7, name: 'ASHWAGANDHA 100g', monthlyConsumption: 139, minStock: '40 ks', totalQuantity: '93 ks', costPrice: '34,65 Kč', totalStockPrice: '3 222,45 Kč' },
-  { id: 8, name: 'Ashwagandha 60cps', monthlyConsumption: 139.17, minStock: '200 ks', totalQuantity: '545 ks', costPrice: '91,10 Kč', totalStockPrice: '49 649,50 Kč' },
-  { id: 9, name: 'BCAA a Kreatin Malina 300g', monthlyConsumption: 89.83, minStock: '40 ks', totalQuantity: '248 ks', costPrice: '161,34 Kč', totalStockPrice: '40 012,01 Kč' },
-  { id: 10, name: 'BCAA a Kreatin Maracuja a Banán 300g', monthlyConsumption: 58, minStock: '40 ks', totalQuantity: '235 ks', costPrice: '174,30 Kč', totalStockPrice: '40 961,44 Kč' },
-  { id: 11, name: 'Bezlaktózový protein 350g', monthlyConsumption: 330.33, minStock: '40 ks', totalQuantity: '101 ks', costPrice: '113,33 Kč', totalStockPrice: '11 446,00 Kč' },
-  { id: 12, name: 'Bezlaktózový protein Banán 350g', monthlyConsumption: 96, minStock: '40 ks', totalQuantity: '24 ks', costPrice: '117,43 Kč', totalStockPrice: '2 818,29 Kč' },
-  { id: 13, name: 'Bezlaktózový protein Jahoda 350g', monthlyConsumption: 136.17, minStock: '40 ks', totalQuantity: '67 ks', costPrice: '130,04 Kč', totalStockPrice: '8 712,68 Kč' },
-  { id: 14, name: 'Bezlaktózový protein Kakao 350g', monthlyConsumption: 131.83, minStock: '40 ks', totalQuantity: '69 ks', costPrice: '108,87 Kč', totalStockPrice: '7 512,06 Kč' },
-  { id: 15, name: 'Bezlaktózový protein Kokos 350g', monthlyConsumption: 52.17, minStock: '40 ks', totalQuantity: '84 ks', costPrice: '101,80 Kč', totalStockPrice: '8 551,07 Kč' }
-]);
-
-// Filtered and sorted products
 const filteredProducts = computed(() => {
-  let filtered = products.value;
-  
-  if (search.value) {
-    filtered = filtered.filter(product => 
-      product.name.toLowerCase().includes(search.value.toLowerCase())
-    );
-  }
-  
-  return filtered;
+  return products.value;
 });
 
-// Paginated products
 const paginatedProducts = computed(() => {
   const start = (currentPage.value - 1) * itemsPerPage.value;
   const end = start + itemsPerPage.value;
@@ -77,22 +45,42 @@ const totalPages = computed(() => {
 
 const totalItems = computed(() => filteredProducts.value.length);
 
-// Action handlers
-const createProduct = () => {
-  console.log('Vytvořit produkt');
+const formatPrice = (price: number) => {
+  return new Intl.NumberFormat('cs-CZ', {
+    style: 'currency',
+    currency: 'CZK'
+  }).format(price);
 };
 
-const editEntity = () => {
-  console.log('Upravit entitu');
+const loadProducts = async () => {
+  loading.value = true;
+  try {
+    products.value = await productsService.getAll({ search: search.value });
+  } catch (error) {
+    console.error('Chyba při načítání produktů:', error);
+  } finally {
+    loading.value = false;
+  }
 };
 
-const editLayout = () => {
-  console.log('Upravit layout');
+const deleteProduct = async (id: number) => {
+  if (confirm('Opravdu chcete smazat tento produkt?')) {
+    try {
+      await productsService.delete(id);
+      await loadProducts();
+    } catch (error) {
+      console.error('Chyba při mazání produktu:', error);
+    }
+  }
 };
 
-const editFilters = () => {
-  console.log('Upravit filtry');
+const isLowStock = (product: Product) => {
+  return product.totalQuantity < product.minStock;
 };
+
+onMounted(() => {
+  loadProducts();
+});
 </script>
 
 <template>
@@ -101,10 +89,10 @@ const editFilters = () => {
   <v-row>
     <v-col cols="12">
       <UiParentCard title="Sklad expedice">
-        <!-- Action Buttons -->
         <div class="d-flex justify-space-between align-center mb-4 flex-wrap gap-2">
           <v-text-field
             v-model="search"
+            @update:model-value="loadProducts"
             prepend-inner-icon="mdi-magnify"
             label="Hledat"
             single-line
@@ -116,35 +104,76 @@ const editFilters = () => {
           ></v-text-field>
           
           <div class="d-flex gap-2 flex-wrap">
-            <v-btn color="primary" prepend-icon="mdi-plus" @click="createProduct">
+            <v-btn color="primary" prepend-icon="mdi-plus">
               Vytvořit produkt
             </v-btn>
-            <v-btn variant="outlined" prepend-icon="mdi-pencil" @click="editEntity">
-              Upravit entitu
-            </v-btn>
-            <v-btn variant="outlined" prepend-icon="mdi-page-layout-body" @click="editLayout">
-              Upravit layout
-            </v-btn>
-            <v-btn variant="outlined" prepend-icon="mdi-filter" @click="editFilters">
-              Upravit filtry
+            <v-btn variant="outlined" prepend-icon="mdi-download">
+              Export
             </v-btn>
           </div>
         </div>
 
-        <!-- Data Table -->
         <v-data-table
           :headers="headers"
           :items="paginatedProducts"
-          :items-per-page="itemsPerPage"
+          :loading="loading"
           hide-default-footer
           class="elevation-1"
         >
           <template v-slot:item.name="{ item }">
-            <a href="#" class="text-primary text-decoration-none">{{ item.name }}</a>
+            <div class="d-flex align-center">
+              <a href="#" class="text-primary text-decoration-none">{{ item.name }}</a>
+              <v-chip
+                v-if="isLowStock(item)"
+                size="x-small"
+                color="error"
+                variant="flat"
+                class="ml-2"
+              >
+                Nízký stav
+              </v-chip>
+            </div>
+          </template>
+
+          <template v-slot:item.sku="{ item }">
+            <span class="text-medium-emphasis">{{ item.sku || '—' }}</span>
           </template>
           
           <template v-slot:item.monthlyConsumption="{ item }">
             <span>{{ item.monthlyConsumption.toFixed(2) }}</span>
+          </template>
+
+          <template v-slot:item.minStock="{ item }">
+            <span>{{ item.minStock }} ks</span>
+          </template>
+
+          <template v-slot:item.totalQuantity="{ item }">
+            <span :class="isLowStock(item) ? 'text-error font-weight-bold' : ''">
+              {{ item.totalQuantity }} ks
+            </span>
+          </template>
+
+          <template v-slot:item.costPrice="{ item }">
+            <span>{{ formatPrice(item.costPrice) }}</span>
+          </template>
+
+          <template v-slot:item.totalStockPrice="{ item }">
+            <span class="font-weight-medium">{{ formatPrice(item.totalStockPrice) }}</span>
+          </template>
+
+          <template v-slot:item.actions="{ item }">
+            <v-btn icon size="small" variant="text" color="primary">
+              <v-icon>mdi-pencil</v-icon>
+            </v-btn>
+            <v-btn 
+              icon 
+              size="small" 
+              variant="text" 
+              color="error"
+              @click="deleteProduct(item.id)"
+            >
+              <v-icon>mdi-delete</v-icon>
+            </v-btn>
           </template>
 
           <template v-slot:bottom>

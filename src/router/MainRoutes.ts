@@ -1,3 +1,4 @@
+// src/router/MainRoutes.ts
 const MainRoutes = {
   path: '/main',
   meta: {
@@ -16,6 +17,61 @@ const MainRoutes = {
       path: '/dashboard/default',
       component: () => import('@/views/dashboards/default/DefaultDashboard.vue')
     },
+    
+    // Obchod
+    {
+      name: 'Objednávky',
+      path: '/orders',
+      component: () => import('@/views/utilities/orders/OrdersPage.vue')
+    },
+    {
+      name: 'Zákazníci',
+      path: '/customers',
+      component: () => import('@/views/utilities/customers/CustomersPage.vue')
+    },
+    {
+      name: 'Faktury',
+      path: '/invoices',
+      component: () => import('@/views/utilities/invoices/InvoicesPage.vue')
+    },
+    
+    // Sklad
+    {
+      name: 'Produkty',
+      path: '/products',
+      component: () => import('@/views/utilities/products/ProductsPage.vue')
+    },
+    {
+      name: 'Nákupní žádosti',
+      path: '/purchase-requests',
+      component: () => import('@/views/utilities/purchase/PurchaseRequestsPage.vue')
+    },
+    {
+      name: 'Dodavatelé',
+      path: '/suppliers',
+      component: () => import('@/views/utilities/suppliers/SuppliersPage.vue')
+    },
+    
+    // Statistiky
+    {
+      name: 'Reporty',
+      path: '/reports',
+      component: () => import('@/views/utilities/reports/ReportsPage.vue')
+    },
+    
+    // Nastavení
+    {
+      name: 'Uživatelé',
+      path: '/settings/users',
+      component: () => import('@/views/utilities/settings/UsersPage.vue')
+    },
+    {
+      name: 'Obecné nastavení',
+      path: '/settings/general',
+      component: () => import('@/views/utilities/settings/GeneralPage.vue')
+    },
+    
+    // Legacy routes
     {
       name: 'Starter',
       path: '/starter',
@@ -35,11 +91,6 @@ const MainRoutes = {
       name: 'Typography',
       path: '/utils/typography',
       component: () => import('@/views/utilities/typography/TypographyPage.vue')
-    },
-    {
-      name: 'Produkty',
-      path: '/utils/products',
-      component: () => import('@/views/utilities/products/ProductsPage.vue')
     },
     {
       name: 'Shadows',
