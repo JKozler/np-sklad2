@@ -133,7 +133,7 @@ const loadProducts = async () => {
   try {
     // Načteme VŠECHNY produkty pro filtrování na frontendu
     const response = await productsService.getAll(undefined, {
-      maxSize: 1000,
+      maxSize: 200,
       offset: 0,
       orderBy: sortBy.value,
       order: sortOrder.value

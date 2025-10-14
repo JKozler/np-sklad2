@@ -71,7 +71,7 @@ export const productsService = {
 
   async getProductGroups(): Promise<string[]> {
     // Získáme všechny produkty pro seznam skupin
-    const response = await this.getAll(undefined, { maxSize: 1000 });
+    const response = await this.getAll(undefined, { maxSize: 200 });
     const groups = new Set<string>();
     response.list.forEach(p => {
       if (p.productGroupName) {
