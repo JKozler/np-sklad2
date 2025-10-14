@@ -1,5 +1,5 @@
 // src/services/apiClient.ts
-const API_BASE_URL = 'https://smart-int-be.naturalprotein.net/api/v1';
+const API_BASE_URL = 'https://smart-int-be.naturalprotein.net/api/v1';  // Přímé volání
 
 export interface ApiRequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
@@ -21,35 +21,52 @@ export class ApiClient {
 
   async request<T>(endpoint: string, options: ApiRequestOptions = {}): Promise<T> {
     const { method = 'GET', body, headers = {} } = options;
-
+  
     try {
+      const authHeader = this.getAuthHeader();
+      
+      console.log('🔵 Full URL:', `${API_BASE_URL}${endpoint}`);
+      console.log('🔑 Auth Header:', authHeader);
+      console.log('🔐 Username:', localStorage.getItem('authUsername'));
+      
+      const requestHeaders = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': authHeader,
+        ...headers
+      };
+      
+      console.log('📤 Request Headers:', requestHeaders);
+      
       const response = await fetch(`${API_BASE_URL}${endpoint}`, {
         method,
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Authorization': this.getAuthHeader(),
-          ...headers
-        },
+        headers: requestHeaders,
         credentials: 'include',
         body: body ? JSON.stringify(body) : undefined
       });
-
+  
+      console.log('📥 Response:', response.status, response.statusText);
+      
+      // Zobraz response headers
+      console.log('📥 Response Headers:');
+      response.headers.forEach((value, key) => {
+        console.log(`  ${key}: ${value}`);
+      });
+  
       if (!response.ok) {
-        if (response.status === 401) {
-          // Session expired, redirect to login
-          localStorage.clear();
-          window.location.href = '/login';
-          throw new Error('Session expired');
+        const responseText = await response.text();
+        console.error('❌ Response body:', responseText);
+        
+        if (response.status === 401 || response.status === 403) {
+          throw new Error('Access denied - check credentials');
         }
         
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `API Error: ${response.statusText}`);
+        throw new Error(`API Error: ${response.status} - ${responseText}`);
       }
-
+  
       return await response.json();
     } catch (error) {
-      console.error('API Request failed:', error);
+      console.error('🔴 API Request failed:', error);
       throw error;
     }
   }

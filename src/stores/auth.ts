@@ -14,7 +14,18 @@ export const useAuthStore = defineStore({
   }),
 
   getters: {
-    isAuthenticated: (state) => !!state.user,
+    isAuthenticated: (state) => {
+      const hasUser = !!state.user;
+      const hasCredentials = !!localStorage.getItem('authUsername') && !!localStorage.getItem('authPassword');
+      
+      console.log('🔐 Auth check:', {
+        hasUser,
+        hasCredentials,
+        userName: state.user?.userName
+      });
+      
+      return hasUser && hasCredentials;
+    },
     isAdmin: (state) => state.user?.role === 'admin' || state.user?.type === 'admin',
     currentUser: (state) => state.user,
     fullName: (state) => state.user ? `${state.user.firstName} ${state.user.lastName}` : '',

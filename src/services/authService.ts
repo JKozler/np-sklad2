@@ -29,7 +29,7 @@ export interface EspoCRMResponse {
 }
 
 // DŮLEŽITÉ: V development módu používáme POUZE proxy endpoint
-const API_BASE_URL = '/api/v1';
+const API_BASE_URL = 'https://smart-int-be.naturalprotein.net/api/v1';
 
 export const authService = {
   async login(credentials: LoginCredentials): Promise<User> {

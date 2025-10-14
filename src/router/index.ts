@@ -21,17 +21,28 @@ router.beforeEach(async (to, from, next) => {
   const publicPages = ['/login', '/login1', '/register', '/error'];
   const authRequired = !publicPages.includes(to.path);
 
+  console.log('🛣️ Router guard:', {
+    to: to.path,
+    from: from.path,
+    authRequired,
+    isAuthenticated: authStore.isAuthenticated,
+    hasUsername: !!localStorage.getItem('authUsername')
+  });
+
   // Pokud je stránka chráněná a uživatel není přihlášen
   if (authRequired && !authStore.isAuthenticated) {
+    console.log('❌ Not authenticated, redirecting to login');
     authStore.returnUrl = to.fullPath;
     return next('/login');
   }
 
   // Pokud je uživatel přihlášen a jde na login stránku
   if (authStore.isAuthenticated && to.path === '/login') {
+    console.log('✅ Already authenticated, redirecting to dashboard');
     return next('/dashboard/default');
   }
 
+  console.log('✅ Router guard passed');
   next();
 });
 
