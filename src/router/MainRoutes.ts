@@ -42,6 +42,16 @@ const MainRoutes = {
       component: () => import('@/views/utilities/products/ProductsPage.vue')
     },
     {
+      name: 'Detail produktu',
+      path: '/products/:id',
+      component: () => import('@/views/utilities/products/ProductDetailPage.vue')
+    },
+    {
+      name: 'Nový produkt',
+      path: '/products/new',
+      component: () => import('@/views/utilities/products/ProductCreatePage.vue')
+    },
+    {
       name: 'Nákupní žádosti',
       path: '/purchase-requests',
       component: () => import('@/views/utilities/purchase/PurchaseRequestsPage.vue')

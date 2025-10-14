@@ -1,10 +1,14 @@
 <!-- src/views/utilities/products/ProductsPage.vue -->
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
+import { useRouter } from 'vue-router';
 import BaseBreadcrumb from '@/components/shared/BaseBreadcrumb.vue';
 import UiParentCard from '@/components/shared/UiParentCard.vue';
 import { productsService } from '@/services/productsService';
 import type { Product, ProductFilters } from '@/services/productsService';
+
+
+const router = useRouter();
 
 const page = ref({ title: 'Produkty z API' });
 const breadcrumbs = ref([
@@ -384,6 +388,7 @@ onMounted(() => {
           <v-btn
             color="success"
             prepend-icon="mdi-plus"
+            @click="router.push('/products/new')"
           >
             Nový produkt
           </v-btn>
@@ -424,7 +429,12 @@ onMounted(() => {
           </template>
 
           <template v-slot:item.name="{ item }">
-            <div class="text-primary font-weight-medium">{{ item.name }}</div>
+            <router-link 
+              :to="`/products/${item.id}`" 
+              class="text-primary font-weight-medium text-decoration-none"
+            >
+              {{ item.name }}
+            </router-link>
           </template>
 
           <template v-slot:item.ean="{ item }">
