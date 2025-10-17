@@ -120,15 +120,10 @@ export const productsService = {
     await apiClient.delete(`/Product/${id}`);
   },
 
-  async getProductGroups(): Promise<string[]> {
-    const response = await this.getAll(undefined, { maxSize: 200 });
-    const groups = new Set<string>();
-    response.list.forEach(p => {
-      if (p.productGroupName) {
-        groups.add(p.productGroupName);
-      }
-    });
-    return Array.from(groups).sort();
+  async getProductGroups(): Promise<Array<{ id: string; name: string }>> {
+    const { productGroupService } = await import('./productGroupService');
+    const response = await productGroupService.getAll();
+    return response.list.map(g => ({ id: g.id, name: g.name }));
   },
 
   async getUOMs(): Promise<Array<{ id: string; name: string }>> {

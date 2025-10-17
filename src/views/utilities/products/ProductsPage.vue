@@ -22,7 +22,7 @@ const allProducts = ref<Product[]>([]);
 const totalProducts = ref(0);
 const loading = ref(false);
 const error = ref<string | null>(null);
-const productGroups = ref<string[]>([]);
+const productGroups = ref<Array<{ id: string; name: string }>>([]);
 
 // Filtry
 const filters = ref<ProductFilters>({
@@ -86,7 +86,7 @@ const filteredProducts = computed(() => {
   }
   
   if (filters.value.productGroup) {
-    filtered = filtered.filter(p => p.productGroupName === filters.value.productGroup);
+    filtered = filtered.filter(p => p.productGroupId === filters.value.productGroup);
   }
   
   if (filters.value.priceFrom !== undefined) {
@@ -319,7 +319,10 @@ onMounted(() => {
                 <v-col cols="12" md="4">
                   <v-select
                     v-model="filters.productGroup"
-                    :items="[{ title: 'Všechny skupiny', value: '' }, ...productGroups.map(g => ({ title: g, value: g }))]"
+                    :items="[
+                      { title: 'Všechny skupiny', value: '' }, 
+                      ...productGroups.map(g => ({ title: g.name, value: g.id }))
+                    ]"
                     label="Skupina produktů"
                     variant="outlined"
                     density="compact"
@@ -483,6 +486,7 @@ onMounted(() => {
               size="small"
               variant="text"
               color="primary"
+              :to="`/products/${item.id}`"
             >
               <v-icon>mdi-pencil</v-icon>
             </v-btn>

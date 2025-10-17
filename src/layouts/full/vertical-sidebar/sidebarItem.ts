@@ -56,24 +56,6 @@ const sidebarItem: menu[] = [
   },
   
   { divider: true },
-  { header: 'Sklad' },
-  {
-    title: 'Produkty',
-    icon: BrandProducthuntIcon,
-    to: '/products'
-  },
-  {
-    title: 'Nákupní žádosti',
-    icon: PackageIcon,
-    to: '/purchase-requests'
-  },
-  {
-    title: 'Dodavatelé',
-    icon: TruckDeliveryIcon,
-    to: '/suppliers'
-  },
-  
-  { divider: true },
   { header: 'Statistiky' },
   {
     title: 'Reporty',

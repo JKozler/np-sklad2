@@ -17,7 +17,7 @@ const breadcrumbs = ref([
 
 const saving = ref(false);
 const error = ref<string | null>(null);
-const productGroups = ref<string[]>([]);
+const productGroups = ref<Array<{ id: string; name: string }>>([]);
 const uoms = ref<Array<{ id: string; name: string }>>([]);
 const loadingUoms = ref(false);
 
@@ -35,7 +35,7 @@ const formData = ref<CreateProductData>({
   vatRate: 'typSzbDph.dphZakl',
   priceType: 'typCeny.sDph',
   productGroupId: null,
-  uomId: ''  // <-- ZMĚNA: prázdný string místo null
+  uomId: ''
 });
 
 const formValid = ref(false);
@@ -43,7 +43,7 @@ const formValid = ref(false);
 const rules = {
   required: (v: string) => !!v || 'Toto pole je povinné',
   requiredCode: (v: string) => !!v || 'Kód je povinný',
-  requiredUom: (v: string) => !!v || 'Měrná jednotka je povinná'  // <-- NOVÉ
+  requiredUom: (v: string) => !!v || 'Měrná jednotka je povinná'
 };
 
 const loadData = async () => {
@@ -306,7 +306,7 @@ onMounted(() => {
                     v-model="formData.productGroupId"
                     :items="[
                       { title: '-- Žádná skupina --', value: null },
-                      ...productGroups.map(g => ({ title: g, value: g }))
+                      ...productGroups.map(g => ({ title: g.name, value: g.id }))
                     ]"
                     label="Skupina produktů"
                     variant="outlined"
@@ -350,6 +350,20 @@ onMounted(() => {
                   :color="formData.uomId === uom.id ? 'primary' : 'default'"
                 >
                   {{ uom.name }}
+                </v-chip>
+              </v-chip-group>
+
+              <v-divider class="my-3"></v-divider>
+
+              <div class="text-subtitle-2 mb-2">Dostupné skupiny produktů:</div>
+              <v-chip-group column>
+                <v-chip 
+                  v-for="group in productGroups" 
+                  :key="group.id"
+                  size="small"
+                  :color="formData.productGroupId === group.id ? 'primary' : 'default'"
+                >
+                  {{ group.name }}
                 </v-chip>
               </v-chip-group>
 
