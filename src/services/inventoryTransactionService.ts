@@ -55,22 +55,19 @@ export interface UpdateInventoryTransactionData {
 }
 
 export const inventoryTransactionService = {
-  async getAll(filters?: {
-    typeId?: string;
-    warehouseId?: string;
-    dateFrom?: string;
-    dateTo?: string;
-  }): Promise<InventoryTransactionsResponse> {
-    const queryParams = new URLSearchParams({
-      maxSize: '200',
-      offset: '0',
-      orderBy: 'transactionDate',
-      order: 'desc',
-      attributeSelect: 'id,name,inventoryTransactionTypeId,inventoryTransactionTypeName,warehouseFromId,warehouseFromName,warehouseToId,warehouseToName,transactionDate,status,totalAmount,createdAt'
-    });
-
-    return apiClient.get<InventoryTransactionsResponse>(`/InventoryTransaction?${queryParams}`);
-  },
+    async getAll(filters?: {
+        typeId?: string;
+        warehouseId?: string;
+        dateFrom?: string;
+        dateTo?: string;
+      }): Promise<InventoryTransactionsResponse> {
+        const queryParams = new URLSearchParams({
+          maxSize: '200',
+          offset: '0',
+          order: 'desc'
+        });
+        return apiClient.get<InventoryTransactionsResponse>(`/InventoryTransaction?${queryParams}`);
+      },
 
   async getById(id: string): Promise<InventoryTransaction> {
     return apiClient.get<InventoryTransaction>(`/InventoryTransaction/${id}`);
