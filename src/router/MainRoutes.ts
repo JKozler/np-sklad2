@@ -34,7 +34,21 @@ const MainRoutes = {
       path: '/invoices',
       component: () => import('@/views/utilities/invoices/InvoicesPage.vue')
     },
-    
+    {
+      name: 'Skladové pohyby',
+      path: '/inventory-transactions',
+      component: () => import('@/views/utilities/inventory/InventoryTransactionsPage.vue')
+    },
+    {
+      name: 'Nový skladový pohyb',
+      path: '/inventory-transactions/new',
+      component: () => import('@/views/utilities/inventory/InventoryTransactionCreatePage.vue')
+    },
+    {
+      name: 'Detail skladového pohybu',
+      path: '/inventory-transactions/:id',
+      component: () => import('@/views/utilities/inventory/InventoryTransactionDetailPage.vue')
+    },
     // Sklad
     {
       name: 'Produkty',
@@ -70,6 +84,11 @@ const MainRoutes = {
     },
     
     // Nastavení
+    {
+      name: 'Synchronizace Abra',
+      path: '/settings/sync',
+      component: () => import('@/views/utilities/settings/SyncAbraPage.vue')
+    },
     {
       name: 'Uživatelé',
       path: '/settings/users',

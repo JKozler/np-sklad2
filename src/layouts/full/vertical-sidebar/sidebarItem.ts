@@ -9,7 +9,8 @@ import {
   TruckDeliveryIcon,
   ChartBarIcon,
   SettingsIcon,
-  BrandProducthuntIcon
+  BrandProducthuntIcon,
+  BuildingWarehouseIcon
 } from 'vue-tabler-icons';
 
 export interface menu {
@@ -81,24 +82,44 @@ const sidebarItem: menu[] = [
   },
   
   { divider: true },
-  { header: 'Nastavení' },
-  {
-    title: 'Systém',
-    icon: SettingsIcon,
-    to: '/settings',
-    children: [
-      {
-        title: 'Uživatelé',
-        icon: CircleIcon,
-        to: '/settings/users'
-      },
-      {
-        title: 'Obecné',
-        icon: CircleIcon,
-        to: '/settings/general'
-      }
-    ]
-  }
+{ header: 'Sklad' },
+{
+  title: 'Produkty',
+  icon: BrandProducthuntIcon,
+  to: '/products'
+},
+{
+  title: 'Skladové pohyby',
+  icon: PackageIcon,
+  to: '/inventory-transactions'
+},
+{
+  title: 'Sklady',
+  icon: BuildingWarehouseIcon,
+  to: '/warehouses'
+},
+{
+  title: 'Systém',
+  icon: SettingsIcon,
+  to: '/settings',
+  children: [
+    {
+      title: 'Uživatelé',
+      icon: CircleIcon,
+      to: '/settings/users'
+    },
+    {
+      title: 'Synchronizace Abra',
+      icon: CircleIcon,
+      to: '/settings/sync'
+    },
+    {
+      title: 'Obecné',
+      icon: CircleIcon,
+      to: '/settings/general'
+    }
+  ]
+}
 ];
 
 export default sidebarItem;
