@@ -6,6 +6,7 @@ import BaseBreadcrumb from '@/components/shared/BaseBreadcrumb.vue';
 import UiParentCard from '@/components/shared/UiParentCard.vue';
 import { inventoryTransactionService } from '@/services/inventoryTransactionService';
 import { inventoryTransactionTypeService } from '@/services/inventoryTransactionTypeService';
+import { warehouseService } from '@/services/warehouseService';
 import type { CreateInventoryTransactionData } from '@/services/inventoryTransactionService';
 import type { InventoryTransactionType } from '@/services/inventoryTransactionTypeService';
 
@@ -50,14 +51,14 @@ const selectedType = computed(() => {
 // Určí jestli je potřeba sklad "z"
 const requiresWarehouseFrom = computed(() => {
   if (!selectedType.value) return false;
-  // Standardní a převodový pohyb vyžadují sklad "z"
+  // Standardní (1) a převodový (2) pohyb vyžadují sklad "z"
   return selectedType.value.abraId === 1 || selectedType.value.abraId === 2;
 });
 
 // Určí jestli je potřeba sklad "do"
 const requiresWarehouseTo = computed(() => {
   if (!selectedType.value) return false;
-  // Převodový pohyb a výroba vyžadují sklad "do"
+  // Převodový pohyb (2) a výroba (3) vyžadují sklad "do"
   return selectedType.value.abraId === 2 || selectedType.value.abraId === 3;
 });
 
@@ -67,12 +68,14 @@ const loadTransactionTypes = async () => {
     const response = await inventoryTransactionTypeService.getAll();
     transactionTypes.value = response.list;
     
+    console.log('✅ Načteno typů pohybů:', transactionTypes.value.length);
+    
     // Automaticky vyber první typ pokud existuje
     if (transactionTypes.value.length > 0 && !formData.value.inventoryTransactionTypeId) {
       formData.value.inventoryTransactionTypeId = transactionTypes.value[0].id;
     }
   } catch (err) {
-    console.error('Chyba při načítání typů:', err);
+    console.error('❌ Chyba při načítání typů:', err);
     error.value = 'Chyba při načítání typů pohybů';
   } finally {
     loadingTypes.value = false;
@@ -82,15 +85,11 @@ const loadTransactionTypes = async () => {
 const loadWarehouses = async () => {
   loadingWarehouses.value = true;
   try {
-    // TODO: Vytvoř warehouseService a načti sklady
-    // Prozatím mock data
-    warehouses.value = [
-      { id: '1', name: 'Hlavní sklad' },
-      { id: '2', name: 'Sklad výroby' },
-      { id: '3', name: 'Expedice' }
-    ];
+    warehouses.value = await warehouseService.getAllSimple();
+    console.log('✅ Načteno skladů:', warehouses.value.length);
   } catch (err) {
-    console.error('Chyba při načítání skladů:', err);
+    console.error('❌ Chyba při načítání skladů:', err);
+    error.value = 'Chyba při načítání skladů';
   } finally {
     loadingWarehouses.value = false;
   }
@@ -117,11 +116,13 @@ const createTransaction = async () => {
   error.value = null;
 
   try {
+    console.log('📤 Odesílám data:', formData.value);
     const created = await inventoryTransactionService.create(formData.value);
+    console.log('✅ Skladový pohyb vytvořen:', created);
     router.push(`/inventory-transactions/${created.id}`);
   } catch (err: any) {
     error.value = err.message || 'Chyba při vytváření skladového pohybu';
-    console.error('Chyba při vytváření:', err);
+    console.error('❌ Chyba při vytváření:', err);
   } finally {
     saving.value = false;
   }
@@ -145,6 +146,32 @@ const getTypeDescription = (type: InventoryTransactionType | undefined) => {
       return 'Výrobní pohyb (spotřeba materiálu a příjem výrobků)';
     default:
       return '';
+  }
+};
+
+const getTypeIcon = (abraId: number) => {
+  switch (abraId) {
+    case 1:
+      return 'mdi-package-variant';
+    case 2:
+      return 'mdi-swap-horizontal';
+    case 3:
+      return 'mdi-factory';
+    default:
+      return 'mdi-help-circle';
+  }
+};
+
+const getTypeColor = (abraId: number) => {
+  switch (abraId) {
+    case 1:
+      return 'primary';
+    case 2:
+      return 'info';
+    case 3:
+      return 'success';
+    default:
+      return 'default';
   }
 };
 
@@ -179,7 +206,7 @@ onMounted(() => {
             prepend-icon="mdi-content-save"
             @click="createTransaction"
             :loading="saving"
-            :disabled="!formValid || loadingTypes"
+            :disabled="!formValid || loadingTypes || loadingWarehouses"
           >
             Vytvořit pohyb
           </v-btn>
@@ -196,6 +223,17 @@ onMounted(() => {
         @click:close="error = null"
       >
         <strong>Chyba:</strong> {{ error }}
+      </v-alert>
+
+      <!-- Loading alert -->
+      <v-alert
+        v-if="loadingTypes || loadingWarehouses"
+        type="info"
+        variant="tonal"
+        class="mb-4"
+      >
+        <v-progress-circular indeterminate size="20" class="mr-2"></v-progress-circular>
+        Načítám data z API...
       </v-alert>
 
       <v-row>
@@ -232,13 +270,8 @@ onMounted(() => {
                     <template v-slot:item="{ props, item }">
                       <v-list-item v-bind="props">
                         <template v-slot:prepend>
-                          <v-icon 
-                            :color="item.raw.abraId === 1 ? 'primary' : item.raw.abraId === 2 ? 'info' : 'success'"
-                          >
-                            {{  item.raw.abraId === 1 ? 'mdi-package-variant' : 
-                                item.raw.abraId === 2 ? 'mdi-swap-horizontal' : 
-                                'mdi-factory' 
-                            }}
+                          <v-icon :color="getTypeColor(item.raw.abraId)">
+                            {{ getTypeIcon(item.raw.abraId) }}
                           </v-icon>
                         </template>
                         <v-list-item-title>{{ item.raw.name }}</v-list-item-title>
@@ -276,8 +309,13 @@ onMounted(() => {
 
             <UiParentCard title="Skladové informace" class="mt-4">
               <v-alert type="info" variant="tonal" class="mb-4" v-if="selectedType">
-                <div class="text-caption">
-                  <strong>{{ selectedType.name }}:</strong> {{ getTypeDescription(selectedType) }}
+                <div class="d-flex align-center">
+                  <v-icon :color="getTypeColor(selectedType.abraId)" class="mr-2">
+                    {{ getTypeIcon(selectedType.abraId) }}
+                  </v-icon>
+                  <div>
+                    <strong>{{ selectedType.name }}:</strong> {{ getTypeDescription(selectedType) }}
+                  </div>
                 </div>
               </v-alert>
 
@@ -295,7 +333,13 @@ onMounted(() => {
                     prepend-inner-icon="mdi-warehouse"
                     :loading="loadingWarehouses"
                     :rules="requiresWarehouseFrom ? [rules.required] : []"
-                  ></v-select>
+                  >
+                    <template v-slot:no-data>
+                      <v-list-item>
+                        <v-list-item-title>Žádné sklady k dispozici</v-list-item-title>
+                      </v-list-item>
+                    </template>
+                  </v-select>
                 </v-col>
 
                 <v-col cols="12" md="6" v-if="requiresWarehouseTo">
@@ -311,7 +355,26 @@ onMounted(() => {
                     prepend-inner-icon="mdi-warehouse"
                     :loading="loadingWarehouses"
                     :rules="requiresWarehouseTo ? [rules.required] : []"
-                  ></v-select>
+                  >
+                    <template v-slot:no-data>
+                      <v-list-item>
+                        <v-list-item-title>Žádné sklady k dispozici</v-list-item-title>
+                      </v-list-item>
+                    </template>
+                  </v-select>
+                </v-col>
+
+                <!-- Debug info -->
+                <v-col cols="12" v-if="selectedType">
+                  <v-card variant="outlined" color="grey-lighten-4">
+                    <v-card-text class="text-caption">
+                      <strong>Debug info:</strong><br>
+                      Vybraný typ: {{ selectedType.name }} (Abra ID: {{ selectedType.abraId }})<br>
+                      Vyžaduje sklad "z": {{ requiresWarehouseFrom ? 'Ano' : 'Ne' }}<br>
+                      Vyžaduje sklad "do": {{ requiresWarehouseTo ? 'Ano' : 'Ne' }}<br>
+                      Počet dostupných skladů: {{ warehouses.length }}
+                    </v-card-text>
+                  </v-card>
                 </v-col>
               </v-row>
             </UiParentCard>
@@ -349,15 +412,30 @@ onMounted(() => {
               <div class="mb-3" v-for="type in transactionTypes" :key="type.id">
                 <v-chip 
                   size="small" 
-                  :color="type.abraId === 1 ? 'primary' : type.abraId === 2 ? 'info' : 'success'"
+                  :color="getTypeColor(type.abraId)"
                   class="mb-1"
                 >
+                  <v-icon start size="small">{{ getTypeIcon(type.abraId) }}</v-icon>
                   {{ type.name }}
                 </v-chip>
                 <div class="text-caption text-medium-emphasis">
                   {{ getTypeDescription(type) }}
                 </div>
               </div>
+
+              <v-divider class="my-3"></v-divider>
+
+              <div class="text-subtitle-2 mb-2">Dostupné sklady ({{ warehouses.length }}):</div>
+              <v-chip-group column>
+                <v-chip 
+                  v-for="warehouse in warehouses" 
+                  :key="warehouse.id"
+                  size="small"
+                  color="default"
+                >
+                  {{ warehouse.name }}
+                </v-chip>
+              </v-chip-group>
 
               <v-divider class="my-3"></v-divider>
 
@@ -369,28 +447,6 @@ onMounted(() => {
                 <li>V detailu přidejte položky (produkty)</li>
                 <li>Dokončete pohyb</li>
               </ol>
-            </v-card-text>
-          </v-card>
-
-          <v-card variant="outlined" class="mt-4" v-if="transactionTypes.length > 0">
-            <v-card-text>
-              <div class="text-h6 mb-4">Dostupné typy pohybů</div>
-              
-              <v-chip-group column>
-                <v-chip 
-                  v-for="type in transactionTypes" 
-                  :key="type.id"
-                  size="small"
-                  :color="formData.inventoryTransactionTypeId === type.id ? 
-                    (type.abraId === 1 ? 'primary' : type.abraId === 2 ? 'info' : 'success') : 
-                    'default'
-                  "
-                  @click="formData.inventoryTransactionTypeId = type.id"
-                  class="cursor-pointer"
-                >
-                  {{ type.name }}
-                </v-chip>
-              </v-chip-group>
             </v-card-text>
           </v-card>
         </v-col>

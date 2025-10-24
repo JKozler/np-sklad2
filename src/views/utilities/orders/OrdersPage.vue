@@ -4,7 +4,7 @@ import { ref, computed, onMounted } from 'vue';
 import BaseBreadcrumb from '@/components/shared/BaseBreadcrumb.vue';
 import UiParentCard from '@/components/shared/UiParentCard.vue';
 import { ordersService } from '@/services/ordersService';
-import type { Order, OrderStatus } from '@/types/order';
+import type { Order, OrderStatus } from '@/types/auth';
 
 const page = ref({ title: 'Objednávky' });
 const breadcrumbs = ref([
@@ -54,7 +54,7 @@ const statusLabels: Record<OrderStatus, string> = {
 
 const filteredOrders = computed(() => {
   if (selectedStatus.value === 'all') return orders.value;
-  return orders.value.filter(o => o.status === selectedStatus.value);
+  return orders.value.filter((o: Order) => o.status === selectedStatus.value);
 });
 
 const paginatedOrders = computed(() => {

@@ -35,7 +35,8 @@ const isModified = computed(() => {
   });
 });
 
-const formatPrice = (price: number) => {
+const formatPrice = (price: number | null) => {
+  if (price === null) return '—';
   return new Intl.NumberFormat('cs-CZ', {
     style: 'currency',
     currency: 'CZK'
@@ -72,7 +73,7 @@ const loadProduct = async () => {
       isStockItem: product.value.isStockItem,
       vatRate: product.value.vatRate,
       productGroupId: product.value.productGroupId,
-      uomId: product.value.uomId
+      uomId: product.value.uomId || undefined
     };
   } catch (err: any) {
     error.value = err.message || 'Chyba při načítání produktu';
@@ -97,7 +98,7 @@ const toggleEditMode = () => {
         isStockItem: product.value.isStockItem,
         vatRate: product.value.vatRate,
         productGroupId: product.value.productGroupId,
-        uomId: product.value.uomId
+        uomId: product.value.uomId || undefined
       };
     }
   }

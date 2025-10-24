@@ -4,7 +4,7 @@ import { ref, computed, onMounted } from 'vue';
 import BaseBreadcrumb from '@/components/shared/BaseBreadcrumb.vue';
 import UiParentCard from '@/components/shared/UiParentCard.vue';
 import { customersService } from '@/services/customersService';
-import type { Customer } from '@/types/customer';
+import type { Customer } from '@/types/auth';
 
 const page = ref({ title: 'Zákazníci' });
 const breadcrumbs = ref([
@@ -30,7 +30,7 @@ const headers = ref([
 ]);
 
 const filteredCustomers = computed(() => {
-  return customers.value.map(c => ({
+  return customers.value.map((c: Customer) => ({
     ...c,
     name: `${c.firstName} ${c.lastName}`
   }));

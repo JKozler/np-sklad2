@@ -14,6 +14,9 @@ import { fakeBackend } from '@/utils/helpers/fake-backend';
 // print
 import print from 'vue3-print-nb';
 
+//icons
+import '@mdi/font/css/materialdesignicons.css'
+
 const app = createApp(App);
 fakeBackend();
 app.use(router);

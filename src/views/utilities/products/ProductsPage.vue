@@ -54,6 +54,23 @@ const getStockTypeLabel = (stockType: string) => {
 };
 
 /**
+ * Helper pro určení barvy chipu podle typu zásob
+ */
+const getStockTypeColor = (stockType: string): string => {
+  if (!stockType) return 'default';
+  
+  const type = stockType.toLowerCase();
+  
+  if (type.includes('vyrobek')) return 'success';
+  if (type.includes('material')) return 'info';
+  if (type.includes('zbozi')) return 'primary';
+  if (type.includes('sluzba')) return 'warning';
+  if (type.includes('poplatek')) return 'secondary';
+  
+  return 'default';
+};
+
+/**
  * Formátuje cenu do českého formátu
  */
 const formatPrice = (price: number | null) => {
@@ -89,18 +106,18 @@ const loadProducts = async () => {
  * Naviguje na detail produktu
  */
 const viewProduct = (product: Product) => {
-  router.push(`/utilities/products/${product.id}`);
+  router.push(`/products/${product.id}`);
 };
 
 /**
  * Naviguje na editaci produktu
  */
 const editProduct = (product: Product) => {
-  router.push(`/utilities/products/${product.id}/edit`);
+  router.push(`/products/${product.id}`);
 };
 
 /**
- * Smaže produkt (TODO: implementovat)
+ * Smaže produkt
  */
 const deleteProduct = async (product: Product) => {
   if (!confirm(`Opravdu chcete smazat produkt "${product.name}"?`)) {
@@ -108,10 +125,8 @@ const deleteProduct = async (product: Product) => {
   }
   
   try {
-    // TODO: Implementovat delete v productsService
-    console.log('Mazání produktu:', product);
-    // await productsService.delete(product.id);
-    // await loadProducts();
+    await productsService.delete(product.id);
+    await loadProducts();
   } catch (err: any) {
     error.value = err.message || 'Chyba při mazání produktu';
     console.error('❌ Chyba při mazání:', err);
@@ -149,7 +164,7 @@ onMounted(() => {
           <v-btn
             color="success"
             prepend-icon="mdi-plus"
-            @click="router.push('/utilities/products/new')"
+            @click="router.push('/products/new')"
           >
             {{ tl('Create Product') }}
           </v-btn>
@@ -195,21 +210,21 @@ onMounted(() => {
 
           <!-- No data slot -->
           <template v-slot:no-data>
-            <v-empty-state
-              icon="mdi-package-variant"
-              title="Žádné produkty"
-              text="Zatím nebyly načteny žádné produkty."
-            >
-              <template v-slot:actions>
-                <v-btn
-                  color="primary"
-                  @click="loadProducts"
-                  prepend-icon="mdi-refresh"
-                >
-                  Načíst produkty
-                </v-btn>
-              </template>
-            </v-empty-state>
+            <div class="text-center py-8">
+              <v-icon size="64" color="grey-lighten-1">mdi-package-variant</v-icon>
+              <div class="text-h6 mt-4">Žádné produkty</div>
+              <div class="text-caption text-medium-emphasis">
+                Zatím nebyly načteny žádné produkty.
+              </div>
+              <v-btn
+                color="primary"
+                @click="loadProducts"
+                prepend-icon="mdi-refresh"
+                class="mt-4"
+              >
+                Načíst produkty
+              </v-btn>
+            </div>
           </template>
 
           <!-- Stock Type -->
@@ -302,25 +317,6 @@ onMounted(() => {
     </v-col>
   </v-row>
 </template>
-
-<script lang="ts">
-/**
- * Helper pro určení barvy chipu podle typu zásob
- */
-function getStockTypeColor(stockType: string): string {
-  if (!stockType) return 'default';
-  
-  const type = stockType.toLowerCase();
-  
-  if (type.includes('vyrobek')) return 'success';
-  if (type.includes('material')) return 'info';
-  if (type.includes('zbozi')) return 'primary';
-  if (type.includes('sluzba')) return 'warning';
-  if (type.includes('poplatek')) return 'secondary';
-  
-  return 'default';
-}
-</script>
 
 <style scoped>
 .v-data-table {

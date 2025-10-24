@@ -55,7 +55,7 @@ const totalItemsAmount = computed(() => {
   return items.value.reduce((sum, item) => sum + (item.totalPrice || 0), 0);
 });
 
-const formatPrice = (price: number | undefined) => {
+const formatPrice = (price: number | undefined | null) => {
   if (price === undefined || price === null) return '—';
   return new Intl.NumberFormat('cs-CZ', {
     style: 'currency',

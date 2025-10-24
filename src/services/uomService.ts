@@ -1,46 +1,32 @@
-// src/services/productsService.ts
+// src/services/uomService.ts
 import { apiClient } from './apiClient';
-import { uomService } from './uomService';
 
-// ... ostatní interface
-
-export interface CreateProductData {
+export interface UOM {
+  id: string;
   name: string;
-  code: string;
-  description?: string | null;
-  ean?: string;
-  priceWithoutVat?: number | null;
-  priceWithVat?: number | null;
-  price?: number | null;
-  stockType: string;
-  isStockItem: boolean;
-  vatRate: string;
-  priceType?: string;
-  productGroupId?: string | null;
-  uomId: string;  // <-- ZMĚNA: už není null
+  createdAt?: string;
+  modifiedAt?: string;
 }
 
-export interface UpdateProductData {
-  name?: string;
-  description?: string | null;
-  code?: string;
-  ean?: string;
-  priceWithoutVat?: number | null;
-  priceWithVat?: number | null;
-  price?: number | null;
-  stockType?: string;
-  isStockItem?: boolean;
-  vatRate?: string;
-  priceType?: string;
-  productGroupId?: string | null;
-  uomId?: string;  // <-- ZMĚNA: už není null
+export interface UOMsResponse {
+  total: number;
+  list: UOM[];
 }
 
-export const productsService = {
-  // ... ostatní metody zůstávají stejné
-  
-  async getUOMs(): Promise<Array<{ id: string; name: string }>> {
-    const response = await uomService.getAll();
-    return response.list.map(uom => ({ id: uom.id, name: uom.name }));
+export const uomService = {
+  async getAll(): Promise<UOMsResponse> {
+    const queryParams = new URLSearchParams({
+      maxSize: '100',
+      offset: '0',
+      orderBy: 'name',
+      order: 'asc',
+      attributeSelect: 'id,name'
+    });
+
+    return apiClient.get<UOMsResponse>(`/UOM?${queryParams}`);
+  },
+
+  async getById(id: string): Promise<UOM> {
+    return apiClient.get<UOM>(`/UOM/${id}`);
   }
 };

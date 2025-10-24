@@ -52,10 +52,25 @@ export const warehouseService = {
     const queryParams = new URLSearchParams({
       maxSize: '100',
       offset: '0',
-      order: 'desc'
+      orderBy: 'createdAt',
+      order: 'desc',
+      attributeSelect: 'id,abraId,name,code,address,city,postalCode,country,description,isActive,createdAt'
     });
 
     return apiClient.get<WarehousesResponse>(`/Warehouse?${queryParams}`);
+  },
+
+  async getAllSimple(): Promise<Array<{ id: string; name: string }>> {
+    const queryParams = new URLSearchParams({
+      maxSize: '100',
+      offset: '0',
+      orderBy: 'name',
+      order: 'asc',
+      attributeSelect: 'id,name'
+    });
+
+    const response = await apiClient.get<WarehousesResponse>(`/Warehouse?${queryParams}`);
+    return response.list.map(w => ({ id: w.id, name: w.name }));
   },
 
   async getById(id: string): Promise<Warehouse> {
