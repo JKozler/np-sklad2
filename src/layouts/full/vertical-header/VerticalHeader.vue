@@ -74,7 +74,7 @@ function searchbox() {
 
     <!-- ---------------------------------------------- -->
     <!-- Notification -->
-    <!-- ---------------------------------------------- -->
+    <!-- 
     <v-menu :close-on-content-click="false">
       <template v-slot:activator="{ props }">
         <v-btn icon class="text-secondary mx-3" color="lightsecondary" rounded="sm" size="small" variant="flat" v-bind="props">
@@ -85,16 +85,15 @@ function searchbox() {
         <NotificationDD />
       </v-sheet>
     </v-menu>
-
-    <!-- ---------------------------------------------- -->
+-->
     <!-- User Profile -->
     <!-- ---------------------------------------------- -->
     <v-menu :close-on-content-click="false">
       <template v-slot:activator="{ props }">
         <v-btn class="profileBtn text-primary" color="lightprimary" variant="flat" rounded="pill" v-bind="props">
-          <v-avatar size="30" class="mr-2 py-2">
+          <!--<v-avatar size="30" class="mr-2 py-2">
             <img src="@/assets/images/profile/user-round.svg" alt="Julia" />
-          </v-avatar>
+          </v-avatar>-->
           <SettingsIcon stroke-width="1.5" />
         </v-btn>
       </template>

@@ -3,16 +3,8 @@ import { shallowRef } from 'vue';
 
 const footerLink = shallowRef([
   {
-    title: 'Home',
-    url: 'https://berrydashboard.io/vue/free'
-  },
-  {
-    title: 'Documentation',
-    url: 'https://codedthemes.gitbook.io/berry-vuetify/'
-  },
-  {
-    title: 'Support',
-    url: 'https://codedthemes.support-hub.io/'
+    title: 'Domů',
+    url: '/'
   }
 ]);
 </script>
