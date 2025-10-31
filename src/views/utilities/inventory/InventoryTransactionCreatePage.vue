@@ -30,6 +30,7 @@ const loadingWarehouses = ref(false);
 const formData = ref<CreateInventoryTransactionData>({
   name: '',
   inventoryTransactionTypeId: '',
+  transactionDirection: 'typPohybu.prijem',
   warehouseFromId: null,
   warehouseToId: null,
   transactionDate: new Date().toISOString().split('T')[0],
@@ -40,12 +41,36 @@ const formValid = ref(false);
 
 const rules = {
   required: (v: string) => !!v || 'Toto pole je povinné',
-  requiredType: (v: string) => !!v || 'Typ pohybu je povinný'
+  requiredType: (v: string) => !!v || 'Typ pohybu je povinný',
+  requiredDirection: (v: string) => !!v || 'Směr pohybu je povinný'
 };
+
+// Směry pohybu
+const transactionDirections = ref([
+  {
+    value: 'typPohybu.prijem',
+    title: 'Příjem',
+    description: 'Příjem zboží na sklad',
+    icon: 'mdi-arrow-down-circle',
+    color: 'success'
+  },
+  {
+    value: 'typPohybu.vydej',
+    title: 'Výdej',
+    description: 'Výdej zboží ze skladu',
+    icon: 'mdi-arrow-up-circle',
+    color: 'error'
+  }
+]);
 
 // Zjisti vybraný typ pohybu
 const selectedType = computed(() => {
   return transactionTypes.value.find(t => t.id === formData.value.inventoryTransactionTypeId);
+});
+
+// Zjisti vybraný směr pohybu
+const selectedDirection = computed(() => {
+  return transactionDirections.value.find(d => d.value === formData.value.transactionDirection);
 });
 
 // Určí jestli je potřeba sklad "z"
@@ -284,6 +309,40 @@ onMounted(() => {
                 </v-col>
 
                 <v-col cols="12" md="6">
+                  <v-select
+                    v-model="formData.transactionDirection"
+                    :items="transactionDirections"
+                    item-title="title"
+                    item-value="value"
+                    label="Směr pohybu *"
+                    variant="outlined"
+                    density="comfortable"
+                    prepend-inner-icon="mdi-arrow-left-right"
+                    :rules="[rules.requiredDirection]"
+                  >
+                    <template v-slot:item="{ props, item }">
+                      <v-list-item v-bind="props">
+                        <template v-slot:prepend>
+                          <v-icon :color="item.raw.color">
+                            {{ item.raw.icon }}
+                          </v-icon>
+                        </template>
+                        <v-list-item-title>{{ item.raw.title }}</v-list-item-title>
+                        <v-list-item-subtitle class="text-caption">
+                          {{ item.raw.description }}
+                        </v-list-item-subtitle>
+                      </v-list-item>
+                    </template>
+                    <template v-slot:selection="{ item }">
+                      <v-chip :color="item.raw.color" size="small" variant="tonal">
+                        <v-icon start size="small">{{ item.raw.icon }}</v-icon>
+                        {{ item.raw.title }}
+                      </v-chip>
+                    </template>
+                  </v-select>
+                </v-col>
+
+                <v-col cols="12" md="6">
                   <v-text-field
                     v-model="formData.transactionDate"
                     label="Datum pohybu *"
@@ -308,13 +367,18 @@ onMounted(() => {
             </UiParentCard>
 
             <UiParentCard title="Skladové informace" class="mt-4">
-              <v-alert type="info" variant="tonal" class="mb-4" v-if="selectedType">
+              <v-alert type="info" variant="tonal" class="mb-4" v-if="selectedType && selectedDirection">
                 <div class="d-flex align-center">
                   <v-icon :color="getTypeColor(selectedType.abraId)" class="mr-2">
                     {{ getTypeIcon(selectedType.abraId) }}
                   </v-icon>
-                  <div>
-                    <strong>{{ selectedType.name }}:</strong> {{ getTypeDescription(selectedType) }}
+                  <div class="flex-grow-1">
+                    <strong>{{ selectedType.name }}</strong> - 
+                    <v-chip :color="selectedDirection.color" size="small" variant="tonal" class="ml-1">
+                      <v-icon start size="small">{{ selectedDirection.icon }}</v-icon>
+                      {{ selectedDirection.title }}
+                    </v-chip>
+                    <div class="text-caption mt-1">{{ getTypeDescription(selectedType) }}</div>
                   </div>
                 </div>
               </v-alert>
@@ -363,19 +427,6 @@ onMounted(() => {
                     </template>
                   </v-select>
                 </v-col>
-
-                <!-- Debug info -->
-                <v-col cols="12" v-if="selectedType">
-                  <v-card variant="outlined" color="grey-lighten-4">
-                    <v-card-text class="text-caption">
-                      <strong>Debug info:</strong><br>
-                      Vybraný typ: {{ selectedType.name }} (Abra ID: {{ selectedType.abraId }})<br>
-                      Vyžaduje sklad "z": {{ requiresWarehouseFrom ? 'Ano' : 'Ne' }}<br>
-                      Vyžaduje sklad "do": {{ requiresWarehouseTo ? 'Ano' : 'Ne' }}<br>
-                      Počet dostupných skladů: {{ warehouses.length }}
-                    </v-card-text>
-                  </v-card>
-                </v-col>
               </v-row>
             </UiParentCard>
 
@@ -403,6 +454,24 @@ onMounted(() => {
               <div class="mb-3">
                 <v-icon color="info" size="small" class="mr-2">mdi-information</v-icon>
                 <span class="text-body-2">Pole označená * jsou povinná</span>
+              </div>
+
+              <v-divider class="my-3"></v-divider>
+
+              <div class="text-subtitle-2 mb-2">Směry skladového pohybu:</div>
+              
+              <div class="mb-3" v-for="direction in transactionDirections" :key="direction.value">
+                <v-chip 
+                  size="small" 
+                  :color="direction.color"
+                  class="mb-1"
+                >
+                  <v-icon start size="small">{{ direction.icon }}</v-icon>
+                  {{ direction.title }}
+                </v-chip>
+                <div class="text-caption text-medium-emphasis">
+                  {{ direction.description }}
+                </div>
               </div>
 
               <v-divider class="my-3"></v-divider>
@@ -442,7 +511,8 @@ onMounted(() => {
               <div class="text-subtitle-2 mb-2">Postup:</div>
               <ol class="text-body-2 text-medium-emphasis pl-4">
                 <li>Vyplňte základní údaje o pohybu</li>
-                <li>Vyberte typ pohybu a sklady</li>
+                <li>Vyberte typ pohybu a směr</li>
+                <li>Vyberte sklady podle typu</li>
                 <li>Uložte pohyb</li>
                 <li>V detailu přidejte položky (produkty)</li>
                 <li>Dokončete pohyb</li>

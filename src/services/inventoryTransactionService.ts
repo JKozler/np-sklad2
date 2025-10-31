@@ -9,7 +9,7 @@ export interface InventoryTransactionItem {
   price?: number;
   totalPrice?: number;
   notes?: string;
- inventoryTransactionId?: string;
+  inventoryTransactionId?: string;
 }
 
 export interface InventoryTransaction {
@@ -17,6 +17,7 @@ export interface InventoryTransaction {
   name: string;
   inventoryTransactionTypeId: string;
   inventoryTransactionTypeName?: string;
+  transactionDirection?: string;
   warehouseFromId?: string | null;
   warehouseFromName?: string | null;
   warehouseToId?: string | null;
@@ -39,7 +40,9 @@ export interface InventoryTransactionsResponse {
 export interface CreateInventoryTransactionData {
   name: string;
   inventoryTransactionTypeId: string;
+  transactionDirection: string;
   warehouseFromId?: string | null;
+  warehouseId?: string | null;
   warehouseToId?: string | null;
   transactionDate: string;
   notes?: string;
@@ -48,7 +51,9 @@ export interface CreateInventoryTransactionData {
 export interface UpdateInventoryTransactionData {
   name?: string;
   inventoryTransactionTypeId?: string;
+  transactionDirection?: string;
   warehouseFromId?: string | null;
+  warehouseId?: string | null;
   warehouseToId?: string | null;
   transactionDate?: string;
   notes?: string;
@@ -56,19 +61,19 @@ export interface UpdateInventoryTransactionData {
 }
 
 export const inventoryTransactionService = {
-    async getAll(filters?: {
-        typeId?: string;
-        warehouseId?: string;
-        dateFrom?: string;
-        dateTo?: string;
-      }): Promise<InventoryTransactionsResponse> {
-        const queryParams = new URLSearchParams({
-          maxSize: '200',
-          offset: '0',
-          order: 'desc'
-        });
-        return apiClient.get<InventoryTransactionsResponse>(`/InventoryTransaction?${queryParams}`);
-      },
+  async getAll(filters?: {
+    typeId?: string;
+    warehouseId?: string;
+    dateFrom?: string;
+    dateTo?: string;
+  }): Promise<InventoryTransactionsResponse> {
+    const queryParams = new URLSearchParams({
+      maxSize: '200',
+      offset: '0',
+      order: 'desc'
+    });
+    return apiClient.get<InventoryTransactionsResponse>(`/InventoryTransaction?${queryParams}`);
+  },
 
   async getById(id: string): Promise<InventoryTransaction> {
     return apiClient.get<InventoryTransaction>(`/InventoryTransaction/${id}`);
@@ -92,7 +97,6 @@ export const inventoryTransactionService = {
   // Items management (přes bottom panel)
   async addItem(transactionId: string, item: InventoryTransactionItem): Promise<any> {
     console.log('➕ Adding item to transaction:', transactionId, item);
-    // Endpoint bude asi něco jako:
     item.inventoryTransactionId = transactionId;
     return apiClient.post(`/InventoryTransactionItem`, item);
   },

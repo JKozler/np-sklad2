@@ -94,6 +94,7 @@ const loadTransaction = async () => {
       name: transaction.value.name,
       inventoryTransactionTypeId: transaction.value.inventoryTransactionTypeId,
       warehouseFromId: transaction.value.warehouseFromId,
+      warehouseId: transaction.value.warehouseFromId,
       warehouseToId: transaction.value.warehouseToId,
       transactionDate: transaction.value.transactionDate,
       notes: transaction.value.notes,
