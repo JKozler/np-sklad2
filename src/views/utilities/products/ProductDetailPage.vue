@@ -24,6 +24,8 @@ const loading = ref(false);
 const saving = ref(false);
 const error = ref<string | null>(null);
 const editMode = ref(false);
+const uoms = ref<Array<{ id: string; name: string }>>([]);
+const loadingUoms = ref(false);
 
 // Editovatelná data
 const editData = ref<UpdateProductData>({});
@@ -51,6 +53,19 @@ const getStockTypeLabel = (type: string) => {
   if (type === 'typZasoby.zbozi') return 'Zboží';
   if (type === 'typZasoby.material') return 'Materiál';
   return type;
+};
+
+const loadUoms = async () => {
+  loadingUoms.value = true;
+  try {
+    uoms.value = await productsService.getUOMs();
+    console.log('✅ Načteno UOM:', uoms.value.length);
+  } catch (err) {
+    console.error('❌ Chyba při načítání UOM:', err);
+    error.value = 'Chyba při načítání měrných jednotek';
+  } finally {
+    loadingUoms.value = false;
+  }
 };
 
 const loadProduct = async () => {
@@ -108,10 +123,17 @@ const toggleEditMode = () => {
 const saveChanges = async () => {
   if (!product.value) return;
   
+  // Validace
+  if (!editData.value.uomId) {
+    error.value = 'Měrná jednotka je povinná';
+    return;
+  }
+  
   saving.value = true;
   error.value = null;
   
   try {
+    console.log('📤 Odesílám update s daty:', editData.value);
     const updated = await productsService.update(productId, editData.value);
     product.value = updated;
     editMode.value = false;
@@ -144,6 +166,7 @@ const deleteProduct = async () => {
 
 onMounted(() => {
   loadProduct();
+  loadUoms();
 });
 </script>
 
@@ -305,6 +328,35 @@ onMounted(() => {
                   <div class="text-body-1 font-weight-medium mt-2">{{ product.abraId }}</div>
                 </div>
               </v-col>
+
+              <v-col cols="12">
+                <v-select
+                  v-if="editMode"
+                  v-model="editData.uomId"
+                  :items="uoms"
+                  item-title="name"
+                  item-value="id"
+                  label="Měrná jednotka *"
+                  variant="outlined"
+                  density="comfortable"
+                  prepend-inner-icon="mdi-ruler"
+                  :loading="loadingUoms"
+                  :rules="[(v: any) => !!v || 'Měrná jednotka je povinná']"
+                >
+                  <template v-slot:no-data>
+                    <v-list-item>
+                      <v-list-item-title>Žádné měrné jednotky</v-list-item-title>
+                    </v-list-item>
+                  </template>
+                </v-select>
+                <div v-else>
+                  <div class="text-subtitle-2 text-medium-emphasis">Měrná jednotka</div>
+                  <v-chip color="primary" class="mt-2" v-if="product.uomName">
+                    {{ product.uomName }}
+                  </v-chip>
+                  <span v-else class="text-body-1 font-weight-medium mt-2">—</span>
+                </div>
+              </v-col>
             </v-row>
           </UiParentCard>
 
@@ -423,13 +475,6 @@ onMounted(() => {
                   <div class="text-body-1 font-weight-medium mt-2">{{ product.productGroupName || '—' }}</div>
                 </div>
               </v-col>
-
-              <v-col cols="12" md="6">
-                <div>
-                  <div class="text-subtitle-2 text-medium-emphasis">Měrná jednotka</div>
-                  <div class="text-body-1 font-weight-medium mt-2">{{ product.uomName || '—' }}</div>
-                </div>
-              </v-col>
             </v-row>
           </UiParentCard>
         </v-col>
@@ -474,7 +519,7 @@ onMounted(() => {
             <v-card-text>
               <div class="text-h6 mb-4">Rychlé akce</div>
               
-              <v-btn block variant="outlined" class="mb-2" prepend-icon="mdi-refresh">
+              <v-btn block variant="outlined" class="mb-2" prepend-icon="mdi-refresh" @click="loadProduct">
                 Obnovit data
               </v-btn>
               
@@ -485,6 +530,26 @@ onMounted(() => {
               <v-btn block variant="outlined" prepend-icon="mdi-file-export">
                 Exportovat
               </v-btn>
+            </v-card-text>
+          </v-card>
+
+          <!-- Debug info pro UOM -->
+          <v-card variant="outlined" class="mt-4" v-if="editMode">
+            <v-card-text>
+              <div class="text-h6 mb-4">Dostupné měrné jednotky</div>
+              <v-chip-group column>
+                <v-chip 
+                  v-for="uom in uoms" 
+                  :key="uom.id"
+                  size="small"
+                  :color="editData.uomId === uom.id ? 'primary' : 'default'"
+                >
+                  {{ uom.name }}
+                </v-chip>
+              </v-chip-group>
+              <div class="text-caption text-medium-emphasis mt-2">
+                Celkem načteno: {{ uoms.length }} jednotek
+              </div>
             </v-card-text>
           </v-card>
         </v-col>

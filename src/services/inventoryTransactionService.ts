@@ -9,6 +9,7 @@ export interface InventoryTransactionItem {
   price?: number;
   totalPrice?: number;
   notes?: string;
+ inventoryTransactionId?: string;
 }
 
 export interface InventoryTransaction {
@@ -92,12 +93,14 @@ export const inventoryTransactionService = {
   async addItem(transactionId: string, item: InventoryTransactionItem): Promise<any> {
     console.log('➕ Adding item to transaction:', transactionId, item);
     // Endpoint bude asi něco jako:
-    return apiClient.post(`/InventoryTransaction/${transactionId}/items`, item);
+    item.inventoryTransactionId = transactionId;
+    return apiClient.post(`/InventoryTransactionItem`, item);
   },
 
   async updateItem(transactionId: string, itemId: string, item: Partial<InventoryTransactionItem>): Promise<any> {
     console.log('✏️ Updating transaction item:', transactionId, itemId, item);
-    return apiClient.put(`/InventoryTransaction/${transactionId}/items/${itemId}`, item);
+    item.inventoryTransactionId = transactionId;
+    return apiClient.put(`/InventoryTransactionItem/${itemId}`, item);
   },
 
   async deleteItem(transactionId: string, itemId: string): Promise<void> {
