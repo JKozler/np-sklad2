@@ -51,6 +51,7 @@ export interface ProductQueryParams {
   offset?: number;
   orderBy?: string;
   order?: 'asc' | 'desc';
+  [key: string]: any; // Pro whereGroup parametry
 }
 
 export interface CreateProductData {
@@ -87,13 +88,23 @@ export interface UpdateProductData {
 
 export const productsService = {
   async getAll(filters?: ProductFilters, params?: ProductQueryParams): Promise<ProductsResponse> {
-    const queryParams = new URLSearchParams({
-      maxSize: (params?.maxSize || 200).toString(),
-      offset: (params?.offset || 0).toString(),
-      orderBy: params?.orderBy || 'createdAt',
-      order: params?.order || 'desc',
-      attributeSelect: 'abraId,code,name,stockType,productGroupId,productGroupName,uomId,uomName,priceWithoutVat,vatRate,priceWithVat,ean,isStockItem,createdAt'
-    });
+    const queryParams = new URLSearchParams();
+    
+    // Základní parametry
+    queryParams.append('maxSize', (params?.maxSize || 200).toString());
+    queryParams.append('offset', (params?.offset || 0).toString());
+    queryParams.append('orderBy', params?.orderBy || 'createdAt');
+    queryParams.append('order', params?.order || 'desc');
+    queryParams.append('attributeSelect', 'abraId,code,name,stockType,productGroupId,productGroupName,uomId,uomName,priceWithoutVat,vatRate,priceWithVat,ean,isStockItem,createdAt');
+
+    // Pokud jsou v params whereGroup parametry, přidáme je
+    if (params) {
+      Object.keys(params).forEach(key => {
+        if (key.startsWith('whereGroup')) {
+          queryParams.append(key, params[key]);
+        }
+      });
+    }
 
     console.log('🔍 API Request:', `/Product?${queryParams}`);
 
