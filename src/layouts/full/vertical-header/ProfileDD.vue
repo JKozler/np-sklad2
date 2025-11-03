@@ -35,7 +35,7 @@ const authStore = useAuthStore();
       <v-divider></v-divider>
 
       <v-list class="mt-3">
-        <v-list-item color="secondary" rounded="md">
+        <v-list-item color="secondary" rounded="md" @click="$router.push('/profile')">
           <template v-slot:prepend>
             <SettingsIcon size="20" class="mr-2" />
           </template>

@@ -15,6 +15,7 @@ export interface InventoryTransactionItem {
 export interface InventoryTransaction {
   id: string;
   name: string;
+  code?: string;
   transactionTypeId: string;
   transactionTypeName?: string;
   transactionDirection?: string;
@@ -26,6 +27,8 @@ export interface InventoryTransaction {
   status?: string;
   notes?: string;
   totalAmount?: number;
+  totalPrice?: number;
+  totalPriceCurrency?: string;
   createdAt: string;
   modifiedAt?: string;
   createdById: string;
@@ -80,18 +83,32 @@ export interface UpdateInventoryTransactionData {
   items?: InventoryTransactionItem[] | null;
 }
 
+export interface InventoryTransactionFilters {
+  typeId?: string;
+  warehouseId?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  searchText?: string;
+}
+
 export const inventoryTransactionService = {
-  async getAll(filters?: {
-    typeId?: string;
-    warehouseId?: string;
-    dateFrom?: string;
-    dateTo?: string;
-  }): Promise<InventoryTransactionsResponse> {
+  async getAll(filters?: InventoryTransactionFilters): Promise<InventoryTransactionsResponse> {
     const queryParams = new URLSearchParams({
       maxSize: '200',
       offset: '0',
-      order: 'desc'
+      orderBy: 'createdAt',
+      order: 'desc',
+      attributeSelect: 'code,transactionDirection,transactionTypeId,transactionTypeName,name,status,totalPriceCurrency,totalPrice,warehouseFromId,warehouseFromName,warehouseToId,warehouseToName,transactionDate,createdAt'
     });
+
+    // Přidání textového filtru pokud existuje
+    if (filters?.searchText) {
+      queryParams.append('whereGroup[0][type]', 'textFilter');
+      queryParams.append('whereGroup[0][value]', filters.searchText);
+    }
+
+    console.log('🔍 API Request:', `/InventoryTransaction?${queryParams}`);
+
     return apiClient.get<InventoryTransactionsResponse>(`/InventoryTransaction?${queryParams}`);
   },
 

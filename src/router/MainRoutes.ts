@@ -17,7 +17,11 @@ const MainRoutes = {
       path: '/dashboard/default',
       component: () => import('@/views/dashboards/default/DefaultDashboard.vue')
     },
-    
+    {
+      path: '/profile',
+      name: 'UserProfile',
+      component: () => import('@/views/utilities/settings/UserProfilePage.vue')
+    },
     // Obchod
     {
       name: 'Objednávky',

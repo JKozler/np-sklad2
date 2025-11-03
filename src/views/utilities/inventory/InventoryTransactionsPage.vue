@@ -1,6 +1,6 @@
 <!-- src/views/utilities/inventory/InventoryTransactionsPage.vue -->
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import BaseBreadcrumb from '@/components/shared/BaseBreadcrumb.vue';
 import UiParentCard from '@/components/shared/UiParentCard.vue';
@@ -26,16 +26,22 @@ const selectedType = ref<string>('');
 const selectedStatus = ref<string>('');
 const dateFrom = ref<string>('');
 const dateTo = ref<string>('');
+const searchText = ref('');
 const itemsPerPage = ref(20);
 const page_number = ref(0);
 
+// Debounce timer pro vyhledávání
+let searchTimeout: number | null = null;
+
 const headers = ref([
   { title: 'Název', key: 'name', sortable: true },
+  { title: 'Kód', key: 'code', sortable: true },
   { title: 'Typ pohybu', key: 'transactionTypeName', sortable: true },
+  { title: 'Směr', key: 'transactionDirection', sortable: false },
   { title: 'Sklad (z)', key: 'warehouseFromName', sortable: false },
   { title: 'Sklad (do)', key: 'warehouseToName', sortable: false },
   { title: 'Datum', key: 'transactionDate', sortable: true },
-  { title: 'Celková částka', key: 'totalAmount', sortable: true },
+  { title: 'Celková částka', key: 'totalPrice', sortable: true },
   { title: 'Status', key: 'status', sortable: true },
   { title: 'Akce', key: 'actions', sortable: false }
 ]);
@@ -105,32 +111,78 @@ const getStatusLabel = (status: string | undefined) => {
 };
 
 const getTypeColor = (typeId: string) => {
-  // Můžeš přidat logiku podle typu pohybu
   const type = transactionTypes.value.find(t => t.id === typeId);
   if (!type) return 'default';
   
-  // Podle Abra ID rozliš typ
   switch (type.abraId) {
-    case 1: return 'primary';   // Standardní
-    case 2: return 'info';      // Převodový
-    case 3: return 'success';   // Výroba
+    case 1: return 'primary';
+    case 2: return 'info';
+    case 3: return 'success';
     default: return 'default';
   }
 };
 
+const getDirectionLabel = (direction: string | undefined) => {
+  if (!direction) return '—';
+  if (direction === 'typPohybu.prijem') return 'Příjem';
+  if (direction === 'typPohybu.vydej') return 'Výdej';
+  return direction;
+};
+
+const getDirectionColor = (direction: string | undefined) => {
+  if (!direction) return 'default';
+  if (direction === 'typPohybu.prijem') return 'success';
+  if (direction === 'typPohybu.vydej') return 'error';
+  return 'default';
+};
+
+/**
+ * Načte skladové pohyby z API s textovým filtrem
+ */
 const loadTransactions = async () => {
   loading.value = true;
   error.value = null;
 
   try {
-    const response = await inventoryTransactionService.getAll();
+    const response = await inventoryTransactionService.getAll({
+      searchText: searchText.value.trim() || undefined
+    });
     transactions.value = response.list;
+    console.log('✅ Načteno skladových pohybů:', transactions.value.length);
   } catch (err: any) {
     error.value = err.message || 'Chyba při načítání skladových pohybů';
-    console.error('Chyba při načítání:', err);
+    console.error('❌ Chyba při načítání:', err);
   } finally {
     loading.value = false;
   }
+};
+
+/**
+ * Debounced search - čeká 500ms po posledním stisku klávesy
+ */
+const debouncedSearch = () => {
+  if (searchTimeout) {
+    clearTimeout(searchTimeout);
+  }
+  
+  searchTimeout = window.setTimeout(() => {
+    loadTransactions();
+  }, 500);
+};
+
+/**
+ * Watch na změnu searchText
+ */
+watch(searchText, () => {
+  debouncedSearch();
+});
+
+/**
+ * Vyčistí vyhledávání
+ */
+const clearSearch = () => {
+  searchText.value = '';
+  loadTransactions();
 };
 
 const loadTransactionTypes = async () => {
@@ -161,7 +213,9 @@ const resetFilters = () => {
   selectedStatus.value = '';
   dateFrom.value = '';
   dateTo.value = '';
+  searchText.value = '';
   page_number.value = 0;
+  loadTransactions();
 };
 
 onMounted(() => {
@@ -216,12 +270,81 @@ onMounted(() => {
       </v-row>
 
       <UiParentCard title="Seznam skladových pohybů">
+        <!-- Vyhledávání -->
+        <div class="mb-4">
+          <v-row>
+            <v-col cols="12" md="6">
+              <!-- Vyhledávací pole -->
+              <v-text-field
+                v-model="searchText"
+                prepend-inner-icon="mdi-magnify"
+                label="Vyhledat skladový pohyb"
+                placeholder="Zadejte název, kód nebo hledaný výraz..."
+                variant="outlined"
+                density="compact"
+                clearable
+                @click:clear="clearSearch"
+                hint="Vyhledávání probíhá automaticky při psaní"
+                persistent-hint
+              >
+                <template v-slot:append-inner>
+                  <v-progress-circular
+                    v-if="loading"
+                    indeterminate
+                    size="20"
+                    width="2"
+                    color="primary"
+                  ></v-progress-circular>
+                </template>
+              </v-text-field>
+            </v-col>
+            
+            <v-col cols="12" md="6" class="d-flex justify-end align-start gap-2">
+              <v-btn
+                color="primary"
+                prepend-icon="mdi-refresh"
+                @click="loadTransactions"
+                :loading="loading"
+              >
+                Obnovit
+              </v-btn>
+              
+              <v-btn
+                color="success"
+                prepend-icon="mdi-plus"
+                @click="router.push('/inventory-transactions/new')"
+              >
+                Nový skladový pohyb
+              </v-btn>
+            </v-col>
+          </v-row>
+        </div>
+
+        <!-- Info o aktivním textovém filtru -->
+        <v-alert
+          v-if="searchText.trim()"
+          type="info"
+          variant="tonal"
+          density="compact"
+          class="mb-4"
+          closable
+          @click:close="clearSearch"
+        >
+          <div class="d-flex align-center">
+            <v-icon start>mdi-filter</v-icon>
+            <span>
+              Vyhledávám: <strong>"{{ searchText }}"</strong> 
+              <span class="text-medium-emphasis ml-2">(nalezeno {{ transactions.length }} pohybů)</span>
+            </span>
+          </div>
+        </v-alert>
+
         <!-- Filtry -->
         <v-expansion-panels class="mb-4">
           <v-expansion-panel>
             <v-expansion-panel-title>
               <v-icon class="mr-2">mdi-filter</v-icon>
-              Filtry
+              Pokročilé filtry
               <v-chip 
                 v-if="selectedType || selectedStatus || dateFrom || dateTo"
                 color="primary" 
@@ -293,33 +416,13 @@ onMounted(() => {
                     prepend-icon="mdi-refresh"
                     @click="resetFilters"
                   >
-                    Resetovat filtry
+                    Resetovat všechny filtry
                   </v-btn>
                 </v-col>
               </v-row>
             </v-expansion-panel-text>
           </v-expansion-panel>
         </v-expansion-panels>
-
-        <!-- Akční tlačítka -->
-        <div class="d-flex justify-space-between align-center mb-4">
-          <v-btn
-            color="primary"
-            prepend-icon="mdi-refresh"
-            @click="loadTransactions"
-            :loading="loading"
-          >
-            Obnovit
-          </v-btn>
-          
-          <v-btn
-            color="success"
-            prepend-icon="mdi-plus"
-            @click="router.push('/inventory-transactions/new')"
-          >
-            Nový skladový pohyb
-          </v-btn>
-        </div>
 
         <!-- Chybová hláška -->
         <v-alert
@@ -341,6 +444,10 @@ onMounted(() => {
           hide-default-footer
           class="elevation-1"
         >
+          <template v-slot:loading>
+            <v-skeleton-loader type="table-row@10"></v-skeleton-loader>
+          </template>
+
           <template v-slot:item.name="{ item }">
             <router-link 
               :to="`/inventory-transactions/${item.id}`"
@@ -350,6 +457,13 @@ onMounted(() => {
             </router-link>
           </template>
 
+          <template v-slot:item.code="{ item }">
+            <v-chip v-if="item.code" color="secondary" size="small" variant="tonal">
+              {{ item.code }}
+            </v-chip>
+            <span v-else class="text-medium-emphasis">—</span>
+          </template>
+
           <template v-slot:item.transactionTypeName="{ item }">
             <v-chip 
               :color="getTypeColor(item.transactionTypeId)"
@@ -357,6 +471,21 @@ onMounted(() => {
               variant="tonal"
             >
               {{ item.transactionTypeName }}
+            </v-chip>
+          </template>
+
+          <template v-slot:item.transactionDirection="{ item }">
+            <v-chip 
+              :color="getDirectionColor(item.transactionDirection)"
+              size="small"
+              variant="tonal"
+            >
+              <v-icon 
+                start 
+                size="small"
+                :icon="item.transactionDirection === 'typPohybu.prijem' ? 'mdi-arrow-down-circle' : 'mdi-arrow-up-circle'"
+              ></v-icon>
+              {{ getDirectionLabel(item.transactionDirection) }}
             </v-chip>
           </template>
 
@@ -372,8 +501,8 @@ onMounted(() => {
             {{ formatDate(item.transactionDate) }}
           </template>
 
-          <template v-slot:item.totalAmount="{ item }">
-            <span class="font-weight-medium">{{ formatPrice(item.totalAmount) }}</span>
+          <template v-slot:item.totalPrice="{ item }">
+            <span class="font-weight-medium">{{ formatPrice(item.totalPrice) }}</span>
           </template>
 
           <template v-slot:item.status="{ item }">
@@ -409,9 +538,28 @@ onMounted(() => {
 
           <template v-slot:no-data>
             <div class="text-center py-8">
-              <v-icon size="64" color="grey-lighten-1">mdi-package-variant-closed</v-icon>
-              <div class="text-h6 mt-4">Žádné skladové pohyby</div>
-              <div class="text-caption text-medium-emphasis">Vytvořte první skladový pohyb</div>
+              <v-icon size="64" color="grey-lighten-1">
+                {{ searchText.trim() ? 'mdi-magnify' : 'mdi-package-variant-closed' }}
+              </v-icon>
+              <div class="text-h6 mt-4">
+                {{ searchText.trim() ? 'Žádné výsledky' : 'Žádné skladové pohyby' }}
+              </div>
+              <div class="text-caption text-medium-emphasis">
+                {{ searchText.trim() 
+                  ? `Pro výraz "${searchText}" nebyly nalezeny žádné skladové pohyby.` 
+                  : 'Vytvořte první skladový pohyb' 
+                }}
+              </div>
+              <v-btn
+                v-if="searchText.trim()"
+                color="primary"
+                @click="clearSearch"
+                prepend-icon="mdi-close"
+                class="mt-4"
+                variant="outlined"
+              >
+                Vyčistit filtr
+              </v-btn>
             </div>
           </template>
 
@@ -444,12 +592,23 @@ onMounted(() => {
             </div>
           </template>
         </v-data-table>
+
+        <!-- Footer s info -->
+        <div class="mt-4 text-caption text-medium-emphasis">
+          <v-icon size="small" class="mr-1">mdi-information-outline</v-icon>
+          {{ searchText.trim() ? 'Výsledky vyhledávání: ' : 'Celkem skladových pohybů: ' }}
+          <strong>{{ transactions.length }}</strong>
+        </div>
       </UiParentCard>
     </v-col>
   </v-row>
 </template>
 
 <style scoped>
+.gap-2 {
+  gap: 8px;
+}
+
 :deep(.v-data-table) {
   border-radius: 8px;
 }
