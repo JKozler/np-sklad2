@@ -92,7 +92,7 @@ const loadTransaction = async () => {
     // Inicializuj editData
     editData.value = {
       name: transaction.value.name,
-      inventoryTransactionTypeId: transaction.value.inventoryTransactionTypeId,
+      transactionTypeId: transaction.value.transactionTypeId,
       warehouseFromId: transaction.value.warehouseFromId,
       warehouseId: transaction.value.warehouseFromId,
       warehouseToId: transaction.value.warehouseToId,
@@ -136,7 +136,7 @@ const toggleEditMode = () => {
     // Zrušení editace - obnovit původní data
     editData.value = {
       name: transaction.value.name,
-      inventoryTransactionTypeId: transaction.value.inventoryTransactionTypeId,
+      transactionTypeId: transaction.value.transactionTypeId,
       warehouseFromId: transaction.value.warehouseFromId,
       warehouseToId: transaction.value.warehouseToId,
       transactionDate: transaction.value.transactionDate,
@@ -228,7 +228,7 @@ const completeTransaction = async () => {
   }
 
   try {
-    editData.value.status = 'completed';
+    //editData.value.status = 'completed';
     await saveChanges();
   } catch (err) {
     console.error('Chyba při dokončování:', err);
@@ -360,7 +360,16 @@ onMounted(() => {
                 <div>
                   <div class="text-subtitle-2 text-medium-emphasis">Typ pohybu</div>
                   <v-chip color="primary" class="mt-2">
-                    {{ transaction.inventoryTransactionTypeName }}
+                    {{ transaction.transactionTypeName }}
+                  </v-chip>
+                </div>
+              </v-col>
+
+              <v-col cols="12" md="6">
+                <div>
+                  <div class="text-subtitle-2 text-medium-emphasis">Směr pohybu</div>
+                  <v-chip :color="transaction.transactionDirection == 'typPohybu.vydej'?'danger':'primary'" class="mt-2">
+                    {{ transaction.transactionDirection == "typPohybu.vydej"?'Výdej':'Přijem' }}
                   </v-chip>
                 </div>
               </v-col>

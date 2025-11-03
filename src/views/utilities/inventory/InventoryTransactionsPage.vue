@@ -31,7 +31,7 @@ const page_number = ref(0);
 
 const headers = ref([
   { title: 'Název', key: 'name', sortable: true },
-  { title: 'Typ pohybu', key: 'inventoryTransactionTypeName', sortable: true },
+  { title: 'Typ pohybu', key: 'transactionTypeName', sortable: true },
   { title: 'Sklad (z)', key: 'warehouseFromName', sortable: false },
   { title: 'Sklad (do)', key: 'warehouseToName', sortable: false },
   { title: 'Datum', key: 'transactionDate', sortable: true },
@@ -44,7 +44,7 @@ const filteredTransactions = computed(() => {
   let filtered = [...transactions.value];
 
   if (selectedType.value) {
-    filtered = filtered.filter(t => t.inventoryTransactionTypeId === selectedType.value);
+    filtered = filtered.filter(t => t.transactionTypeId === selectedType.value);
   }
 
   if (selectedStatus.value) {
@@ -350,13 +350,13 @@ onMounted(() => {
             </router-link>
           </template>
 
-          <template v-slot:item.inventoryTransactionTypeName="{ item }">
+          <template v-slot:item.transactionTypeName="{ item }">
             <v-chip 
-              :color="getTypeColor(item.inventoryTransactionTypeId)"
+              :color="getTypeColor(item.transactionTypeId)"
               size="small"
               variant="tonal"
             >
-              {{ item.inventoryTransactionTypeName }}
+              {{ item.transactionTypeName }}
             </v-chip>
           </template>
 

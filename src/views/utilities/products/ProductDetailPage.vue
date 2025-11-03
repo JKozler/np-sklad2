@@ -6,6 +6,8 @@ import BaseBreadcrumb from '@/components/shared/BaseBreadcrumb.vue';
 import UiParentCard from '@/components/shared/UiParentCard.vue';
 import { productsService } from '@/services/productsService';
 import type { Product, UpdateProductData } from '@/services/productsService';
+import { inventoryCardService } from '@/services/inventoryCardService';
+import type { InventoryCard } from '@/services/inventoryCardService';
 
 const route = useRoute();
 const router = useRouter();
@@ -27,6 +29,36 @@ const editMode = ref(false);
 const uoms = ref<Array<{ id: string; name: string }>>([]);
 const loadingUoms = ref(false);
 
+// Skladové karty
+const inventoryCards = ref<InventoryCard[]>([]);
+const loadingInventoryCards = ref(false);
+const inventoryCardsError = ref<string | null>(null);
+
+const inventoryCardHeaders = ref([
+  { title: 'Sklad / Období', key: 'warehouseName', sortable: true },
+  { title: 'Aktuální stav', key: 'currentStockQuantity', sortable: true },
+  { title: 'Požadavky na výdej', key: 'issueRequestQuantity', sortable: true },
+  { title: 'Stav s požadavky', key: 'currentStockQuantityWithIssueRequests', sortable: true },
+  { title: 'Hodnota zásob', key: 'currentStockValue', sortable: true },
+  { title: 'Průměrná cena', key: 'averageCostPrice', sortable: true },
+  { title: 'Poslední cena', key: 'lastCostPrice', sortable: true }
+]);
+
+// Computed vlastnosti pro sumarizaci skladových karet
+const totalStockQuantity = computed(() => {
+  return inventoryCards.value.reduce((sum, card) => sum + card.currentStockQuantity, 0);
+});
+
+const totalStockValue = computed(() => {
+  return inventoryCards.value.reduce((sum, card) => sum + card.currentStockValue, 0);
+});
+
+const averageCostPrice = computed(() => {
+  if (inventoryCards.value.length === 0) return 0;
+  const sum = inventoryCards.value.reduce((sum, card) => sum + card.averageCostPrice, 0);
+  return sum / inventoryCards.value.length;
+});
+
 // Editovatelná data
 const editData = ref<UpdateProductData>({});
 
@@ -37,8 +69,8 @@ const isModified = computed(() => {
   });
 });
 
-const formatPrice = (price: number | null) => {
-  if (price === null) return '—';
+const formatPrice = (price: number | null | undefined) => {
+  if (price === null || price === undefined) return '—';
   return new Intl.NumberFormat('cs-CZ', {
     style: 'currency',
     currency: 'CZK'
@@ -53,6 +85,17 @@ const getStockTypeLabel = (type: string) => {
   if (type === 'typZasoby.zbozi') return 'Zboží';
   if (type === 'typZasoby.material') return 'Materiál';
   return type;
+};
+
+const getVatRateLabel = (vatRate: string) => {
+  if (vatRate === 'typSzbDph.dphZakl') return 'DPH Základní (21%)';
+  if (vatRate === 'typSzbDph.dphSniz') return 'DPH Snížená (12%)';
+  return 'Bez DPH';
+};
+
+const getPriceTypeLabel = (priceType: string) => {
+  if (priceType === 'typCeny.sDph') return 'S DPH';
+  return 'Bez DPH';
 };
 
 const loadUoms = async () => {
@@ -90,11 +133,32 @@ const loadProduct = async () => {
       productGroupId: product.value.productGroupId,
       uomId: product.value.uomId || undefined
     };
+
+    // Automaticky načti skladové karty
+    await loadInventoryCards();
   } catch (err: any) {
     error.value = err.message || 'Chyba při načítání produktu';
     console.error('Chyba při načítání produktu:', err);
   } finally {
     loading.value = false;
+  }
+};
+
+const loadInventoryCards = async () => {
+  if (!productId) return;
+  
+  loadingInventoryCards.value = true;
+  inventoryCardsError.value = null;
+  
+  try {
+    console.log('📦 Načítám skladové karty pro produkt:', productId);
+    inventoryCards.value = await inventoryCardService.getByProductId(productId);
+    console.log('✅ Načteno skladových karet:', inventoryCards.value.length);
+  } catch (err: any) {
+    inventoryCardsError.value = err.message || 'Chyba při načítání skladových karet';
+    console.error('❌ Chyba při načítání skladových karet:', err);
+  } finally {
+    loadingInventoryCards.value = false;
   }
 };
 
@@ -412,14 +476,14 @@ onMounted(() => {
               <v-col cols="12" md="6">
                 <div>
                   <div class="text-subtitle-2 text-medium-emphasis">Sazba DPH</div>
-                  <div class="text-body-1 font-weight-medium mt-2">{{ product.vatRate }}</div>
+                  <div class="text-body-1 font-weight-medium mt-2">{{ getVatRateLabel(product.vatRate) }}</div>
                 </div>
               </v-col>
 
               <v-col cols="12" md="6">
                 <div>
                   <div class="text-subtitle-2 text-medium-emphasis">Typ ceny</div>
-                  <div class="text-body-1 font-weight-medium mt-2">{{ product.priceType }}</div>
+                  <div class="text-body-1 font-weight-medium mt-2">{{ getPriceTypeLabel(product.priceType) }}</div>
                 </div>
               </v-col>
             </v-row>
@@ -477,6 +541,133 @@ onMounted(() => {
               </v-col>
             </v-row>
           </UiParentCard>
+
+          <!-- NOVÁ SEKCE: Skladové karty -->
+          <UiParentCard title="Skladové karty" class="mt-4">
+            <template v-slot:action>
+              <v-btn
+                color="primary"
+                size="small"
+                prepend-icon="mdi-refresh"
+                @click="loadInventoryCards"
+                :loading="loadingInventoryCards"
+              >
+                Obnovit
+              </v-btn>
+            </template>
+
+            <v-alert
+              v-if="inventoryCardsError"
+              type="error"
+              variant="tonal"
+              class="mb-4"
+              closable
+              @click:close="inventoryCardsError = null"
+            >
+              <strong>Chyba:</strong> {{ inventoryCardsError }}
+            </v-alert>
+
+            <v-data-table
+              :headers="inventoryCardHeaders"
+              :items="inventoryCards"
+              :loading="loadingInventoryCards"
+              hide-default-footer
+              class="elevation-1"
+            >
+              <template v-slot:item.warehouseName="{ item }">
+                <div class="d-flex align-center">
+                  <v-icon class="mr-2" color="primary">mdi-warehouse</v-icon>
+                  <div>
+                    <div class="font-weight-medium">{{ item.warehouseName }}</div>
+                    <div class="text-caption text-medium-emphasis">
+                      Období: {{ item.accountingPeriodName }}
+                    </div>
+                  </div>
+                </div>
+              </template>
+
+              <template v-slot:item.currentStockQuantity="{ item }">
+                <v-chip 
+                  :color="item.currentStockQuantity > 0 ? 'success' : 'error'" 
+                  size="small"
+                  variant="tonal"
+                >
+                  {{ item.currentStockQuantity }} ks
+                </v-chip>
+              </template>
+
+              <template v-slot:item.currentStockValue="{ item }">
+                <span class="font-weight-bold text-primary">
+                  {{ formatPrice(item.currentStockValue) }}
+                </span>
+              </template>
+
+              <template v-slot:item.averageCostPrice="{ item }">
+                <span class="font-weight-medium">
+                  {{ formatPrice(item.averageCostPrice) }}
+                </span>
+              </template>
+
+              <template v-slot:item.lastCostPrice="{ item }">
+                <span class="font-weight-medium">
+                  {{ formatPrice(item.lastCostPrice) }}
+                </span>
+              </template>
+
+              <template v-slot:item.issueRequestQuantity="{ item }">
+                <v-chip 
+                  v-if="item.issueRequestQuantity > 0"
+                  color="warning" 
+                  size="small"
+                  variant="tonal"
+                >
+                  {{ item.issueRequestQuantity }} ks
+                </v-chip>
+                <span v-else class="text-medium-emphasis">—</span>
+              </template>
+
+              <template v-slot:item.currentStockQuantityWithIssueRequests="{ item }">
+                <span class="font-weight-medium">
+                  {{ item.currentStockQuantityWithIssueRequests }} ks
+                </span>
+              </template>
+
+              <template v-slot:no-data>
+                <div class="text-center py-8">
+                  <v-icon size="64" color="grey-lighten-1">mdi-warehouse</v-icon>
+                  <div class="text-h6 mt-4">Žádné skladové karty</div>
+                  <div class="text-caption text-medium-emphasis">
+                    Pro tento produkt nejsou evidovány žádné skladové karty
+                  </div>
+                </div>
+              </template>
+
+              <template v-slot:bottom>
+                <div class="pa-4 bg-grey-lighten-4">
+                  <v-row>
+                    <v-col cols="12" md="4">
+                      <div class="text-subtitle-2 text-medium-emphasis">Celkový stav zásob</div>
+                      <div class="text-h6 font-weight-bold text-success">
+                        {{ totalStockQuantity }} ks
+                      </div>
+                    </v-col>
+                    <v-col cols="12" md="4">
+                      <div class="text-subtitle-2 text-medium-emphasis">Celková hodnota zásob</div>
+                      <div class="text-h6 font-weight-bold text-primary">
+                        {{ formatPrice(totalStockValue) }}
+                      </div>
+                    </v-col>
+                    <v-col cols="12" md="4">
+                      <div class="text-subtitle-2 text-medium-emphasis">Průměrná nákupní cena</div>
+                      <div class="text-h6 font-weight-bold">
+                        {{ formatPrice(averageCostPrice) }}
+                      </div>
+                    </v-col>
+                  </v-row>
+                </div>
+              </template>
+            </v-data-table>
+          </UiParentCard>
         </v-col>
 
         <!-- Boční panel -->
@@ -511,6 +702,38 @@ onMounted(() => {
                 >
                   {{ product.deleted ? 'Smazáno' : 'Aktivní' }}
                 </v-chip>
+              </div>
+            </v-card-text>
+          </v-card>
+
+          <!-- Přehled skladových karet -->
+          <v-card variant="outlined" class="mt-4" v-if="inventoryCards.length > 0">
+            <v-card-text>
+              <div class="text-h6 mb-4">Přehled zásob</div>
+              
+              <div class="mb-4">
+                <div class="text-subtitle-2 text-medium-emphasis">Skladů celkem</div>
+                <div class="text-h5 font-weight-bold text-primary mt-1">
+                  {{ inventoryCards.length }}
+                </div>
+              </div>
+
+              <v-divider class="my-3"></v-divider>
+
+              <div class="mb-4">
+                <div class="text-subtitle-2 text-medium-emphasis">Celkový stav</div>
+                <div class="text-h5 font-weight-bold text-success mt-1">
+                  {{ totalStockQuantity }} ks
+                </div>
+              </div>
+
+              <v-divider class="my-3"></v-divider>
+
+              <div>
+                <div class="text-subtitle-2 text-medium-emphasis">Celková hodnota</div>
+                <div class="text-h5 font-weight-bold mt-1">
+                  {{ formatPrice(totalStockValue) }}
+                </div>
               </div>
             </v-card-text>
           </v-card>
@@ -560,6 +783,10 @@ onMounted(() => {
 
 <style scoped>
 :deep(.v-card) {
+  border-radius: 8px;
+}
+
+:deep(.v-data-table) {
   border-radius: 8px;
 }
 </style>

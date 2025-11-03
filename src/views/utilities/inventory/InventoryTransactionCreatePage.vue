@@ -7,8 +7,10 @@ import UiParentCard from '@/components/shared/UiParentCard.vue';
 import { inventoryTransactionService } from '@/services/inventoryTransactionService';
 import { inventoryTransactionTypeService } from '@/services/inventoryTransactionTypeService';
 import { warehouseService } from '@/services/warehouseService';
-import type { CreateInventoryTransactionData } from '@/services/inventoryTransactionService';
+import { productsService } from '@/services/productsService';
+import type { CreateInventoryTransactionData, InventoryTransactionItem } from '@/services/inventoryTransactionService';
 import type { InventoryTransactionType } from '@/services/inventoryTransactionTypeService';
+import type { Product } from '@/services/productsService';
 
 const router = useRouter();
 
@@ -23,19 +25,25 @@ const saving = ref(false);
 const error = ref<string | null>(null);
 const transactionTypes = ref<InventoryTransactionType[]>([]);
 const warehouses = ref<Array<{ id: string; name: string }>>([]);
+const products = ref<Product[]>([]);
 const loadingTypes = ref(false);
 const loadingWarehouses = ref(false);
+const loadingProducts = ref(false);
 
 // Formulářová data
 const formData = ref<CreateInventoryTransactionData>({
   name: '',
-  inventoryTransactionTypeId: '',
+  transactionTypeId: '',
   transactionDirection: 'typPohybu.prijem',
   warehouseFromId: null,
   warehouseToId: null,
   transactionDate: new Date().toISOString().split('T')[0],
-  notes: ''
+  notes: '',
+  items: [] // Inicializujeme prázdné pole pro items
 });
+
+// Lokální pole pro správu items v UI
+const localItems = ref<InventoryTransactionItem[]>([]);
 
 const formValid = ref(false);
 
@@ -63,29 +71,47 @@ const transactionDirections = ref([
   }
 ]);
 
-// Zjisti vybraný typ pohybu
-const selectedType = computed(() => {
-  return transactionTypes.value.find(t => t.id === formData.value.inventoryTransactionTypeId);
+// Items management
+const showAddItemDialog = ref(false);
+const newItem = ref<InventoryTransactionItem>({
+  productId: '',
+  quantity: 1,
+  price: 0,
+  notes: ''
 });
 
-// Zjisti vybraný směr pohybu
+const selectedType = computed(() => {
+  return transactionTypes.value.find(t => t.id === formData.value.transactionTypeId);
+});
+
 const selectedDirection = computed(() => {
   return transactionDirections.value.find(d => d.value === formData.value.transactionDirection);
 });
 
-// Určí jestli je potřeba sklad "z"
 const requiresWarehouseFrom = computed(() => {
   if (!selectedType.value) return false;
-  // Standardní (1) a převodový (2) pohyb vyžadují sklad "z"
   return selectedType.value.abraId === 1 || selectedType.value.abraId === 2;
 });
 
-// Určí jestli je potřeba sklad "do"
 const requiresWarehouseTo = computed(() => {
   if (!selectedType.value) return false;
-  // Převodový pohyb (2) a výroba (3) vyžadují sklad "do"
   return selectedType.value.abraId === 2 || selectedType.value.abraId === 3;
 });
+
+const totalItemsAmount = computed(() => {
+  return localItems.value.reduce((sum, item) => {
+    const price = item.price || 0;
+    const quantity = item.quantity || 0;
+    return sum + (price * quantity);
+  }, 0);
+});
+
+const formatPrice = (price: number) => {
+  return new Intl.NumberFormat('cs-CZ', {
+    style: 'currency',
+    currency: 'CZK'
+  }).format(price);
+};
 
 const loadTransactionTypes = async () => {
   loadingTypes.value = true;
@@ -93,11 +119,8 @@ const loadTransactionTypes = async () => {
     const response = await inventoryTransactionTypeService.getAll();
     transactionTypes.value = response.list;
     
-    console.log('✅ Načteno typů pohybů:', transactionTypes.value.length);
-    
-    // Automaticky vyber první typ pokud existuje
-    if (transactionTypes.value.length > 0 && !formData.value.inventoryTransactionTypeId) {
-      formData.value.inventoryTransactionTypeId = transactionTypes.value[0].id;
+    if (transactionTypes.value.length > 0 && !formData.value.transactionTypeId) {
+      formData.value.transactionTypeId = transactionTypes.value[0].id;
     }
   } catch (err) {
     console.error('❌ Chyba při načítání typů:', err);
@@ -111,7 +134,6 @@ const loadWarehouses = async () => {
   loadingWarehouses.value = true;
   try {
     warehouses.value = await warehouseService.getAllSimple();
-    console.log('✅ Načteno skladů:', warehouses.value.length);
   } catch (err) {
     console.error('❌ Chyba při načítání skladů:', err);
     error.value = 'Chyba při načítání skladů';
@@ -120,13 +142,67 @@ const loadWarehouses = async () => {
   }
 };
 
+const loadProducts = async () => {
+  loadingProducts.value = true;
+  try {
+    const response = await productsService.getAll(undefined, { maxSize: 200 });
+    products.value = response.list;
+  } catch (err) {
+    console.error('❌ Chyba při načítání produktů:', err);
+    error.value = 'Chyba při načítání produktů';
+  } finally {
+    loadingProducts.value = false;
+  }
+};
+
+const openAddItemDialog = () => {
+  newItem.value = {
+    productId: '',
+    quantity: 1,
+    price: 0,
+    notes: ''
+  };
+  showAddItemDialog.value = true;
+};
+
+const addItemToLocal = () => {
+  if (!newItem.value.productId) {
+    error.value = 'Vyberte produkt';
+    return;
+  }
+
+  if (!newItem.value.quantity || newItem.value.quantity <= 0) {
+    error.value = 'Zadejte platné množství';
+    return;
+  }
+
+  // Najdi název produktu
+  const product = products.value.find(p => p.id === newItem.value.productId);
+  
+  const itemToAdd: InventoryTransactionItem = {
+    productId: newItem.value.productId,
+    productName: product?.name || 'Neznámý produkt',
+    quantity: newItem.value.quantity,
+    price: newItem.value.price || 0,
+    totalPrice: (newItem.value.quantity || 0) * (newItem.value.price || 0),
+    notes: newItem.value.notes
+  };
+
+  localItems.value.push(itemToAdd);
+  showAddItemDialog.value = false;
+  error.value = null;
+};
+
+const removeItemFromLocal = (index: number) => {
+  localItems.value.splice(index, 1);
+};
+
 const createTransaction = async () => {
   if (!formValid.value) {
     error.value = 'Vyplňte prosím všechna povinná pole';
     return;
   }
 
-  // Validace skladů podle typu
   if (requiresWarehouseFrom.value && !formData.value.warehouseFromId) {
     error.value = 'Pro tento typ pohybu je nutné vybrat sklad (z)';
     return;
@@ -141,9 +217,21 @@ const createTransaction = async () => {
   error.value = null;
 
   try {
-    console.log('📤 Odesílám data:', formData.value);
-    const created = await inventoryTransactionService.create(formData.value);
-    console.log('✅ Skladový pohyb vytvořen:', created);
+    // Připrav data s items
+    const dataToSend: CreateInventoryTransactionData = {
+      ...formData.value,
+      // Pokud jsou items, pošli je; jinak pošli null (žádná akce)
+      items: localItems.value.length > 0 ? localItems.value.map(item => ({
+        productId: item.productId,
+        quantity: item.quantity,
+        price: item.price,
+        notes: item.notes
+      })) : null
+    };
+
+    console.log('📤 Odesílám data s items:', dataToSend);
+    const created = await inventoryTransactionService.create(dataToSend);
+    console.log('✅ Skladový pohyb vytvořen s items:', created);
     router.push(`/inventory-transactions/${created.id}`);
   } catch (err: any) {
     error.value = err.message || 'Chyba při vytváření skladového pohybu';
@@ -203,6 +291,7 @@ const getTypeColor = (abraId: number) => {
 onMounted(() => {
   loadTransactionTypes();
   loadWarehouses();
+  loadProducts();
 });
 </script>
 
@@ -233,7 +322,7 @@ onMounted(() => {
             :loading="saving"
             :disabled="!formValid || loadingTypes || loadingWarehouses"
           >
-            Vytvořit pohyb
+            Vytvořit pohyb{{ localItems.length > 0 ? ` (${localItems.length} položek)` : '' }}
           </v-btn>
         </div>
       </div>
@@ -250,15 +339,17 @@ onMounted(() => {
         <strong>Chyba:</strong> {{ error }}
       </v-alert>
 
-      <!-- Loading alert -->
-      <v-alert
-        v-if="loadingTypes || loadingWarehouses"
-        type="info"
-        variant="tonal"
-        class="mb-4"
-      >
-        <v-progress-circular indeterminate size="20" class="mr-2"></v-progress-circular>
-        Načítám data z API...
+      <!-- Info o nové funkcionalitě -->
+      <v-alert type="success" variant="tonal" class="mb-4">
+        <div class="d-flex align-center">
+          <v-icon class="mr-2">mdi-new-box</v-icon>
+          <div>
+            <strong>Update 0.7.0:</strong> Nyní můžete přidat položky ještě před vytvořením transakce!
+            <div class="text-caption mt-1">
+              Všechny položky budou vytvořeny najednou společně s transakcí.
+            </div>
+          </div>
+        </div>
       </v-alert>
 
       <v-row>
@@ -281,7 +372,7 @@ onMounted(() => {
 
                 <v-col cols="12" md="6">
                   <v-select
-                    v-model="formData.inventoryTransactionTypeId"
+                    v-model="formData.transactionTypeId"
                     :items="transactionTypes"
                     item-title="name"
                     item-value="id"
@@ -367,22 +458,6 @@ onMounted(() => {
             </UiParentCard>
 
             <UiParentCard title="Skladové informace" class="mt-4">
-              <v-alert type="info" variant="tonal" class="mb-4" v-if="selectedType && selectedDirection">
-                <div class="d-flex align-center">
-                  <v-icon :color="getTypeColor(selectedType.abraId)" class="mr-2">
-                    {{ getTypeIcon(selectedType.abraId) }}
-                  </v-icon>
-                  <div class="flex-grow-1">
-                    <strong>{{ selectedType.name }}</strong> - 
-                    <v-chip :color="selectedDirection.color" size="small" variant="tonal" class="ml-1">
-                      <v-icon start size="small">{{ selectedDirection.icon }}</v-icon>
-                      {{ selectedDirection.title }}
-                    </v-chip>
-                    <div class="text-caption mt-1">{{ getTypeDescription(selectedType) }}</div>
-                  </div>
-                </div>
-              </v-alert>
-
               <v-row>
                 <v-col cols="12" md="6" v-if="requiresWarehouseFrom">
                   <v-select
@@ -397,13 +472,7 @@ onMounted(() => {
                     prepend-inner-icon="mdi-warehouse"
                     :loading="loadingWarehouses"
                     :rules="requiresWarehouseFrom ? [rules.required] : []"
-                  >
-                    <template v-slot:no-data>
-                      <v-list-item>
-                        <v-list-item-title>Žádné sklady k dispozici</v-list-item-title>
-                      </v-list-item>
-                    </template>
-                  </v-select>
+                  ></v-select>
                 </v-col>
 
                 <v-col cols="12" md="6" v-if="requiresWarehouseTo">
@@ -419,114 +488,195 @@ onMounted(() => {
                     prepend-inner-icon="mdi-warehouse"
                     :loading="loadingWarehouses"
                     :rules="requiresWarehouseTo ? [rules.required] : []"
-                  >
-                    <template v-slot:no-data>
-                      <v-list-item>
-                        <v-list-item-title>Žádné sklady k dispozici</v-list-item-title>
-                      </v-list-item>
-                    </template>
-                  </v-select>
+                  ></v-select>
                 </v-col>
               </v-row>
             </UiParentCard>
 
-            <v-alert type="warning" variant="tonal" class="mt-4">
-              <div class="d-flex align-center">
-                <v-icon class="mr-2">mdi-information</v-icon>
-                <div>
-                  <strong>Poznámka k položkám:</strong>
-                  <div class="text-caption mt-1">
-                    Položky (produkty) budete moci přidat až po vytvoření skladového pohybu 
-                    pomocí bottom panelu v detailu pohybu.
-                  </div>
+            <!-- Položky -->
+            <UiParentCard title="Položky pohybu" class="mt-4">
+              <template v-slot:action>
+                <v-btn
+                  color="primary"
+                  size="small"
+                  prepend-icon="mdi-plus"
+                  @click="openAddItemDialog"
+                >
+                  Přidat položku
+                </v-btn>
+              </template>
+
+              <div v-if="localItems.length === 0" class="text-center py-8">
+                <v-icon size="64" color="grey-lighten-1">mdi-package-variant-closed</v-icon>
+                <div class="text-h6 mt-4">Žádné položky</div>
+                <div class="text-caption text-medium-emphasis">
+                  Přidejte položky kliknutím na tlačítko "Přidat položku"
                 </div>
               </div>
-            </v-alert>
+
+              <v-list v-else>
+                <v-list-item
+                  v-for="(item, index) in localItems"
+                  :key="index"
+                  class="border-b"
+                >
+                  <template v-slot:prepend>
+                    <v-icon color="primary">mdi-package-variant</v-icon>
+                  </template>
+                  <v-list-item-title>{{ item.productName }}</v-list-item-title>
+                  <v-list-item-subtitle>
+                    Množství: {{ item.quantity }} | 
+                    Cena: {{ formatPrice(item.price || 0) }} | 
+                    Celkem: {{ formatPrice((item.quantity || 0) * (item.price || 0)) }}
+                  </v-list-item-subtitle>
+                  <template v-slot:append>
+                    <v-btn
+                      icon
+                      size="small"
+                      variant="text"
+                      color="error"
+                      @click="removeItemFromLocal(index)"
+                    >
+                      <v-icon>mdi-delete</v-icon>
+                    </v-btn>
+                  </template>
+                </v-list-item>
+              </v-list>
+
+              <v-divider v-if="localItems.length > 0" class="my-4"></v-divider>
+
+              <div v-if="localItems.length > 0" class="d-flex justify-space-between align-center pa-4 bg-grey-lighten-4">
+                <div class="text-subtitle-1 font-weight-bold">
+                  Celkem položek: {{ localItems.length }}
+                </div>
+                <div class="text-h6 font-weight-bold text-primary">
+                  Celková částka: {{ formatPrice(totalItemsAmount) }}
+                </div>
+              </div>
+            </UiParentCard>
           </v-form>
         </v-col>
 
-        <!-- Boční panel s nápovědou -->
+        <!-- Boční panel -->
         <v-col cols="12" md="4">
           <v-card variant="outlined">
             <v-card-text>
-              <div class="text-h6 mb-4">Nápověda</div>
+              <div class="text-h6 mb-4">📊 Souhrn</div>
               
               <div class="mb-3">
-                <v-icon color="info" size="small" class="mr-2">mdi-information</v-icon>
-                <span class="text-body-2">Pole označená * jsou povinná</span>
+                <div class="text-subtitle-2 text-medium-emphasis">Položky</div>
+                <div class="text-h5 font-weight-bold">{{ localItems.length }}</div>
               </div>
 
-              <v-divider class="my-3"></v-divider>
-
-              <div class="text-subtitle-2 mb-2">Směry skladového pohybu:</div>
-              
-              <div class="mb-3" v-for="direction in transactionDirections" :key="direction.value">
-                <v-chip 
-                  size="small" 
-                  :color="direction.color"
-                  class="mb-1"
-                >
-                  <v-icon start size="small">{{ direction.icon }}</v-icon>
-                  {{ direction.title }}
-                </v-chip>
-                <div class="text-caption text-medium-emphasis">
-                  {{ direction.description }}
+              <div class="mb-3">
+                <div class="text-subtitle-2 text-medium-emphasis">Celková částka</div>
+                <div class="text-h5 font-weight-bold text-primary">
+                  {{ formatPrice(totalItemsAmount) }}
                 </div>
               </div>
 
               <v-divider class="my-3"></v-divider>
 
-              <div class="text-subtitle-2 mb-2">Typy skladových pohybů:</div>
-              
-              <div class="mb-3" v-for="type in transactionTypes" :key="type.id">
-                <v-chip 
-                  size="small" 
-                  :color="getTypeColor(type.abraId)"
-                  class="mb-1"
-                >
-                  <v-icon start size="small">{{ getTypeIcon(type.abraId) }}</v-icon>
-                  {{ type.name }}
-                </v-chip>
-                <div class="text-caption text-medium-emphasis">
-                  {{ getTypeDescription(type) }}
-                </div>
-              </div>
-
-              <v-divider class="my-3"></v-divider>
-
-              <div class="text-subtitle-2 mb-2">Dostupné sklady ({{ warehouses.length }}):</div>
-              <v-chip-group column>
-                <v-chip 
-                  v-for="warehouse in warehouses" 
-                  :key="warehouse.id"
-                  size="small"
-                  color="default"
-                >
-                  {{ warehouse.name }}
-                </v-chip>
-              </v-chip-group>
-
-              <v-divider class="my-3"></v-divider>
-
-              <div class="text-subtitle-2 mb-2">Postup:</div>
-              <ol class="text-body-2 text-medium-emphasis pl-4">
-                <li>Vyplňte základní údaje o pohybu</li>
-                <li>Vyberte typ pohybu a směr</li>
-                <li>Vyberte sklady podle typu</li>
-                <li>Uložte pohyb</li>
-                <li>V detailu přidejte položky (produkty)</li>
-                <li>Dokončete pohyb</li>
-              </ol>
+              <div class="text-subtitle-2 mb-2">✨ Nové v 0.7.0:</div>
+              <ul class="text-body-2 text-medium-emphasis">
+                <li>Položky se vytvoří společně s transakcí</li>
+                <li>Rychlejší vytváření pohybů</li>
+                <li>Atomická operace (vše nebo nic)</li>
+              </ul>
             </v-card-text>
           </v-card>
         </v-col>
       </v-row>
     </v-col>
   </v-row>
+
+  <!-- Dialog pro přidání položky -->
+  <v-dialog v-model="showAddItemDialog" max-width="600">
+    <v-card>
+      <v-card-title class="d-flex justify-space-between align-center">
+        <span>Přidat položku</span>
+        <v-btn icon variant="text" @click="showAddItemDialog = false">
+          <v-icon>mdi-close</v-icon>
+        </v-btn>
+      </v-card-title>
+      <v-divider></v-divider>
+      <v-card-text>
+        <v-row>
+          <v-col cols="12">
+            <v-select
+              v-model="newItem.productId"
+              :items="products"
+              item-title="name"
+              item-value="id"
+              label="Produkt *"
+              variant="outlined"
+              density="comfortable"
+              :loading="loadingProducts"
+            >
+              <template v-slot:item="{ props, item }">
+                <v-list-item v-bind="props">
+                  <template v-slot:prepend>
+                    <v-icon color="primary">mdi-package-variant</v-icon>
+                  </template>
+                  <v-list-item-title>{{ item.raw.name }}</v-list-item-title>
+                  <v-list-item-subtitle class="text-caption">
+                    Kód: {{ item.raw.code }} | {{ formatPrice(item.raw.priceWithoutVat || 0) }}
+                  </v-list-item-subtitle>
+                </v-list-item>
+              </template>
+            </v-select>
+          </v-col>
+
+          <v-col cols="12" md="6">
+            <v-text-field
+              v-model.number="newItem.quantity"
+              label="Množství *"
+              type="number"
+              variant="outlined"
+              density="comfortable"
+              min="1"
+            ></v-text-field>
+          </v-col>
+
+          <v-col cols="12" md="6">
+            <v-text-field
+              v-model.number="newItem.price"
+              label="Cena/ks"
+              type="number"
+              variant="outlined"
+              density="comfortable"
+              suffix="Kč"
+            ></v-text-field>
+          </v-col>
+
+          <v-col cols="12">
+            <v-text-field
+              v-model="newItem.notes"
+              label="Poznámka"
+              variant="outlined"
+              density="comfortable"
+            ></v-text-field>
+          </v-col>
+        </v-row>
+      </v-card-text>
+      <v-card-actions class="justify-end">
+        <v-btn variant="outlined" @click="showAddItemDialog = false">
+          Zrušit
+        </v-btn>
+        <v-btn color="primary" @click="addItemToLocal">
+          Přidat
+        </v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
 </template>
 
 <style scoped>
 .cursor-pointer {
   cursor: pointer;
+}
+
+.border-b {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.12);
 }
 </style>
