@@ -30,6 +30,9 @@ const loadingTypes = ref(false);
 const loadingWarehouses = ref(false);
 const loadingProducts = ref(false);
 
+// **NOVÉ: Defaultní ID typu pohybu**
+const DEFAULT_TRANSACTION_TYPE_ID = '68f019f2daffeee60';
+
 // Formulářová data
 const formData = ref<CreateInventoryTransactionData>({
   name: '',
@@ -119,9 +122,7 @@ const loadTransactionTypes = async () => {
     const response = await inventoryTransactionTypeService.getAll();
     transactionTypes.value = response.list;
     
-    if (transactionTypes.value.length > 0 && !formData.value.transactionTypeId) {
-      formData.value.transactionTypeId = transactionTypes.value[0].id;
-    }
+    console.log('✅ Načteny typy pohybů:', transactionTypes.value.length);
   } catch (err) {
     console.error('❌ Chyba při načítání typů:', err);
     error.value = 'Chyba při načítání typů pohybů';
@@ -134,6 +135,7 @@ const loadWarehouses = async () => {
   loadingWarehouses.value = true;
   try {
     warehouses.value = await warehouseService.getAllSimple();
+    console.log('✅ Načteny sklady:', warehouses.value.length);
   } catch (err) {
     console.error('❌ Chyba při načítání skladů:', err);
     error.value = 'Chyba při načítání skladů';
@@ -152,6 +154,45 @@ const loadProducts = async () => {
     error.value = 'Chyba při načítání produktů';
   } finally {
     loadingProducts.value = false;
+  }
+};
+
+/**
+ * **NOVÉ: Načte data a předvyplní defaultní hodnoty**
+ */
+const loadDataAndSetDefaults = async () => {
+  // Nejdřív načti typy pohybů
+  await loadTransactionTypes();
+  
+  // Pak načti sklady
+  await loadWarehouses();
+  
+  // Nakonec produkty
+  await loadProducts();
+  
+  // **Předvyplň defaultní typ pohybu s ID 68f019f2daffeee60**
+  if (!formData.value.transactionTypeId) {
+    formData.value.transactionTypeId = DEFAULT_TRANSACTION_TYPE_ID;
+    console.log('✅ Auto-vybrán defaultní typ pohybu:', formData.value.transactionTypeId);
+    
+    // Zkontroluj, zda tento typ existuje
+    const defaultType = transactionTypes.value.find(t => t.id === DEFAULT_TRANSACTION_TYPE_ID);
+    if (defaultType) {
+      console.log('✅ Defaultní typ nalezen:', defaultType.name);
+    } else {
+      console.warn('⚠️ Defaultní typ s ID', DEFAULT_TRANSACTION_TYPE_ID, 'nebyl nalezen');
+      // Fallback na první typ, pokud defaultní neexistuje
+      if (transactionTypes.value.length > 0) {
+        formData.value.transactionTypeId = transactionTypes.value[0].id;
+        console.log('✅ Použit fallback - první dostupný typ:', transactionTypes.value[0].name);
+      }
+    }
+  }
+  
+  // **Předvyplň první dostupný sklad**
+  if (warehouses.value.length > 0 && !formData.value.warehouseFromId) {
+    formData.value.warehouseFromId = warehouses.value[0].id;
+    console.log('✅ Auto-vybrán první sklad:', formData.value.warehouseFromId, '-', warehouses.value[0].name);
   }
 };
 
@@ -289,9 +330,7 @@ const getTypeColor = (abraId: number) => {
 };
 
 onMounted(() => {
-  loadTransactionTypes();
-  loadWarehouses();
-  loadProducts();
+  loadDataAndSetDefaults();
 });
 </script>
 
@@ -339,14 +378,14 @@ onMounted(() => {
         <strong>Chyba:</strong> {{ error }}
       </v-alert>
 
-      <!-- Info o nové funkcionalitě -->
-      <v-alert type="success" variant="tonal" class="mb-4">
+      <!-- Info o předvyplnění -->
+      <v-alert type="info" variant="tonal" class="mb-4">
         <div class="d-flex align-center">
-          <v-icon class="mr-2">mdi-new-box</v-icon>
+          <v-icon class="mr-2">mdi-information</v-icon>
           <div>
-            <strong>Update 0.7.0:</strong> Nyní můžete přidat položky ještě před vytvořením transakce!
+            <strong>Předvyplněné hodnoty:</strong>
             <div class="text-caption mt-1">
-              Všechny položky budou vytvořeny najednou společně s transakcí.
+              Typ pohybu a sklad byly automaticky předvyplněny defaultními hodnotami. Můžete je změnit.
             </div>
           </div>
         </div>
@@ -397,6 +436,17 @@ onMounted(() => {
                       </v-list-item>
                     </template>
                   </v-select>
+                  <!-- Badge pro defaultní typ -->
+                  <v-chip 
+                    v-if="formData.transactionTypeId === DEFAULT_TRANSACTION_TYPE_ID"
+                    size="x-small"
+                    color="primary"
+                    variant="tonal"
+                    class="mt-1"
+                  >
+                    <v-icon start size="x-small">mdi-star</v-icon>
+                    Defaultní typ
+                  </v-chip>
                 </v-col>
 
                 <v-col cols="12" md="6">
@@ -473,6 +523,17 @@ onMounted(() => {
                     :loading="loadingWarehouses"
                     :rules="requiresWarehouseFrom ? [rules.required] : []"
                   ></v-select>
+                  <!-- Badge pro první sklad -->
+                  <v-chip 
+                    v-if="warehouses.length > 0 && formData.warehouseFromId === warehouses[0].id"
+                    size="x-small"
+                    color="success"
+                    variant="tonal"
+                    class="mt-1"
+                  >
+                    <v-icon start size="x-small">mdi-star</v-icon>
+                    Defaultní sklad
+                  </v-chip>
                 </v-col>
 
                 <v-col cols="12" md="6" v-if="requiresWarehouseTo">
@@ -574,6 +635,16 @@ onMounted(() => {
                   {{ formatPrice(totalItemsAmount) }}
                 </div>
               </div>
+
+              <v-divider class="my-3"></v-divider>
+
+              <div class="text-subtitle-2 mb-2">⚙️ Předvyplněné hodnoty:</div>
+              <ul class="text-body-2 text-medium-emphasis">
+                <li>Typ pohybu: Defaultní</li>
+                <li>Sklad: První dostupný</li>
+                <li>Směr: Příjem</li>
+                <li>Datum: Dnešní</li>
+              </ul>
 
               <v-divider class="my-3"></v-divider>
 

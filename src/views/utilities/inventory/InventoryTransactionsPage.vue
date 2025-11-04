@@ -22,6 +22,9 @@ const transactionTypes = ref<InventoryTransactionType[]>([]);
 const loading = ref(false);
 const error = ref<string | null>(null);
 
+// **NOVÉ: Taby pro směr pohybu**
+const activeTab = ref<'all' | 'prijem' | 'vydej'>('all');
+
 const selectedType = ref<string>('');
 const selectedStatus = ref<string>('');
 const dateFrom = ref<string>('');
@@ -46,9 +49,19 @@ const headers = ref([
   { title: 'Akce', key: 'actions', sortable: false }
 ]);
 
+// **NOVÉ: Filtrování podle aktivního tabu**
 const filteredTransactions = computed(() => {
   let filtered = [...transactions.value];
 
+  // Filtr podle aktivního tabu (směru)
+  if (activeTab.value === 'prijem') {
+    filtered = filtered.filter(t => t.transactionDirection === 'typPohybu.prijem');
+  } else if (activeTab.value === 'vydej') {
+    filtered = filtered.filter(t => t.transactionDirection === 'typPohybu.vydej');
+  }
+  // activeTab.value === 'all' - žádný směrový filtr
+
+  // Ostatní filtry
   if (selectedType.value) {
     filtered = filtered.filter(t => t.transactionTypeId === selectedType.value);
   }
@@ -76,6 +89,15 @@ const paginatedTransactions = computed(() => {
 
 const totalPages = computed(() => {
   return Math.ceil(filteredTransactions.value.length / itemsPerPage.value);
+});
+
+// **NOVÉ: Statistiky pro jednotlivé taby**
+const tabStats = computed(() => {
+  const all = transactions.value.length;
+  const prijem = transactions.value.filter(t => t.transactionDirection === 'typPohybu.prijem').length;
+  const vydej = transactions.value.filter(t => t.transactionDirection === 'typPohybu.vydej').length;
+  
+  return { all, prijem, vydej };
 });
 
 const formatDate = (dateString: string) => {
@@ -218,6 +240,11 @@ const resetFilters = () => {
   loadTransactions();
 };
 
+// **NOVÉ: Reset stránkování při změně tabu**
+watch(activeTab, () => {
+  page_number.value = 0;
+});
+
 onMounted(() => {
   loadTransactions();
   loadTransactionTypes();
@@ -229,21 +256,64 @@ onMounted(() => {
   
   <v-row>
     <v-col cols="12">
+      <!-- **NOVÉ: Taby pro směr pohybu** -->
+      <v-card variant="outlined" class="mb-4">
+        <v-tabs
+          v-model="activeTab"
+          color="primary"
+          align-tabs="start"
+        >
+          <v-tab value="all">
+            <v-icon start>mdi-swap-horizontal</v-icon>
+            Vše
+            <v-chip 
+              size="small" 
+              class="ml-2"
+              color="primary"
+              variant="tonal"
+            >
+              {{ tabStats.all }}
+            </v-chip>
+          </v-tab>
+          
+          <v-tab value="prijem">
+            <v-icon start color="success">mdi-arrow-down-circle</v-icon>
+            Příjem
+            <v-chip 
+              size="small" 
+              class="ml-2"
+              color="success"
+              variant="tonal"
+            >
+              {{ tabStats.prijem }}
+            </v-chip>
+          </v-tab>
+          
+          <v-tab value="vydej">
+            <v-icon start color="error">mdi-arrow-up-circle</v-icon>
+            Výdej
+            <v-chip 
+              size="small" 
+              class="ml-2"
+              color="error"
+              variant="tonal"
+            >
+              {{ tabStats.vydej }}
+            </v-chip>
+          </v-tab>
+        </v-tabs>
+      </v-card>
+
       <!-- Statistiky -->
       <v-row class="mb-4">
         <v-col cols="12" sm="6" md="3">
           <v-card variant="outlined">
             <v-card-text>
-              <div class="text-subtitle-2 text-medium-emphasis">Celkem pohybů</div>
-              <div class="text-h4 font-weight-bold mt-2">{{ transactions.length }}</div>
-            </v-card-text>
-          </v-card>
-        </v-col>
-        <v-col cols="12" sm="6" md="3">
-          <v-card variant="outlined">
-            <v-card-text>
-              <div class="text-subtitle-2 text-medium-emphasis">Po filtrování</div>
+              <div class="text-subtitle-2 text-medium-emphasis">Zobrazeno pohybů</div>
               <div class="text-h4 font-weight-bold mt-2">{{ filteredTransactions.length }}</div>
+              <div class="text-caption text-medium-emphasis mt-1">
+                z celkových {{ transactions.length }}
+              </div>
             </v-card-text>
           </v-card>
         </v-col>
@@ -252,7 +322,7 @@ onMounted(() => {
             <v-card-text>
               <div class="text-subtitle-2 text-medium-emphasis">Dokončeno</div>
               <div class="text-h4 font-weight-bold mt-2 text-success">
-                {{ transactions.filter(t => t.status === 'completed').length }}
+                {{ filteredTransactions.filter(t => t.status === 'completed').length }}
               </div>
             </v-card-text>
           </v-card>
@@ -262,8 +332,21 @@ onMounted(() => {
             <v-card-text>
               <div class="text-subtitle-2 text-medium-emphasis">Koncepty</div>
               <div class="text-h4 font-weight-bold mt-2 text-warning">
-                {{ transactions.filter(t => !t.status || t.status === 'draft').length }}
+                {{ filteredTransactions.filter(t => !t.status || t.status === 'draft').length }}
               </div>
+            </v-card-text>
+          </v-card>
+        </v-col>
+        <v-col cols="12" sm="6" md="3">
+          <v-card variant="outlined">
+            <v-card-text>
+              <div class="text-subtitle-2 text-medium-emphasis">Aktivní směr</div>
+              <v-chip 
+                class="mt-2"
+                :color="activeTab === 'all' ? 'primary' : activeTab === 'prijem' ? 'success' : 'error'"
+              >
+                {{ activeTab === 'all' ? 'Vše' : activeTab === 'prijem' ? 'Příjem' : 'Výdej' }}
+              </v-chip>
             </v-card-text>
           </v-card>
         </v-col>
@@ -336,6 +419,38 @@ onMounted(() => {
               Vyhledávám: <strong>"{{ searchText }}"</strong> 
               <span class="text-medium-emphasis ml-2">(nalezeno {{ transactions.length }} pohybů)</span>
             </span>
+          </div>
+        </v-alert>
+
+        <!-- Info o aktivním tabu -->
+        <v-alert
+          v-if="activeTab !== 'all'"
+          type="info"
+          variant="tonal"
+          density="compact"
+          class="mb-4"
+        >
+          <div class="d-flex align-center justify-space-between">
+            <div class="d-flex align-center">
+              <v-icon 
+                start 
+                :color="activeTab === 'prijem' ? 'success' : 'error'"
+              >
+                {{ activeTab === 'prijem' ? 'mdi-arrow-down-circle' : 'mdi-arrow-up-circle' }}
+              </v-icon>
+              <span>
+                Zobrazeny pouze pohyby typu: 
+                <strong>{{ activeTab === 'prijem' ? 'Příjem' : 'Výdej' }}</strong>
+                <span class="text-medium-emphasis ml-2">({{ filteredTransactions.length }} pohybů)</span>
+              </span>
+            </div>
+            <v-btn
+              size="small"
+              variant="text"
+              @click="activeTab = 'all'"
+            >
+              Zobrazit vše
+            </v-btn>
           </div>
         </v-alert>
 
@@ -547,7 +662,11 @@ onMounted(() => {
               <div class="text-caption text-medium-emphasis">
                 {{ searchText.trim() 
                   ? `Pro výraz "${searchText}" nebyly nalezeny žádné skladové pohyby.` 
-                  : 'Vytvořte první skladový pohyb' 
+                  : activeTab === 'prijem' 
+                    ? 'V kategorii "Příjem" nejsou žádné pohyby.'
+                    : activeTab === 'vydej'
+                      ? 'V kategorii "Výdej" nejsou žádné pohyby.'
+                      : 'Vytvořte první skladový pohyb'
                 }}
               </div>
               <v-btn
@@ -596,8 +715,9 @@ onMounted(() => {
         <!-- Footer s info -->
         <div class="mt-4 text-caption text-medium-emphasis">
           <v-icon size="small" class="mr-1">mdi-information-outline</v-icon>
-          {{ searchText.trim() ? 'Výsledky vyhledávání: ' : 'Celkem skladových pohybů: ' }}
-          <strong>{{ transactions.length }}</strong>
+          {{ searchText.trim() ? 'Výsledky vyhledávání: ' : 'Zobrazeno skladových pohybů: ' }}
+          <strong>{{ filteredTransactions.length }}</strong>
+          {{ activeTab !== 'all' ? `(${activeTab === 'prijem' ? 'Příjem' : 'Výdej'})` : '' }}
         </div>
       </UiParentCard>
     </v-col>
