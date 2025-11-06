@@ -5,7 +5,7 @@ import { useRoute, useRouter } from 'vue-router';
 import BaseBreadcrumb from '@/components/shared/BaseBreadcrumb.vue';
 import UiParentCard from '@/components/shared/UiParentCard.vue';
 import { productsService } from '@/services/productsService';
-import type { Product, UpdateProductData } from '@/services/productsService';
+import type { Product, UpdateProductData, CreateProductData } from '@/services/productsService';
 import { inventoryCardService } from '@/services/inventoryCardService';
 import type { InventoryCard } from '@/services/inventoryCardService';
 
@@ -33,6 +33,12 @@ const loadingUoms = ref(false);
 const inventoryCards = ref<InventoryCard[]>([]);
 const loadingInventoryCards = ref(false);
 const inventoryCardsError = ref<string | null>(null);
+
+// **NOVÉ: Duplikace a export**
+const duplicating = ref(false);
+const exporting = ref(false);
+const showExportDialog = ref(false);
+const exportFormat = ref<'csv' | 'json' | 'xlsx'>('csv');
 
 const inventoryCardHeaders = ref([
   { title: 'Sklad / Období', key: 'warehouseName', sortable: true },
@@ -163,23 +169,21 @@ const loadInventoryCards = async () => {
 };
 
 const toggleEditMode = () => {
-  if (editMode.value) {
+  if (editMode.value && product.value) {
     // Zrušení editace - obnovit původní data
-    if (product.value) {
-      editData.value = {
-        name: product.value.name,
-        description: product.value.description,
-        code: product.value.code,
-        ean: product.value.ean,
-        priceWithoutVat: product.value.priceWithoutVat,
-        priceWithVat: product.value.priceWithVat,
-        stockType: product.value.stockType,
-        isStockItem: product.value.isStockItem,
-        vatRate: product.value.vatRate,
-        productGroupId: product.value.productGroupId,
-        uomId: product.value.uomId || undefined
-      };
-    }
+    editData.value = {
+      name: product.value.name,
+      description: product.value.description,
+      code: product.value.code,
+      ean: product.value.ean,
+      priceWithoutVat: product.value.priceWithoutVat,
+      priceWithVat: product.value.priceWithVat,
+      stockType: product.value.stockType,
+      isStockItem: product.value.isStockItem,
+      vatRate: product.value.vatRate,
+      productGroupId: product.value.productGroupId,
+      uomId: product.value.uomId || undefined
+    };
   }
   editMode.value = !editMode.value;
 };
@@ -225,6 +229,211 @@ const deleteProduct = async () => {
   } catch (err: any) {
     error.value = err.message || 'Chyba při mazání produktu';
     console.error('Chyba při mazání:', err);
+  }
+};
+
+/**
+ * **NOVÉ: Duplikace produktu**
+ */
+const duplicateProduct = async () => {
+  if (!product.value) return;
+  
+  if (!confirm(`Opravdu chcete duplikovat produkt "${product.value.name}"?`)) {
+    return;
+  }
+  
+  duplicating.value = true;
+  error.value = null;
+  
+  try {
+    // Vytvoř nový produkt s daty z aktuálního produktu
+    const newProductData: CreateProductData = {
+      name: `${product.value.name} (Kopie)`,
+      code: `${product.value.code}-COPY-${Date.now()}`, // Unikátní kód
+      description: product.value.description,
+      ean: product.value.ean ? `${product.value.ean}-COPY` : undefined,
+      priceWithoutVat: product.value.priceWithoutVat,
+      priceWithVat: product.value.priceWithVat,
+      price: product.value.price,
+      stockType: product.value.stockType,
+      isStockItem: product.value.isStockItem,
+      vatRate: product.value.vatRate,
+      priceType: product.value.priceType,
+      productGroupId: product.value.productGroupId || undefined,
+      uomId: product.value.uomId || ''
+    };
+    
+    console.log('📋 Duplikuji produkt:', newProductData);
+    const duplicated = await productsService.create(newProductData);
+    console.log('✅ Produkt zduplikován:', duplicated);
+    
+    // Naviguj na nový produkt
+    router.push(`/products/${duplicated.id}`);
+  } catch (err: any) {
+    error.value = err.message || 'Chyba při duplikaci produktu';
+    console.error('❌ Chyba při duplikaci:', err);
+  } finally {
+    duplicating.value = false;
+  }
+};
+
+/**
+ * **NOVÉ: Export do CSV**
+ */
+const exportToCSV = () => {
+  if (!product.value) return;
+  
+  try {
+    // Hlavička CSV
+    const headers = [
+      'ID',
+      'Abra ID',
+      'Kód',
+      'Název',
+      'Popis',
+      'EAN',
+      'Cena bez DPH',
+      'Cena s DPH',
+      'Typ zásob',
+      'Skladová položka',
+      'Sazba DPH',
+      'Měrná jednotka',
+      'Skupina produktů',
+      'Vytvořeno',
+      'Upraveno'
+    ];
+    
+    // Data produktu
+    const data = [
+      product.value.id,
+      product.value.abraId,
+      product.value.code,
+      `"${product.value.name}"`, // Escapování uvozovek
+      `"${product.value.description || ''}"`,
+      product.value.ean || '',
+      product.value.priceWithoutVat || '',
+      product.value.priceWithVat || '',
+      getStockTypeLabel(product.value.stockType),
+      product.value.isStockItem ? 'Ano' : 'Ne',
+      getVatRateLabel(product.value.vatRate),
+      product.value.uomName || '',
+      product.value.productGroupName || '',
+      product.value.createdAt,
+      product.value.modifiedAt || ''
+    ];
+    
+    // Přidání skladových karet pokud existují
+    let csvContent = headers.join(',') + '\n';
+    csvContent += data.join(',') + '\n';
+    
+    // Přidání skladových karet jako samostatné sekce
+    if (inventoryCards.value.length > 0) {
+      csvContent += '\n\nSkladové karty:\n';
+      csvContent += 'Sklad,Období,Aktuální stav,Požadavky,Stav s požadavky,Hodnota zásob,Průměrná cena,Poslední cena\n';
+      
+      inventoryCards.value.forEach(card => {
+        csvContent += [
+          `"${card.warehouseName}"`,
+          `"${card.accountingPeriodName}"`,
+          card.currentStockQuantity,
+          card.issueRequestQuantity,
+          card.currentStockQuantityWithIssueRequests,
+          card.currentStockValue,
+          card.averageCostPrice,
+          card.lastCostPrice
+        ].join(',') + '\n';
+      });
+    }
+    
+    // Vytvoření a stažení souboru
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    
+    link.setAttribute('href', url);
+    link.setAttribute('download', `produkt_${product.value.code}_${Date.now()}.csv`);
+    link.style.visibility = 'hidden';
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    console.log('✅ Export do CSV úspěšný');
+  } catch (err: any) {
+    error.value = err.message || 'Chyba při exportu do CSV';
+    console.error('❌ Chyba při exportu:', err);
+  }
+};
+
+/**
+ * **NOVÉ: Export do JSON**
+ */
+const exportToJSON = () => {
+  if (!product.value) return;
+  
+  try {
+    // Vytvoř JSON objekt s produktem a skladovými kartami
+    const exportData = {
+      product: {
+        ...product.value,
+        stockTypeLabel: getStockTypeLabel(product.value.stockType),
+        vatRateLabel: getVatRateLabel(product.value.vatRate),
+        priceTypeLabel: getPriceTypeLabel(product.value.priceType)
+      },
+      inventoryCards: inventoryCards.value,
+      summary: {
+        totalStockQuantity: totalStockQuantity.value,
+        totalStockValue: totalStockValue.value,
+        averageCostPrice: averageCostPrice.value
+      },
+      exportedAt: new Date().toISOString()
+    };
+    
+    // Vytvoření a stažení souboru
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { 
+      type: 'application/json;charset=utf-8;' 
+    });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    
+    link.setAttribute('href', url);
+    link.setAttribute('download', `produkt_${product.value.code}_${Date.now()}.json`);
+    link.style.visibility = 'hidden';
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    console.log('✅ Export do JSON úspěšný');
+  } catch (err: any) {
+    error.value = err.message || 'Chyba při exportu do JSON';
+    console.error('❌ Chyba při exportu:', err);
+  }
+};
+
+/**
+ * **NOVÉ: Otevře dialog pro výběr formátu exportu**
+ */
+const openExportDialog = () => {
+  showExportDialog.value = true;
+};
+
+/**
+ * **NOVÉ: Provede export podle vybraného formátu**
+ */
+const performExport = () => {
+  showExportDialog.value = false;
+  
+  switch (exportFormat.value) {
+    case 'csv':
+      exportToCSV();
+      break;
+    case 'json':
+      exportToJSON();
+      break;
+    case 'xlsx':
+      alert('Export do XLSX bude dostupný v příští verzi');
+      break;
   }
 };
 
@@ -279,7 +488,7 @@ onMounted(() => {
             Upravit
           </v-btn>
           
-          <template v-else>
+          <template v-if="editMode">
             <v-btn
               variant="outlined"
               prepend-icon="mdi-close"
@@ -333,7 +542,6 @@ onMounted(() => {
                   label="Název produktu"
                   variant="outlined"
                   density="comfortable"
-                  prepend-inner-icon="mdi-package-variant"
                 ></v-text-field>
                 <div v-else>
                   <div class="text-subtitle-2 text-medium-emphasis">Název produktu</div>
@@ -542,7 +750,7 @@ onMounted(() => {
             </v-row>
           </UiParentCard>
 
-          <!-- NOVÁ SEKCE: Skladové karty -->
+          <!-- Skladové karty -->
           <UiParentCard title="Skladové karty" class="mt-4">
             <template v-slot:action>
               <v-btn
@@ -738,47 +946,117 @@ onMounted(() => {
             </v-card-text>
           </v-card>
 
+          <!-- **NOVÉ: Rychlé akce s funkční duplikací a exportem** -->
           <v-card variant="outlined" class="mt-4">
             <v-card-text>
               <div class="text-h6 mb-4">Rychlé akce</div>
               
-              <v-btn block variant="outlined" class="mb-2" prepend-icon="mdi-refresh" @click="loadProduct">
+              <v-btn 
+                block 
+                variant="outlined" 
+                class="mb-2" 
+                prepend-icon="mdi-refresh" 
+                @click="loadProduct"
+                :loading="loading"
+              >
                 Obnovit data
               </v-btn>
               
-              <v-btn block variant="outlined" class="mb-2" prepend-icon="mdi-content-copy">
+              <v-btn 
+                block 
+                variant="outlined" 
+                class="mb-2" 
+                prepend-icon="mdi-content-copy"
+                @click="duplicateProduct"
+                :loading="duplicating"
+              >
                 Duplikovat
               </v-btn>
               
-              <v-btn block variant="outlined" prepend-icon="mdi-file-export">
+              <v-btn 
+                block 
+                variant="outlined" 
+                prepend-icon="mdi-file-export"
+                @click="openExportDialog"
+                :loading="exporting"
+              >
                 Exportovat
               </v-btn>
-            </v-card-text>
-          </v-card>
-
-          <!-- Debug info pro UOM -->
-          <v-card variant="outlined" class="mt-4" v-if="editMode">
-            <v-card-text>
-              <div class="text-h6 mb-4">Dostupné měrné jednotky</div>
-              <v-chip-group column>
-                <v-chip 
-                  v-for="uom in uoms" 
-                  :key="uom.id"
-                  size="small"
-                  :color="editData.uomId === uom.id ? 'primary' : 'default'"
-                >
-                  {{ uom.name }}
-                </v-chip>
-              </v-chip-group>
-              <div class="text-caption text-medium-emphasis mt-2">
-                Celkem načteno: {{ uoms.length }} jednotek
-              </div>
             </v-card-text>
           </v-card>
         </v-col>
       </v-row>
     </v-col>
   </v-row>
+
+  <!-- **NOVÉ: Dialog pro výběr formátu exportu** -->
+  <v-dialog v-model="showExportDialog" max-width="400">
+    <v-card>
+      <v-card-title class="d-flex justify-space-between align-center">
+        <span>Exportovat produkt</span>
+        <v-btn icon variant="text" @click="showExportDialog = false">
+          <v-icon>mdi-close</v-icon>
+        </v-btn>
+      </v-card-title>
+      <v-divider></v-divider>
+      <v-card-text>
+        <div class="text-subtitle-2 mb-3">Vyberte formát exportu:</div>
+        <v-radio-group v-model="exportFormat">
+          <v-radio value="csv">
+            <template v-slot:label>
+              <div class="d-flex align-center">
+                <v-icon class="mr-2">mdi-file-delimited</v-icon>
+                <div>
+                  <div class="font-weight-medium">CSV</div>
+                  <div class="text-caption text-medium-emphasis">
+                    Excel kompatibilní formát
+                  </div>
+                </div>
+              </div>
+            </template>
+          </v-radio>
+          
+          <v-radio value="json">
+            <template v-slot:label>
+              <div class="d-flex align-center">
+                <v-icon class="mr-2">mdi-code-json</v-icon>
+                <div>
+                  <div class="font-weight-medium">JSON</div>
+                  <div class="text-caption text-medium-emphasis">
+                    Kompletní data včetně skladových karet
+                  </div>
+                </div>
+              </div>
+            </template>
+          </v-radio>
+          
+          <v-radio value="xlsx" disabled>
+            <template v-slot:label>
+              <div class="d-flex align-center">
+                <v-icon class="mr-2">mdi-file-excel</v-icon>
+                <div>
+                  <div class="font-weight-medium">XLSX</div>
+                  <div class="text-caption text-medium-emphasis">
+                    Připravujeme...
+                  </div>
+                </div>
+              </div>
+            </template>
+          </v-radio>
+        </v-radio-group>
+      </v-card-text>
+      <v-divider></v-divider>
+      <v-card-actions>
+        <v-spacer></v-spacer>
+        <v-btn variant="outlined" @click="showExportDialog = false">
+          Zrušit
+        </v-btn>
+        <v-btn color="primary" @click="performExport">
+          Exportovat
+        </v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
 </template>
 
 <style scoped>
