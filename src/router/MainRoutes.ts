@@ -65,14 +65,23 @@ const MainRoutes = {
       component: () => import('@/views/utilities/products/ProductsPage.vue')
     },
     {
+      name: 'Nový produkt',
+      path: '/products/new',
+      component: () => import('@/views/utilities/products/ProductCreatePage.vue')
+    },
+    {
       name: 'Detail produktu',
       path: '/products/:id',
       component: () => import('@/views/utilities/products/ProductDetailPage.vue')
     },
+    // ⭐ NOVÁ ROUTA PRO BOM ⭐
     {
-      name: 'Nový produkt',
-      path: '/products/new',
-      component: () => import('@/views/utilities/products/ProductCreatePage.vue')
+      name: 'ProductBom',
+      path: '/products/:id/bom',
+      component: () => import('@/views/utilities/products/ProductBomPage.vue'),
+      meta: {
+        requiresAuth: true
+      }
     },
     {
       name: 'Nákupní žádosti',

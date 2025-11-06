@@ -982,6 +982,15 @@ onMounted(() => {
               >
                 Exportovat
               </v-btn>
+              <v-btn
+                block 
+                variant="outlined"
+                prepend-icon="mdi-file-tree"
+                @click="router.push(`/products/${productId}/bom`)"
+                v-if="product?.stockType === 'typZasoby.vyrobek' || product?.stockType === 'typZasoby.zbozi'"
+              >
+                Kusovník (BOM)
+              </v-btn>
             </v-card-text>
           </v-card>
         </v-col>
