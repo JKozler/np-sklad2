@@ -594,13 +594,6 @@ onMounted(() => {
                 </div>
               </v-col>
 
-              <v-col cols="12" md="6">
-                <div>
-                  <div class="text-subtitle-2 text-medium-emphasis">Abra ID</div>
-                  <div class="text-body-1 font-weight-medium mt-2">{{ product.abraId }}</div>
-                </div>
-              </v-col>
-
               <v-col cols="12">
                 <v-select
                   v-if="editMode"
@@ -918,6 +911,10 @@ onMounted(() => {
               <div class="mb-4">
                 <div class="text-subtitle-2 text-medium-emphasis">Přiřazeno</div>
                 <div class="text-body-2 mt-1">{{ product.assignedUserName || 'Nepřiřazeno' }}</div>
+              </div>
+              <div class="mb-4">
+                <div class="text-subtitle-2 text-medium-emphasis">Abra ID</div>
+                <div class="text-body-1 font-weight-medium mt-2">{{ product.abraId }}</div>
               </div>
 
               <div>
