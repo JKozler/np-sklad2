@@ -6,6 +6,7 @@ import BaseBreadcrumb from '@/components/shared/BaseBreadcrumb.vue';
 import UiParentCard from '@/components/shared/UiParentCard.vue';
 import BOMTreeNode from '@/components/bom/BOMTreeNode.vue';
 import { bomService } from '@/services/bomService';
+import { useProductAutocomplete } from '@/composables/useProductAutocomplete';
 import { productsService } from '@/services/productsService';
 import type { BOMNode, CreateBOMItemData } from '@/services/bomService';
 import type { Product } from '@/services/productsService';
@@ -86,6 +87,28 @@ const countBOMItems = (node: BOMNode): number => {
   return count;
 };
 
+const {
+  products: autocompleteProducts,
+  loading: loadingAutocomplete,
+  searchQuery: productSearchQuery,
+  loadProductById
+} = useProductAutocomplete();
+
+// Při otevření dialogu pro přidání
+const openAddDialog = async (node: BOMNode) => {
+  parentNode.value = node;
+  newComponentData.value = {
+    assemblyProductId: productId,
+    parentBomId: node.id,
+    componentProductId: '',
+    quantity: 1
+  };
+  showAddDialog.value = true;
+  
+  // Resetuj search query
+  productSearchQuery.value = '';
+};
+
 const formatPrice = (price: number) => {
   return new Intl.NumberFormat('cs-CZ', {
     style: 'currency',
@@ -162,24 +185,6 @@ const createMainBOM = async () => {
     console.error('❌ Error creating main BOM:', err);
   } finally {
     saving.value = false;
-  }
-};
-
-/**
- * Otevře dialog pro přidání komponenty
- */
-const openAddDialog = (node: BOMNode) => {
-  parentNode.value = node;
-  newComponentData.value = {
-    assemblyProductId: productId,
-    parentBomId: node.id,
-    componentProductId: '',
-    quantity: 1
-  };
-  showAddDialog.value = true;
-  
-  if (products.value.length === 0) {
-    loadProducts();
   }
 };
 
@@ -518,32 +523,30 @@ onMounted(() => {
   <!-- Dialog pro přidání komponenty -->
   <v-dialog v-model="showAddDialog" max-width="600">
     <v-card>
-      <v-card-title class="d-flex justify-space-between align-center">
-        <span>Přidat komponentu</span>
-        <v-btn icon variant="text" @click="showAddDialog = false">
-          <v-icon>mdi-close</v-icon>
-        </v-btn>
-      </v-card-title>
+      <v-card-title>Přidat komponentu</v-card-title>
       <v-divider></v-divider>
       <v-card-text class="pt-4">
         <v-alert type="info" variant="tonal" density="compact" class="mb-4">
-          <div class="text-caption">
-            Přidávání komponenty pod: <strong>{{ parentNode?.componentProductName }}</strong>
-          </div>
+          Přidávání komponenty pod: <strong>{{ parentNode?.componentProductName }}</strong>
         </v-alert>
 
         <v-form @submit.prevent="addComponent">
           <v-row>
             <v-col cols="12">
-              <v-select
+              <!-- **NOVÉ: Autocomplete místo statického selectu** -->
+              <v-autocomplete
                 v-model="newComponentData.componentProductId"
-                :items="products"
+                v-model:search="productSearchQuery"
+                :items="autocompleteProducts"
                 item-title="name"
                 item-value="id"
                 label="Produkt (komponenta) *"
                 variant="outlined"
                 density="comfortable"
-                :loading="loadingProducts"
+                :loading="loadingAutocomplete"
+                placeholder="Začněte psát pro vyhledání..."
+                no-filter
+                clearable
               >
                 <template v-slot:item="{ props: itemProps, item }">
                   <v-list-item v-bind="itemProps">
@@ -556,7 +559,17 @@ onMounted(() => {
                     </v-list-item-subtitle>
                   </v-list-item>
                 </template>
-              </v-select>
+
+                <template v-slot:no-data>
+                  <v-list-item>
+                    <v-list-item-title>
+                      {{ productSearchQuery.length < 2 
+                        ? 'Začněte psát pro vyhledání produktů' 
+                        : 'Žádné produkty nenalezeny' }}
+                    </v-list-item-title>
+                  </v-list-item>
+                </template>
+              </v-autocomplete>
             </v-col>
 
             <v-col cols="12">

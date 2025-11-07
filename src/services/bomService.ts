@@ -20,6 +20,9 @@ export interface BOMNode {
   parentBomId: string | null;
   parentBomName: string | null;
   children: BOMNode[];
+
+  uom?: string | null;
+uomId?: string | null;
 }
 
 /**

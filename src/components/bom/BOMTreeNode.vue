@@ -1,6 +1,8 @@
-<!-- src/components/bom/BOMTreeNode.vue -->
+<!-- BOMTreeNode.vue - Finální verze s měrnými jednotkami -->
+
 <script setup lang="ts">
 import { ref, computed } from 'vue';
+import { useRouter } from 'vue-router';
 import type { BOMNode } from '@/services/bomService';
 
 interface Props {
@@ -18,6 +20,7 @@ const emit = defineEmits<{
   delete: [node: BOMNode];
 }>();
 
+const router = useRouter();
 const expanded = ref(true);
 
 const formatPrice = (price: number | null) => {
@@ -36,6 +39,10 @@ const totalPrice = computed(() => {
   if (!props.node.costPrice) return null;
   return props.node.costPrice * props.node.quantity;
 });
+
+const navigateToProduct = () => {
+  router.push(`/products/${props.node.componentProductId}`);
+};
 </script>
 
 <template>
@@ -80,22 +87,32 @@ const totalPrice = computed(() => {
                 {{ isMainBom ? 'mdi-package-variant' : 'mdi-package-variant-closed' }}
               </v-icon>
               <div>
-                <div class="text-body-1 font-weight-medium">
+                <!-- Klikatelný název produktu -->
+                <div 
+                  class="text-body-1 font-weight-medium product-link" 
+                  @click="navigateToProduct"
+                >
                   {{ node.componentProductName }}
+                  <v-icon size="small" class="ml-1">mdi-open-in-new</v-icon>
                 </div>
                 <div class="text-caption text-medium-emphasis">
                   ID: {{ node.componentProductId }}
                   <span v-if="node.abraId"> | Abra: {{ node.abraId }}</span>
+                  <!-- **NOVÉ: Měrná jednotka pokud je k dispozici** -->
+                  <span v-if="node.uom"> | MJ: {{ node.uom }}</span>
                 </div>
               </div>
             </div>
           </div>
 
-          <!-- Quantity -->
+          <!-- Quantity s měrnou jednotkou -->
           <div class="mx-4 text-center">
             <div class="text-caption text-medium-emphasis">Množství</div>
             <v-chip color="info" size="small" variant="tonal">
-              {{ node.quantity }}x
+              {{ node.quantity }}
+              <!-- **NOVÉ: Zobraz MJ pokud je k dispozici** -->
+              <span v-if="node.uom" class="ml-1">{{ node.uom }}</span>
+              <span v-else>x</span>
             </v-chip>
           </div>
 
@@ -105,7 +122,11 @@ const totalPrice = computed(() => {
             <div class="text-body-2 font-weight-medium">
               {{ formatPrice(node.costPrice) }}
             </div>
-            <div class="text-caption text-primary font-weight-bold" v-if="totalPrice">
+            <!-- Celková cena POUZE pro hlavní BOM -->
+            <div 
+              class="text-caption text-primary font-weight-bold" 
+              v-if="totalPrice && isMainBom"
+            >
               Celkem: {{ formatPrice(totalPrice) }}
             </div>
           </div>
@@ -179,6 +200,18 @@ const totalPrice = computed(() => {
 
 .main-bom-card {
   border: 2px solid rgba(var(--v-theme-primary), 0.5);
+}
+
+.product-link {
+  cursor: pointer;
+  transition: color 0.2s;
+  display: inline-flex;
+  align-items: center;
+}
+
+.product-link:hover {
+  color: rgb(var(--v-theme-primary));
+  text-decoration: underline;
 }
 
 :deep(.v-card) {
