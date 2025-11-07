@@ -10,6 +10,7 @@ export interface Product {
   ean?: string;
   stockType: string;
   isStockItem: boolean;
+  costPrice?: number;
   price: number | null;
   priceWithoutVat: number | null;
   priceWithVat: number | null;

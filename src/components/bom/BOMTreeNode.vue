@@ -1,5 +1,4 @@
-<!-- BOMTreeNode.vue - Finální verze s měrnými jednotkami -->
-
+<!-- BOMTreeNode.vue - Finální verze s měrnými jednotkami + opravené % vůči celkové ceně -->
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
@@ -8,10 +7,13 @@ import type { BOMNode } from '@/services/bomService';
 interface Props {
   node: BOMNode;
   canEdit?: boolean;
+  // optional root total passed down from top-level node
+  rootTotal?: number | null;
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  canEdit: true
+  canEdit: true,
+  rootTotal: null
 });
 
 const emit = defineEmits<{
@@ -24,24 +26,44 @@ const router = useRouter();
 const expanded = ref(true);
 
 const formatPrice = (price: number | null) => {
-  if (price === null || price === undefined) return '—';
+  if (price === null || price === undefined || Number.isNaN(price)) return '—';
   return new Intl.NumberFormat('cs-CZ', {
     style: 'currency',
     currency: 'CZK'
   }).format(price);
 };
 
+// pomocná funkce: rekurzivně spočítá agregovanou cenu uzlu včetně potomků
+const calcAggregated = (node: BOMNode): number => {
+  const unit = (node.costPrice ?? 0) * (node.quantity ?? 0);
+  if (!node.children || node.children.length === 0) return unit;
+  return unit + node.children.reduce((sum, ch) => sum + calcAggregated(ch), 0);
+};
+
 const isMainBom = computed(() => {
   return props.node.level === 1 && props.node.parentBomId === null;
 });
 
-const totalPrice = computed(() => {
-  if (!props.node.costPrice) return null;
-  return props.node.costPrice * props.node.quantity;
+// celková cena **tento uzel (unit)** = costPrice * quantity
+const nodeUnitTotal = computed(() => {
+  return (props.node.costPrice ?? 0) * (props.node.quantity ?? 0);
+});
+
+// agregovaná cena tohoto uzlu včetně všech potomků
+const aggregatedTotal = computed(() => {
+  return calcAggregated(props.node);
+});
+
+// efektivní root total: pokud rodič předal rootTotal, použijeme ho;
+// pokud ne (jsme top-level), použijeme aggregatedTotal tohoto uzlu jako root.
+const effectiveRootTotal = computed(() => {
+  return props.rootTotal != null ? props.rootTotal : aggregatedTotal.value;
 });
 
 const navigateToProduct = () => {
-  router.push(`/products/${props.node.componentProductId}`);
+  if (props.node.componentProductId) {
+    router.push(`/products/${props.node.componentProductId}`);
+  }
 };
 </script>
 
@@ -95,12 +117,6 @@ const navigateToProduct = () => {
                   {{ node.componentProductName }}
                   <v-icon size="small" class="ml-1">mdi-open-in-new</v-icon>
                 </div>
-                <div class="text-caption text-medium-emphasis">
-                  ID: {{ node.componentProductId }}
-                  <span v-if="node.abraId"> | Abra: {{ node.abraId }}</span>
-                  <!-- **NOVÉ: Měrná jednotka pokud je k dispozici** -->
-                  <span v-if="node.uom"> | MJ: {{ node.uom }}</span>
-                </div>
               </div>
             </div>
           </div>
@@ -110,7 +126,6 @@ const navigateToProduct = () => {
             <div class="text-caption text-medium-emphasis">Množství</div>
             <v-chip color="info" size="small" variant="tonal">
               {{ node.quantity }}
-              <!-- **NOVÉ: Zobraz MJ pokud je k dispozici** -->
               <span v-if="node.uom" class="ml-1">{{ node.uom }}</span>
               <span v-else>x</span>
             </v-chip>
@@ -118,17 +133,26 @@ const navigateToProduct = () => {
 
           <!-- Price info -->
           <div class="mx-4 text-right" style="min-width: 120px">
-            <div class="text-caption text-medium-emphasis">Cena/ks</div>
+            <div class="text-caption text-medium-emphasis">Hodnota</div>
             <div class="text-body-2 font-weight-medium">
-              {{ formatPrice(node.costPrice) }}
+              {{ formatPrice(node.costPrice ?? null) }}
             </div>
             <!-- Celková cena POUZE pro hlavní BOM -->
             <div 
               class="text-caption text-primary font-weight-bold" 
-              v-if="totalPrice && isMainBom"
+              v-if="isMainBom"
             >
-              Celkem: {{ formatPrice(totalPrice) }}
+              Celkem: {{ formatPrice(aggregatedTotal) }}
             </div>
+          </div>
+
+          <!-- Percentage vůči celkové ceně (efektivní root total), zobrazeno pro ne-main uzly -->
+          <div class="mx-4 text-center" v-if="effectiveRootTotal && !isMainBom">
+            <v-chip color="success" size="small" variant="tonal">
+              <span class="ml-2">
+                {{ effectiveRootTotal > 0 ? (100 * nodeUnitTotal / effectiveRootTotal).toFixed(2) : '0.00' }} %
+              </span>
+            </v-chip>
           </div>
 
           <!-- Actions -->
@@ -177,7 +201,8 @@ const navigateToProduct = () => {
         v-for="child in node.children"
         :key="child.id"
         :node="child"
-        :can-edit="canEdit"
+        :canEdit="canEdit"
+        :root-total="effectiveRootTotal"
         @add-child="emit('addChild', $event)"
         @edit="emit('edit', $event)"
         @delete="emit('delete', $event)"

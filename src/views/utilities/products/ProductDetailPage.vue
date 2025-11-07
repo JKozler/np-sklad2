@@ -638,6 +638,25 @@ onMounted(() => {
                 <v-text-field
                   v-if="editMode"
                   v-model.number="editData.priceWithoutVat"
+                  label="Nákladová cena"
+                  type="number"
+                  variant="outlined"
+                  density="comfortable"
+                  suffix="Kč"
+                  prepend-inner-icon="mdi-currency-usd"
+                ></v-text-field>
+                <div v-else>
+                  <div class="text-subtitle-2 text-medium-emphasis">Nákladová cena</div>
+                  <div class="text-h6 font-weight-bold text-primary mt-2" style="color: red !important;">
+                    {{ formatPrice(product.costPrice) }}
+                  </div>
+                </div>
+              </v-col>
+
+              <v-col cols="12" md="4">
+                <v-text-field
+                  v-if="editMode"
+                  v-model.number="editData.priceWithoutVat"
                   label="Cena bez DPH"
                   type="number"
                   variant="outlined"
@@ -647,7 +666,7 @@ onMounted(() => {
                 ></v-text-field>
                 <div v-else>
                   <div class="text-subtitle-2 text-medium-emphasis">Cena bez DPH</div>
-                  <div class="text-h6 font-weight-bold text-primary mt-2">
+                  <div class="text-h6 font-weight-bold text-primary mt-2" style="color: green !important;">
                     {{ formatPrice(product.priceWithoutVat) }}
                   </div>
                 </div>
@@ -692,59 +711,6 @@ onMounted(() => {
                 <div>
                   <div class="text-subtitle-2 text-medium-emphasis">Typ ceny</div>
                   <div class="text-body-1 font-weight-medium mt-2">{{ getPriceTypeLabel(product.priceType) }}</div>
-                </div>
-              </v-col>
-            </v-row>
-          </UiParentCard>
-
-          <UiParentCard title="Skladové informace" class="mt-4">
-            <v-row>
-              <v-col cols="12" md="6">
-                <v-select
-                  v-if="editMode"
-                  v-model="editData.stockType"
-                  :items="[
-                    { title: 'Zboží', value: 'typZasoby.zbozi' },
-                    { title: 'Materiál', value: 'typZasoby.material' }
-                  ]"
-                  label="Typ zásob"
-                  variant="outlined"
-                  density="comfortable"
-                ></v-select>
-                <div v-else>
-                  <div class="text-subtitle-2 text-medium-emphasis">Typ zásob</div>
-                  <v-chip 
-                    :color="product.stockType === 'typZasoby.zbozi' ? 'primary' : 'secondary'" 
-                    class="mt-2"
-                  >
-                    {{ getStockTypeLabel(product.stockType) }}
-                  </v-chip>
-                </div>
-              </v-col>
-
-              <v-col cols="12" md="6">
-                <v-switch
-                  v-if="editMode"
-                  v-model="editData.isStockItem"
-                  label="Skladová položka"
-                  color="success"
-                  hide-details
-                ></v-switch>
-                <div v-else>
-                  <div class="text-subtitle-2 text-medium-emphasis">Skladová položka</div>
-                  <v-chip 
-                    :color="product.isStockItem ? 'success' : 'default'" 
-                    class="mt-2"
-                  >
-                    {{ product.isStockItem ? 'Ano' : 'Ne' }}
-                  </v-chip>
-                </div>
-              </v-col>
-
-              <v-col cols="12" md="6">
-                <div>
-                  <div class="text-subtitle-2 text-medium-emphasis">Skupina produktů</div>
-                  <div class="text-body-1 font-weight-medium mt-2">{{ product.productGroupName || '—' }}</div>
                 </div>
               </v-col>
             </v-row>
@@ -875,6 +841,59 @@ onMounted(() => {
                 </div>
               </template>
             </v-data-table>
+          </UiParentCard>
+
+          <UiParentCard title="Skladové informace" class="mt-4">
+            <v-row>
+              <v-col cols="12" md="6">
+                <v-select
+                  v-if="editMode"
+                  v-model="editData.stockType"
+                  :items="[
+                    { title: 'Zboží', value: 'typZasoby.zbozi' },
+                    { title: 'Materiál', value: 'typZasoby.material' }
+                  ]"
+                  label="Typ zásob"
+                  variant="outlined"
+                  density="comfortable"
+                ></v-select>
+                <div v-else>
+                  <div class="text-subtitle-2 text-medium-emphasis">Typ zásob</div>
+                  <v-chip 
+                    :color="product.stockType === 'typZasoby.zbozi' ? 'primary' : 'secondary'" 
+                    class="mt-2"
+                  >
+                    {{ getStockTypeLabel(product.stockType) }}
+                  </v-chip>
+                </div>
+              </v-col>
+
+              <v-col cols="12" md="6">
+                <v-switch
+                  v-if="editMode"
+                  v-model="editData.isStockItem"
+                  label="Skladová položka"
+                  color="success"
+                  hide-details
+                ></v-switch>
+                <div v-else>
+                  <div class="text-subtitle-2 text-medium-emphasis">Skladová položka</div>
+                  <v-chip 
+                    :color="product.isStockItem ? 'success' : 'default'" 
+                    class="mt-2"
+                  >
+                    {{ product.isStockItem ? 'Ano' : 'Ne' }}
+                  </v-chip>
+                </div>
+              </v-col>
+
+              <v-col cols="12" md="6">
+                <div>
+                  <div class="text-subtitle-2 text-medium-emphasis">Skupina produktů</div>
+                  <div class="text-body-1 font-weight-medium mt-2">{{ product.productGroupName || '—' }}</div>
+                </div>
+              </v-col>
+            </v-row>
           </UiParentCard>
         </v-col>
 

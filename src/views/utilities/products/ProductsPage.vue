@@ -66,6 +66,7 @@ const headers = computed(() => [
   { title: tf('ean'), key: 'ean', sortable: false },
   { title: tf('stockType'), key: 'stockType', sortable: true },
   { title: tf('isStockItem'), key: 'isStockItem', sortable: true },
+  { title: tf('costPrice'), key: 'costPrice', sortable: true },
   { title: tf('priceWithoutVat'), key: 'priceWithoutVat', sortable: true },
   { title: tlGlobal('Actions'), key: 'actions', sortable: false }
 ]);
@@ -616,6 +617,13 @@ onMounted(() => {
               <v-icon start :icon="item.isStockItem ? 'mdi-check' : 'mdi-close'"></v-icon>
               {{ item.isStockItem ? tlGlobal('Yes') : tlGlobal('No') }}
             </v-chip>
+          </template>
+
+          <!-- Price -->
+          <template v-slot:item.costPrice="{ item }">
+            <span class="font-weight-medium">
+              {{ formatPrice(item.costPrice?item.costPrice:0) }}
+            </span>
           </template>
 
           <!-- Price -->
