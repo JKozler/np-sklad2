@@ -976,6 +976,7 @@ onMounted(() => {
               <v-btn 
                 block 
                 variant="outlined" 
+                class="mb-2" 
                 prepend-icon="mdi-file-export"
                 @click="openExportDialog"
                 :loading="exporting"

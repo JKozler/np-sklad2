@@ -86,19 +86,9 @@ const sidebarItem: menu[] = [
   to: '/settings',
   children: [
     {
-      title: 'Uživatelé',
-      icon: CircleIcon,
-      to: '/settings/users'
-    },
-    {
       title: 'Synchronizace Abra',
       icon: CircleIcon,
       to: '/settings/sync'
-    },
-    {
-      title: 'Obecné',
-      icon: CircleIcon,
-      to: '/settings/general'
     }
   ]
 }
