@@ -7,10 +7,9 @@ import UiParentCard from '@/components/shared/UiParentCard.vue';
 import { inventoryTransactionService } from '@/services/inventoryTransactionService';
 import { inventoryTransactionTypeService } from '@/services/inventoryTransactionTypeService';
 import { warehouseService } from '@/services/warehouseService';
-import { productsService } from '@/services/productsService';
+import { useProductAutocomplete } from '@/composables/useProductAutocomplete';
 import type { CreateInventoryTransactionData, InventoryTransactionItem } from '@/services/inventoryTransactionService';
 import type { InventoryTransactionType } from '@/services/inventoryTransactionTypeService';
-import type { Product } from '@/services/productsService';
 
 const router = useRouter();
 
@@ -25,15 +24,18 @@ const saving = ref(false);
 const error = ref<string | null>(null);
 const transactionTypes = ref<InventoryTransactionType[]>([]);
 const warehouses = ref<Array<{ id: string; name: string }>>([]);
-const products = ref<Product[]>([]);
 const loadingTypes = ref(false);
 const loadingWarehouses = ref(false);
-const loadingProducts = ref(false);
 
-// **NOVÉ: Defaultní ID typu pohybu**
+// **NOVÉ: Autocomplete pro produkty**
+const {
+  products: autocompleteProducts,
+  loading: loadingAutocomplete,
+  searchQuery: productSearchQuery
+} = useProductAutocomplete();
+
 const DEFAULT_TRANSACTION_TYPE_ID = '68f019f2daffeee60';
 
-// Formulářová data
 const formData = ref<CreateInventoryTransactionData>({
   name: '',
   transactionTypeId: '',
@@ -42,10 +44,9 @@ const formData = ref<CreateInventoryTransactionData>({
   warehouseToId: null,
   transactionDate: new Date().toISOString().split('T')[0],
   notes: '',
-  items: [] // Inicializujeme prázdné pole pro items
+  items: []
 });
 
-// Lokální pole pro správu items v UI
 const localItems = ref<InventoryTransactionItem[]>([]);
 
 const formValid = ref(false);
@@ -56,7 +57,6 @@ const rules = {
   requiredDirection: (v: string) => !!v || 'Směr pohybu je povinný'
 };
 
-// Směry pohybu
 const transactionDirections = ref([
   {
     value: 'typPohybu.prijem',
@@ -74,12 +74,11 @@ const transactionDirections = ref([
   }
 ]);
 
-// Items management
 const showAddItemDialog = ref(false);
 const newItem = ref<InventoryTransactionItem>({
   productId: '',
   quantity: 1,
-  price: 0,
+  unitPrice: 0,
   notes: ''
 });
 
@@ -103,7 +102,7 @@ const requiresWarehouseTo = computed(() => {
 
 const totalItemsAmount = computed(() => {
   return localItems.value.reduce((sum, item) => {
-    const price = item.price || 0;
+    const price = item.unitPrice || 0;
     const quantity = item.quantity || 0;
     return sum + (price * quantity);
   }, 0);
@@ -144,44 +143,19 @@ const loadWarehouses = async () => {
   }
 };
 
-const loadProducts = async () => {
-  loadingProducts.value = true;
-  try {
-    const response = await productsService.getAll(undefined, { maxSize: 200 });
-    products.value = response.list;
-  } catch (err) {
-    console.error('❌ Chyba při načítání produktů:', err);
-    error.value = 'Chyba při načítání produktů';
-  } finally {
-    loadingProducts.value = false;
-  }
-};
-
-/**
- * **NOVÉ: Načte data a předvyplní defaultní hodnoty**
- */
 const loadDataAndSetDefaults = async () => {
-  // Nejdřív načti typy pohybů
   await loadTransactionTypes();
-  
-  // Pak načti sklady
   await loadWarehouses();
   
-  // Nakonec produkty
-  await loadProducts();
-  
-  // **Předvyplň defaultní typ pohybu s ID 68f019f2daffeee60**
   if (!formData.value.transactionTypeId) {
     formData.value.transactionTypeId = DEFAULT_TRANSACTION_TYPE_ID;
     console.log('✅ Auto-vybrán defaultní typ pohybu:', formData.value.transactionTypeId);
     
-    // Zkontroluj, zda tento typ existuje
     const defaultType = transactionTypes.value.find(t => t.id === DEFAULT_TRANSACTION_TYPE_ID);
     if (defaultType) {
       console.log('✅ Defaultní typ nalezen:', defaultType.name);
     } else {
       console.warn('⚠️ Defaultní typ s ID', DEFAULT_TRANSACTION_TYPE_ID, 'nebyl nalezen');
-      // Fallback na první typ, pokud defaultní neexistuje
       if (transactionTypes.value.length > 0) {
         formData.value.transactionTypeId = transactionTypes.value[0].id;
         console.log('✅ Použit fallback - první dostupný typ:', transactionTypes.value[0].name);
@@ -189,7 +163,6 @@ const loadDataAndSetDefaults = async () => {
     }
   }
   
-  // **Předvyplň první dostupný sklad**
   if (warehouses.value.length > 0 && !formData.value.warehouseFromId) {
     formData.value.warehouseFromId = warehouses.value[0].id;
     console.log('✅ Auto-vybrán první sklad:', formData.value.warehouseFromId, '-', warehouses.value[0].name);
@@ -200,9 +173,10 @@ const openAddItemDialog = () => {
   newItem.value = {
     productId: '',
     quantity: 1,
-    price: 0,
+    unitPrice: 0,
     notes: ''
   };
+  productSearchQuery.value = ''; // Reset search
   showAddItemDialog.value = true;
 };
 
@@ -217,15 +191,14 @@ const addItemToLocal = () => {
     return;
   }
 
-  // Najdi název produktu
-  const product = products.value.find(p => p.id === newItem.value.productId);
+  const product = autocompleteProducts.value.find(p => p.id === newItem.value.productId);
   
   const itemToAdd: InventoryTransactionItem = {
     productId: newItem.value.productId,
     productName: product?.name || 'Neznámý produkt',
     quantity: newItem.value.quantity,
-    price: newItem.value.price || 0,
-    totalPrice: (newItem.value.quantity || 0) * (newItem.value.price || 0),
+    unitPrice: newItem.value.unitPrice || 0,
+    totalPrice: (newItem.value.quantity || 0) * (newItem.value.unitPrice || 0),
     notes: newItem.value.notes
   };
 
@@ -258,14 +231,12 @@ const createTransaction = async () => {
   error.value = null;
 
   try {
-    // Připrav data s items
     const dataToSend: CreateInventoryTransactionData = {
       ...formData.value,
-      // Pokud jsou items, pošli je; jinak pošli null (žádná akce)
       items: localItems.value.length > 0 ? localItems.value.map(item => ({
         productId: item.productId,
         quantity: item.quantity,
-        price: item.price,
+        unitPrice: item.unitPrice,
         notes: item.notes
       })) : null
     };
@@ -436,7 +407,6 @@ onMounted(() => {
                       </v-list-item>
                     </template>
                   </v-select>
-                  <!-- Badge pro defaultní typ -->
                   <v-chip 
                     v-if="formData.transactionTypeId === DEFAULT_TRANSACTION_TYPE_ID"
                     size="x-small"
@@ -523,7 +493,6 @@ onMounted(() => {
                     :loading="loadingWarehouses"
                     :rules="requiresWarehouseFrom ? [rules.required] : []"
                   ></v-select>
-                  <!-- Badge pro první sklad -->
                   <v-chip 
                     v-if="warehouses.length > 0 && formData.warehouseFromId === warehouses[0].id"
                     size="x-small"
@@ -587,8 +556,8 @@ onMounted(() => {
                   <v-list-item-title>{{ item.productName }}</v-list-item-title>
                   <v-list-item-subtitle>
                     Množství: {{ item.quantity }} | 
-                    Cena: {{ formatPrice(item.price || 0) }} | 
-                    Celkem: {{ formatPrice((item.quantity || 0) * (item.price || 0)) }}
+                    Cena: {{ formatPrice(item.unitPrice || 0) }} | 
+                    Celkem: {{ formatPrice((item.quantity || 0) * (item.unitPrice || 0)) }}
                   </v-list-item-subtitle>
                   <template v-slot:append>
                     <v-btn
@@ -648,11 +617,11 @@ onMounted(() => {
 
               <v-divider class="my-3"></v-divider>
 
-              <div class="text-subtitle-2 mb-2">✨ Nové v 0.7.0:</div>
+              <div class="text-subtitle-2 mb-2">✨ Autocomplete vyhledávání:</div>
               <ul class="text-body-2 text-medium-emphasis">
-                <li>Položky se vytvoří společně s transakcí</li>
-                <li>Rychlejší vytváření pohybů</li>
-                <li>Atomická operace (vše nebo nic)</li>
+                <li>Dynamické vyhledávání produktů</li>
+                <li>Min. 2 znaky pro vyhledání</li>
+                <li>Max. 50 výsledků</li>
               </ul>
             </v-card-text>
           </v-card>
@@ -661,7 +630,7 @@ onMounted(() => {
     </v-col>
   </v-row>
 
-  <!-- Dialog pro přidání položky -->
+  <!-- **VYLEPŠENÉ: Dialog s autocomplete** -->
   <v-dialog v-model="showAddItemDialog" max-width="600">
     <v-card>
       <v-card-title class="d-flex justify-space-between align-center">
@@ -674,18 +643,23 @@ onMounted(() => {
       <v-card-text>
         <v-row>
           <v-col cols="12">
-            <v-select
+            <!-- **AUTOCOMPLETE místo statického selectu** -->
+            <v-autocomplete
               v-model="newItem.productId"
-              :items="products"
+              v-model:search="productSearchQuery"
+              :items="autocompleteProducts"
               item-title="name"
               item-value="id"
               label="Produkt *"
               variant="outlined"
               density="comfortable"
-              :loading="loadingProducts"
+              :loading="loadingAutocomplete"
+              placeholder="Začněte psát pro vyhledání..."
+              no-filter
+              clearable
             >
-              <template v-slot:item="{ props, item }">
-                <v-list-item v-bind="props">
+              <template v-slot:item="{ props: itemProps, item }">
+                <v-list-item v-bind="itemProps">
                   <template v-slot:prepend>
                     <v-icon color="primary">mdi-package-variant</v-icon>
                   </template>
@@ -695,7 +669,17 @@ onMounted(() => {
                   </v-list-item-subtitle>
                 </v-list-item>
               </template>
-            </v-select>
+
+              <template v-slot:no-data>
+                <v-list-item>
+                  <v-list-item-title>
+                    {{ productSearchQuery.length < 2 
+                      ? 'Začněte psát pro vyhledání produktů (min. 2 znaky)' 
+                      : 'Žádné produkty nenalezeny' }}
+                  </v-list-item-title>
+                </v-list-item>
+              </template>
+            </v-autocomplete>
           </v-col>
 
           <v-col cols="12" md="6">
@@ -705,18 +689,20 @@ onMounted(() => {
               type="number"
               variant="outlined"
               density="comfortable"
-              min="1"
+              min="0.001"
+              step="0.001"
             ></v-text-field>
           </v-col>
 
           <v-col cols="12" md="6">
             <v-text-field
-              v-model.number="newItem.price"
+              v-model.number="newItem.unitPrice"
               label="Cena/ks"
               type="number"
               variant="outlined"
               density="comfortable"
               suffix="Kč"
+              step="0.01"
             ></v-text-field>
           </v-col>
 

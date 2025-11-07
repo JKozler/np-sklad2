@@ -5,9 +5,8 @@ import { useRoute, useRouter } from 'vue-router';
 import BaseBreadcrumb from '@/components/shared/BaseBreadcrumb.vue';
 import UiParentCard from '@/components/shared/UiParentCard.vue';
 import { inventoryTransactionService } from '@/services/inventoryTransactionService';
-import { productsService } from '@/services/productsService';
+import { useProductAutocomplete } from '@/composables/useProductAutocomplete';
 import type { InventoryTransaction, InventoryTransactionItem, UpdateInventoryTransactionData } from '@/services/inventoryTransactionService';
-import type { Product } from '@/services/productsService';
 
 const route = useRoute();
 const router = useRouter();
@@ -23,19 +22,42 @@ const breadcrumbs = ref([
 
 const transaction = ref<InventoryTransaction | null>(null);
 const items = ref<InventoryTransactionItem[]>([]);
-const products = ref<Product[]>([]);
 const loading = ref(false);
 const loadingItems = ref(false);
 const saving = ref(false);
 const error = ref<string | null>(null);
 const editMode = ref(false);
 
+// **NOVÉ: Autocomplete pro přidání položky**
+const {
+  products: autocompleteProducts,
+  loading: loadingAutocomplete,
+  searchQuery: productSearchQuery
+} = useProductAutocomplete();
+
+// **NOVÉ: Autocomplete pro editaci položky**
+const {
+  products: autocompleteProductsEdit,
+  loading: loadingAutocompleteEdit,
+  searchQuery: productSearchQueryEdit
+} = useProductAutocomplete();
+
 // Bottom panel pro přidávání items
 const showAddItemPanel = ref(false);
 const newItem = ref<InventoryTransactionItem>({
   productId: '',
   quantity: 1,
-  price: 0,
+  unitPrice: 0,
+  notes: ''
+});
+
+// Dialog pro editaci jednotlivé položky
+const showEditItemDialog = ref(false);
+const editingItem = ref<InventoryTransactionItem | null>(null);
+const editItemData = ref<InventoryTransactionItem>({
+  productId: '',
+  quantity: 1,
+  unitPrice: 0,
   notes: ''
 });
 
@@ -45,7 +67,7 @@ const editData = ref<UpdateInventoryTransactionData>({});
 const itemsHeaders = ref([
   { title: 'Produkt', key: 'productName', sortable: true },
   { title: 'Množství', key: 'quantity', sortable: true },
-  { title: 'Cena/ks', key: 'price', sortable: true },
+  { title: 'Cena/ks', key: 'unitPrice', sortable: true },
   { title: 'Celkem', key: 'totalPrice', sortable: true },
   { title: 'Poznámka', key: 'notes', sortable: false },
   { title: 'Akce', key: 'actions', sortable: false }
@@ -89,7 +111,6 @@ const loadTransaction = async () => {
     transaction.value = await inventoryTransactionService.getById(transactionId);
     page.value.title = transaction.value.name;
 
-    // Inicializuj editData
     editData.value = {
       name: transaction.value.name,
       transactionTypeId: transaction.value.transactionTypeId,
@@ -101,7 +122,6 @@ const loadTransaction = async () => {
       status: transaction.value.status
     };
 
-    // Načti items
     await loadItems();
   } catch (err: any) {
     error.value = err.message || 'Chyba při načítání skladového pohybu';
@@ -115,6 +135,7 @@ const loadItems = async () => {
   loadingItems.value = true;
   try {
     items.value = await inventoryTransactionService.getItems(transactionId);
+    console.log('✅ Načteny položky:', items.value);
   } catch (err) {
     console.error('Chyba při načítání položek:', err);
   } finally {
@@ -122,18 +143,8 @@ const loadItems = async () => {
   }
 };
 
-const loadProducts = async () => {
-  try {
-    const response = await productsService.getAll(undefined, { maxSize: 200 });
-    products.value = response.list;
-  } catch (err) {
-    console.error('Chyba při načítání produktů:', err);
-  }
-};
-
 const toggleEditMode = () => {
   if (editMode.value && transaction.value) {
-    // Zrušení editace - obnovit původní data
     editData.value = {
       name: transaction.value.name,
       transactionTypeId: transaction.value.transactionTypeId,
@@ -170,9 +181,10 @@ const openAddItemPanel = () => {
   newItem.value = {
     productId: '',
     quantity: 1,
-    price: 0,
+    unitPrice: 0,
     notes: ''
   };
+  productSearchQuery.value = ''; // Reset search
   showAddItemPanel.value = true;
 };
 
@@ -189,6 +201,50 @@ const addItem = async () => {
   } catch (err: any) {
     error.value = err.message || 'Chyba při přidávání položky';
     console.error('Chyba při přidávání položky:', err);
+  }
+};
+
+const openEditItemDialog = (item: InventoryTransactionItem) => {
+  editingItem.value = item;
+  editItemData.value = {
+    productId: item.productId,
+    quantity: item.quantity,
+    unitPrice: item.unitPrice || 0,
+    notes: item.notes || ''
+  };
+  productSearchQueryEdit.value = ''; // Reset search
+  showEditItemDialog.value = true;
+};
+
+const saveEditItem = async () => {
+  if (!editingItem.value || !editingItem.value.id) return;
+
+  if (editItemData.value.quantity <= 0) {
+    error.value = 'Množství musí být větší než 0';
+    return;
+  }
+
+  saving.value = true;
+  error.value = null;
+
+  try {
+    await inventoryTransactionService.updateItem(
+      transactionId,
+      editingItem.value.id,
+      {
+        quantity: editItemData.value.quantity,
+        unitPrice: editItemData.value.unitPrice,
+        notes: editItemData.value.notes
+      }
+    );
+    
+    await loadItems();
+    showEditItemDialog.value = false;
+  } catch (err: any) {
+    error.value = err.message || 'Chyba při úpravě položky';
+    console.error('Chyba při úpravě položky:', err);
+  } finally {
+    saving.value = false;
   }
 };
 
@@ -228,16 +284,18 @@ const completeTransaction = async () => {
   }
 
   try {
-    //editData.value.status = 'completed';
     await saveChanges();
   } catch (err) {
     console.error('Chyba při dokončování:', err);
   }
 };
 
+const navigateToProduct = (productId: string) => {
+  router.push(`/products/${productId}`);
+};
+
 onMounted(() => {
   loadTransaction();
-  loadProducts();
 });
 </script>
 
@@ -368,7 +426,7 @@ onMounted(() => {
               <v-col cols="12" md="6">
                 <div>
                   <div class="text-subtitle-2 text-medium-emphasis">Směr pohybu</div>
-                  <v-chip :color="transaction.transactionDirection == 'typPohybu.vydej'?'danger':'primary'" class="mt-2">
+                  <v-chip :color="transaction.transactionDirection == 'typPohybu.vydej'?'error':'primary'" class="mt-2">
                     {{ transaction.transactionDirection == "typPohybu.vydej"?'Výdej':'Přijem' }}
                   </v-chip>
                 </div>
@@ -400,7 +458,8 @@ onMounted(() => {
                   type="date"
                   variant="outlined"
                   density="comfortable"
-                ></v-text-field><div v-else>
+                ></v-text-field>
+                <div v-else>
                   <div class="text-subtitle-2 text-medium-emphasis">Datum pohybu</div>
                   <div class="text-body-1 font-weight-medium mt-2">
                     {{ formatDate(transaction.transactionDate) }}
@@ -461,7 +520,13 @@ onMounted(() => {
                 <div class="d-flex align-center">
                   <v-icon class="mr-2" color="primary">mdi-package-variant</v-icon>
                   <div>
-                    <div class="font-weight-medium">{{ item.productName }}</div>
+                    <div 
+                      class="font-weight-medium product-link" 
+                      @click="navigateToProduct(item.productId)"
+                    >
+                      {{ item.productName }}
+                      <v-icon size="small" class="ml-1">mdi-open-in-new</v-icon>
+                    </div>
                     <div class="text-caption text-medium-emphasis">ID: {{ item.productId }}</div>
                   </div>
                 </div>
@@ -471,8 +536,8 @@ onMounted(() => {
                 <span class="font-weight-bold">{{ item.quantity }}</span>
               </template>
 
-              <template v-slot:item.price="{ item }">
-                {{ formatPrice(item.price) }}
+              <template v-slot:item.unitPrice="{ item }">
+                {{ formatPrice(item.unitPrice) }}
               </template>
 
               <template v-slot:item.totalPrice="{ item }">
@@ -486,6 +551,16 @@ onMounted(() => {
               </template>
 
               <template v-slot:item.actions="{ item }">
+                <v-btn
+                  icon
+                  size="small"
+                  variant="text"
+                  color="primary"
+                  @click="openEditItemDialog(item)"
+                  :disabled="transaction.status === 'completed'"
+                >
+                  <v-icon>mdi-pencil</v-icon>
+                </v-btn>
                 <v-btn
                   icon
                   size="small"
@@ -616,7 +691,7 @@ onMounted(() => {
     </v-col>
   </v-row>
 
-  <!-- Bottom panel pro přidání položky -->
+  <!-- **VYLEPŠENÉ: Bottom panel s autocomplete** -->
   <v-bottom-sheet v-model="showAddItemPanel" inset>
     <v-card>
       <v-card-title class="d-flex justify-space-between align-center">
@@ -629,27 +704,43 @@ onMounted(() => {
       <v-card-text>
         <v-row>
           <v-col cols="12" md="4">
-            <v-select
+            <!-- **AUTOCOMPLETE místo statického selectu** -->
+            <v-autocomplete
               v-model="newItem.productId"
-              :items="products"
+              v-model:search="productSearchQuery"
+              :items="autocompleteProducts"
               item-title="name"
               item-value="id"
               label="Produkt *"
               variant="outlined"
               density="comfortable"
+              :loading="loadingAutocomplete"
+              placeholder="Začněte psát pro vyhledání..."
+              no-filter
+              clearable
             >
-              <template v-slot:item="{ props, item }">
-                <v-list-item v-bind="props">
+              <template v-slot:item="{ props: itemProps, item }">
+                <v-list-item v-bind="itemProps">
                   <template v-slot:prepend>
                     <v-icon color="primary">mdi-package-variant</v-icon>
                   </template>
                   <v-list-item-title>{{ item.raw.name }}</v-list-item-title>
                   <v-list-item-subtitle class="text-caption">
-                    Kód: {{ item.raw.code }} | {{ formatPrice(item.raw.priceWithoutVat) }}
+                    Kód: {{ item.raw.code }} | {{ formatPrice(item.raw.priceWithoutVat || 0) }}
                   </v-list-item-subtitle>
                 </v-list-item>
               </template>
-            </v-select>
+
+              <template v-slot:no-data>
+                <v-list-item>
+                  <v-list-item-title>
+                    {{ productSearchQuery.length < 2 
+                      ? 'Začněte psát pro vyhledání produktů (min. 2 znaky)' 
+                      : 'Žádné produkty nenalezeny' }}
+                  </v-list-item-title>
+                </v-list-item>
+              </template>
+            </v-autocomplete>
           </v-col>
 
           <v-col cols="12" md="2">
@@ -659,18 +750,20 @@ onMounted(() => {
               type="number"
               variant="outlined"
               density="comfortable"
-              min="1"
+              min="0.001"
+              step="0.001"
             ></v-text-field>
           </v-col>
 
           <v-col cols="12" md="2">
             <v-text-field
-              v-model.number="newItem.price"
+              v-model.number="newItem.unitPrice"
               label="Cena/ks"
               type="number"
               variant="outlined"
               density="comfortable"
               suffix="Kč"
+              step="0.01"
             ></v-text-field>
           </v-col>
 
@@ -694,6 +787,94 @@ onMounted(() => {
       </v-card-actions>
     </v-card>
   </v-bottom-sheet>
+
+  <!-- **VYLEPŠENÉ: Dialog s autocomplete** -->
+  <v-dialog v-model="showEditItemDialog" max-width="600">
+    <v-card>
+      <v-card-title class="d-flex justify-space-between align-center">
+        <span>Upravit položku</span>
+        <v-btn icon variant="text" @click="showEditItemDialog = false">
+          <v-icon>mdi-close</v-icon>
+        </v-btn>
+      </v-card-title>
+      <v-divider></v-divider>
+      <v-card-text class="pt-4">
+        <v-alert type="info" variant="tonal" density="compact" class="mb-4">
+          <div class="d-flex align-center">
+            <v-icon start>mdi-information</v-icon>
+            <div>
+              <div class="font-weight-medium">{{ editingItem?.productName }}</div>
+              <div class="text-caption">Upravte množství, cenu nebo poznámku</div>
+            </div>
+          </div>
+        </v-alert>
+
+        <v-row>
+          <v-col cols="12" md="6">
+            <v-text-field
+              v-model.number="editItemData.quantity"
+              label="Množství *"
+              type="number"
+              variant="outlined"
+              density="comfortable"
+              min="0.001"
+              step="0.001"
+              prepend-inner-icon="mdi-counter"
+            ></v-text-field>
+          </v-col>
+
+          <v-col cols="12" md="6">
+            <v-text-field
+              v-model.number="editItemData.unitPrice"
+              label="Cena za jednotku"
+              type="number"
+              variant="outlined"
+              density="comfortable"
+              suffix="Kč"
+              prepend-inner-icon="mdi-currency-usd"
+              step="0.01"
+            ></v-text-field>
+          </v-col>
+
+          <v-col cols="12">
+            <v-textarea
+              v-model="editItemData.notes"
+              label="Poznámka"
+              variant="outlined"
+              rows="3"
+              prepend-inner-icon="mdi-note-text"
+            ></v-textarea>
+          </v-col>
+
+          <!-- Výpočet celkové ceny -->
+          <v-col cols="12" v-if="editItemData.quantity && editItemData.unitPrice">
+            <v-alert type="success" variant="tonal" density="compact">
+              <div class="d-flex justify-space-between align-center">
+                <span>Celková cena:</span>
+                <span class="text-h6 font-weight-bold">
+                  {{ formatPrice(editItemData.quantity * editItemData.unitPrice) }}
+                </span>
+              </div>
+            </v-alert>
+          </v-col>
+        </v-row>
+      </v-card-text>
+      <v-divider></v-divider>
+      <v-card-actions>
+        <v-spacer></v-spacer>
+        <v-btn variant="outlined" @click="showEditItemDialog = false">
+          Zrušit
+        </v-btn>
+        <v-btn 
+          color="primary" 
+          @click="saveEditItem"
+          :loading="saving"
+        >
+          Uložit změny
+        </v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
 </template>
 
 <style scoped>
@@ -703,5 +884,17 @@ onMounted(() => {
 
 :deep(.v-data-table) {
   border-radius: 8px;
+}
+
+.product-link {
+  cursor: pointer;
+  transition: color 0.2s;
+  display: inline-flex;
+  align-items: center;
+}
+
+.product-link:hover {
+  color: rgb(var(--v-theme-primary));
+  text-decoration: underline;
 }
 </style>
