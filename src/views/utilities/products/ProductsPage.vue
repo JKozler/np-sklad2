@@ -23,11 +23,13 @@ const products = ref<Product[]>([]);
 const loading = ref(false);
 const error = ref<string | null>(null);
 const searchText = ref('');
-const totalFromAPI = ref(0); // **NOVÉ: Celkový počet z API**
+const totalFromAPI = ref(0);
 
-// **NOVÉ: Filtry**
+// **NOVÉ: Aktivní tab pro typ zásob**
+const activeTab = ref<'all' | 'vyrobek' | 'material'>('all');
+
+// **UPRAVENÉ: stockType už není v filters, protože se řídí přes taby**
 const filters = ref({
-  stockType: [] as string[], // Může být více typů najednou
   isStockItem: null as boolean | null,
   ean: ''
 });
@@ -36,16 +38,15 @@ const filters = ref({
 let searchTimeout: number | null = null;
 let totals = 0;
 
-// **NOVÉ: Typy zásob pro výběr**
-const stockTypeOptions = ref([
-  { value: 'typZasoby.vyrobek', title: 'Výrobek', icon: 'mdi-hammer-wrench', color: 'success' },
-  { value: 'typZasoby.zbozi', title: 'Zboží', icon: 'mdi-package-variant', color: 'primary' },
-  { value: 'typZasoby.material', title: 'Materiál', icon: 'mdi-package-variant-closed', color: 'info' },
-  { value: 'typZasoby.sluzba', title: 'Služba', icon: 'mdi-briefcase', color: 'warning' },
-  { value: 'typZasoby.poplatek', title: 'Poplatek', icon: 'mdi-cash', color: 'secondary' }
-]);
+// **NOVÉ: Statistiky pro jednotlivé taby**
+const tabStats = computed(() => {
+  const all = products.value.length;
+  const vyrobek = products.value.filter(p => p.stockType === 'typZasoby.vyrobek').length;
+  const material = products.value.filter(p => p.stockType === 'typZasoby.material').length;
+  
+  return { all, vyrobek, material };
+});
 
-// **NOVÉ: Statistiky**
 const stats = computed(() => {
   return {
     total: totals,
@@ -103,7 +104,7 @@ const formatPrice = (price: number | null) => {
 };
 
 /**
- * **NOVÉ: Načte produkty s filtry - VŠECHNY najednou pomocí většího maxSize**
+ * **UPRAVENÉ: Načte produkty s filtry včetně aktivního tabu**
  */
 const loadProducts = async () => {
   loading.value = true;
@@ -126,15 +127,19 @@ const loadProducts = async () => {
       whereGroupIndex++;
     }
 
-    // **2. Filtr podle stockType (IN - více hodnot)**
-    if (filters.value.stockType.length > 0) {
-      queryParams[`whereGroup[${whereGroupIndex}][type]`] = 'in';
+    // **2. NOVÉ: Filtr podle aktivního tabu (stockType)**
+    if (activeTab.value === 'vyrobek') {
+      queryParams[`whereGroup[${whereGroupIndex}][type]`] = 'equals';
       queryParams[`whereGroup[${whereGroupIndex}][attribute]`] = 'stockType';
-      filters.value.stockType.forEach((type, idx) => {
-        queryParams[`whereGroup[${whereGroupIndex}][value][${idx}]`] = type;
-      });
+      queryParams[`whereGroup[${whereGroupIndex}][value]`] = 'typZasoby.vyrobek';
+      whereGroupIndex++;
+    } else if (activeTab.value === 'material') {
+      queryParams[`whereGroup[${whereGroupIndex}][type]`] = 'equals';
+      queryParams[`whereGroup[${whereGroupIndex}][attribute]`] = 'stockType';
+      queryParams[`whereGroup[${whereGroupIndex}][value]`] = 'typZasoby.material';
       whereGroupIndex++;
     }
+    // activeTab.value === 'all' - žádný stockType filtr
 
     // **3. Filtr podle isStockItem (boolean)**
     if (filters.value.isStockItem !== null) {
@@ -166,10 +171,8 @@ const loadProducts = async () => {
     
     console.log('✅ Načteno produktů:', products.value.length, '/', response.total);
     
-    // ⚠️ Varování pokud je produktů více než maxSize
-    if (response.total > 2000) {
-      console.warn('⚠️ POZOR: Celkový počet produktů (' + response.total + ') překračuje maxSize (2000)!');
-      error.value = `Varování: Zobrazeno pouze prvních 2000 z ${response.total} produktů. Použijte filtry pro zúžení výsledků.`;
+    if (response.total > 200) {
+      console.warn('⚠️ POZOR: Celkový počet produktů (' + response.total + ') překračuje maxSize (200)!');
     }
   } catch (err: any) {
     error.value = err.message || 'Chyba při načítání produktů';
@@ -200,10 +203,16 @@ watch(searchText, () => {
 });
 
 /**
- * **NOVÉ: Watch na změnu filtrů**
+ * **NOVÉ: Watch na změnu aktivního tabu**
+ */
+watch(activeTab, () => {
+  loadProducts();
+});
+
+/**
+ * **UPRAVENÉ: Watch na změnu filtrů (bez stockType)**
  */
 watch([
-  () => filters.value.stockType,
   () => filters.value.isStockItem,
   () => filters.value.ean
 ], () => {
@@ -211,24 +220,23 @@ watch([
 }, { deep: true });
 
 /**
- * **NOVÉ: Vyčistí všechny filtry**
+ * **UPRAVENÉ: Vyčistí všechny filtry**
  */
 const clearFilters = () => {
   filters.value = {
-    stockType: [],
     isStockItem: null,
     ean: ''
   };
   searchText.value = '';
+  activeTab.value = 'all';
   loadProducts();
 };
 
 /**
- * **NOVÉ: Vrátí počet aktivních filtrů**
+ * **UPRAVENÉ: Vrátí počet aktivních filtrů (bez stockType tabu)**
  */
 const activeFiltersCount = computed(() => {
   let count = 0;
-  if (filters.value.stockType.length > 0) count++;
   if (filters.value.isStockItem !== null) count++;
   if (filters.value.ean.trim()) count++;
   if (searchText.value.trim()) count++;
@@ -275,11 +283,35 @@ onMounted(() => {
   
   <v-row>
     <v-col cols="12">
-      <!-- **NOVÉ: Statistiky** -->
+      <!-- **NOVÉ: Taby pro typ zásob** -->
+      <v-card variant="outlined" class="mb-4">
+        <v-tabs
+          v-model="activeTab"
+          color="primary"
+          align-tabs="start"
+        >
+          <v-tab value="all">
+            <v-icon start>mdi-package-variant</v-icon>
+            Vše
+          </v-tab>
+          
+          <v-tab value="vyrobek">
+            <v-icon start color="success">mdi-hammer-wrench</v-icon>
+            Výrobek
+          </v-tab>
+          
+          <v-tab value="material">
+            <v-icon start color="info">mdi-package-variant-closed</v-icon>
+            Materiál
+          </v-tab>
+        </v-tabs>
+      </v-card>
+
+      <!-- Statistiky -->
       <v-row class="mb-4">
         <v-col cols="12" sm="6" md="3">
           <v-card variant="outlined">
-            <v-card-text>
+            <v-card-text style="padding-top: 0;padding-bottom: 0;">
               <div class="text-subtitle-2 text-medium-emphasis">Zobrazeno produktů</div>
               <div class="text-h4 font-weight-bold mt-2">{{ stats.total }}</div>
             </v-card-text>
@@ -287,7 +319,7 @@ onMounted(() => {
         </v-col>
         <v-col cols="12" sm="6" md="3">
           <v-card variant="outlined">
-            <v-card-text>
+            <v-card-text style="padding-top: 0;padding-bottom: 0;">
               <div class="text-subtitle-2 text-medium-emphasis">Skladové položky</div>
               <div class="text-h4 font-weight-bold mt-2 text-success">
                 {{ stats.skladove }}
@@ -297,7 +329,7 @@ onMounted(() => {
         </v-col>
         <v-col cols="12" sm="6" md="3">
           <v-card variant="outlined">
-            <v-card-text>
+            <v-card-text style="padding-top: 0;padding-bottom: 0;">
               <div class="text-subtitle-2 text-medium-emphasis">Výrobky</div>
               <div class="text-h4 font-weight-bold mt-2 text-success">
                 {{ stats.vyrobek }}
@@ -307,7 +339,7 @@ onMounted(() => {
         </v-col>
         <v-col cols="12" sm="6" md="3">
           <v-card variant="outlined">
-            <v-card-text>
+            <v-card-text style="padding-top: 0;padding-bottom: 0;">
               <div class="text-subtitle-2 text-medium-emphasis">Zboží</div>
               <div class="text-h4 font-weight-bold mt-2 text-primary">
                 {{ stats.zbozi }}
@@ -369,7 +401,7 @@ onMounted(() => {
           </v-row>
         </div>
 
-        <!-- **NOVÉ: Pokročilé filtry** -->
+        <!-- **UPRAVENÉ: Pokročilé filtry - skryje "Typ zásob" pokud je aktivní tab** -->
         <v-expansion-panels class="mb-4">
           <v-expansion-panel>
             <v-expansion-panel-title>
@@ -386,43 +418,20 @@ onMounted(() => {
             </v-expansion-panel-title>
             <v-expansion-panel-text>
               <v-row>
-                <!-- Typ zásob -->
-                <v-col cols="12" md="4">
-                  <v-select
-                    v-model="filters.stockType"
-                    :items="stockTypeOptions"
-                    label="Typ zásob"
-                    variant="outlined"
-                    density="compact"
-                    multiple
-                    chips
-                    clearable
-                  >
-                    <template v-slot:chip="{ item }">
-                      <v-chip 
-                        :color="item.raw.color"
-                        size="small"
-                        closable
-                        @click:close="filters.stockType = filters.stockType.filter(t => t !== item.value)"
-                      >
-                        <v-icon start size="small">{{ item.raw.icon }}</v-icon>
-                        {{ item.raw.title }}
-                      </v-chip>
-                    </template>
-
-                    <template v-slot:item="{ props, item }">
-                      <v-list-item v-bind="props">
-                        <template v-slot:prepend>
-                          <v-icon :color="item.raw.color">{{ item.raw.icon }}</v-icon>
-                        </template>
-                        <v-list-item-title>{{ item.raw.title }}</v-list-item-title>
-                      </v-list-item>
-                    </template>
-                  </v-select>
+                <!-- **UPRAVENÉ: Typ zásob - skryt při aktivním tabu** -->
+                <v-col cols="12" md="4" v-if="activeTab === 'all'">
+                  <v-alert type="info" variant="tonal" density="compact">
+                    <div class="d-flex align-center">
+                      <v-icon start size="small">mdi-information</v-icon>
+                      <span class="text-caption">
+                        Pro filtrování podle typu zásob použijte taby nahoře
+                      </span>
+                    </div>
+                  </v-alert>
                 </v-col>
 
                 <!-- Skladová položka -->
-                <v-col cols="12" md="4">
+                <v-col cols="12" :md="activeTab === 'all' ? 4 : 6">
                   <v-select
                     v-model="filters.isStockItem"
                     :items="[
@@ -452,7 +461,7 @@ onMounted(() => {
                 </v-col>
 
                 <!-- EAN -->
-                <v-col cols="12" md="4">
+                <v-col cols="12" :md="activeTab === 'all' ? 4 : 6">
                   <v-text-field
                     v-model="filters.ean"
                     label="EAN"
@@ -482,6 +491,38 @@ onMounted(() => {
           </v-expansion-panel>
         </v-expansion-panels>
 
+        <!-- **NOVÉ: Info o aktivním tabu** -->
+        <v-alert
+          v-if="activeTab !== 'all'"
+          type="info"
+          variant="tonal"
+          density="compact"
+          class="mb-4"
+        >
+          <div class="d-flex align-center justify-space-between">
+            <div class="d-flex align-center">
+              <v-icon 
+                start 
+                :color="activeTab === 'vyrobek' ? 'success' : 'info'"
+              >
+                {{ activeTab === 'vyrobek' ? 'mdi-hammer-wrench' : 'mdi-package-variant-closed' }}
+              </v-icon>
+              <span>
+                Zobrazeny pouze produkty typu: 
+                <strong>{{ activeTab === 'vyrobek' ? 'Výrobek' : 'Materiál' }}</strong>
+                <span class="text-medium-emphasis ml-2">({{ products.length }} produktů)</span>
+              </span>
+            </div>
+            <v-btn
+              size="small"
+              variant="text"
+              @click="activeTab = 'all'"
+            >
+              Zobrazit vše
+            </v-btn>
+          </div>
+        </v-alert>
+
         <!-- Info o aktivních filtrech -->
         <v-alert
           v-if="activeFiltersCount > 0"
@@ -499,9 +540,6 @@ onMounted(() => {
               <div class="text-caption mt-1">
                 <span v-if="searchText.trim()">
                   Hledání: "{{ searchText }}"
-                </span>
-                <span v-if="filters.stockType.length > 0" class="ml-2">
-                  | Typy: {{ filters.stockType.length }}
                 </span>
                 <span v-if="filters.isStockItem !== null" class="ml-2">
                   | Skladové: {{ filters.isStockItem ? 'Ano' : 'Ne' }}
@@ -571,7 +609,11 @@ onMounted(() => {
               <div class="text-caption text-medium-emphasis">
                 {{ searchText.trim() || activeFiltersCount > 0
                   ? 'Pro zadaná kritéria nebyly nalezeny žádné produkty.' 
-                  : 'Zatím nebyly načteny žádné produkty.' 
+                  : activeTab === 'vyrobek'
+                    ? 'V kategorii "Výrobek" nejsou žádné produkty.'
+                    : activeTab === 'material'
+                      ? 'V kategorii "Materiál" nejsou žádné produkty.'
+                      : 'Zatím nebyly načteny žádné produkty.'
                 }}
               </div>
               <v-btn
@@ -689,6 +731,9 @@ onMounted(() => {
           <v-icon size="small" class="mr-1">mdi-information-outline</v-icon>
           {{ searchText.trim() || activeFiltersCount > 0 ? 'Výsledky filtrování: ' : 'Celkem produktů: ' }}
           <strong>{{ products.length }}</strong>
+          <span v-if="activeTab !== 'all'" class="ml-2">
+            ({{ activeTab === 'vyrobek' ? 'Výrobek' : 'Materiál' }})
+          </span>
           <span v-if="activeFiltersCount > 0" class="ml-2">
             ({{ activeFiltersCount }} {{ activeFiltersCount === 1 ? 'filtr' : activeFiltersCount < 5 ? 'filtry' : 'filtrů' }})
           </span>

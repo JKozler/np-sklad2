@@ -308,7 +308,7 @@ onMounted(() => {
       <v-row class="mb-4">
         <v-col cols="12" sm="6" md="3">
           <v-card variant="outlined">
-            <v-card-text>
+            <v-card-text style="padding-top: 0;padding-bottom: 0;">
               <div class="text-subtitle-2 text-medium-emphasis">Zobrazeno pohybů</div>
               <div class="text-h4 font-weight-bold mt-2">{{ filteredTransactions.length }}</div>
               <div class="text-caption text-medium-emphasis mt-1">
@@ -319,7 +319,7 @@ onMounted(() => {
         </v-col>
         <v-col cols="12" sm="6" md="3">
           <v-card variant="outlined">
-            <v-card-text>
+            <v-card-text style="padding-top: 0;padding-bottom: 0;">
               <div class="text-subtitle-2 text-medium-emphasis">Dokončeno</div>
               <div class="text-h4 font-weight-bold mt-2 text-success">
                 {{ filteredTransactions.filter(t => t.status === 'completed').length }}
@@ -329,7 +329,7 @@ onMounted(() => {
         </v-col>
         <v-col cols="12" sm="6" md="3">
           <v-card variant="outlined">
-            <v-card-text>
+            <v-card-text style="padding-top: 0;padding-bottom: 0;">
               <div class="text-subtitle-2 text-medium-emphasis">Koncepty</div>
               <div class="text-h4 font-weight-bold mt-2 text-warning">
                 {{ filteredTransactions.filter(t => !t.status || t.status === 'draft').length }}
@@ -339,7 +339,7 @@ onMounted(() => {
         </v-col>
         <v-col cols="12" sm="6" md="3">
           <v-card variant="outlined">
-            <v-card-text>
+            <v-card-text style="padding-top: 0;padding-bottom: 0;">
               <div class="text-subtitle-2 text-medium-emphasis">Aktivní směr</div>
               <v-chip 
                 class="mt-2"
