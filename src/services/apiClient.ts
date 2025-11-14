@@ -24,6 +24,7 @@ export class ApiClient {
   
     try {
       const authHeader = this.getAuthHeader();
+      const base64Credentials = authHeader.replace('Basic ', '');
       
       console.log('🔵 Full URL:', `${API_BASE_URL}${endpoint}`);
       console.log('🔑 Auth Header:', authHeader);
@@ -33,6 +34,7 @@ export class ApiClient {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
         'Authorization': authHeader,
+        'Espo-Authorization': base64Credentials,
         ...headers
       };
       

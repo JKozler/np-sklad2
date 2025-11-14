@@ -37,6 +37,7 @@ export const authService = {
       console.log('🔐 Attempting login for:', credentials.username);
       
       const authHeader = 'Basic ' + btoa(`${credentials.username}:${credentials.password}`);
+      const base64Credentials = authHeader.replace('Basic ', '');
       
       console.log('📡 Calling API:', `${API_BASE_URL}/App/user`);
       
@@ -45,8 +46,10 @@ export const authService = {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': authHeader,
+          'Espo-Authorization': base64Credentials,
           'Accept': 'application/json'
-        }
+        },
+        credentials: 'include'
       });
 
       console.log('📥 Response status:', response.status);
@@ -119,13 +122,16 @@ export const authService = {
 
     try {
       const authHeader = 'Basic ' + btoa(`${username}:${password}`);
+      const base64Credentials = authHeader.replace('Basic ', '');
       
       const response = await fetch(`${API_BASE_URL}/App/user`, {
         method: 'GET',
         headers: {
           'Authorization': authHeader,
+          'Espo-Authorization': base64Credentials,
           'Accept': 'application/json'
-        }
+        },
+        credentials: 'include'
       });
 
       return response.ok;
