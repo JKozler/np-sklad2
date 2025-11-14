@@ -40,6 +40,12 @@ const exporting = ref(false);
 const showExportDialog = ref(false);
 const exportFormat = ref<'csv' | 'json' | 'xlsx'>('csv');
 
+// **NOVÉ: URL fotky produktu**
+const photoUrl = computed(() => {
+  if (!product.value?.photoId) return null;
+  return `https://smart-int-be.naturalprotein.net/?entryPoint=image&size=medium&id=${product.value.photoId}`;
+});
+
 const inventoryCardHeaders = ref([
   { title: 'Sklad / Období', key: 'warehouseName', sortable: true },
   { title: 'Aktuální stav', key: 'currentStockQuantity', sortable: true },
@@ -892,6 +898,45 @@ onMounted(() => {
 
         <!-- Boční panel -->
         <v-col cols="12" md="4">
+          <!-- **NOVÉ: Fotka produktu** -->
+          <v-card variant="outlined" v-if="photoUrl" class="mb-4">
+            <v-img
+              :src="photoUrl"
+              :alt="product.name"
+              cover
+              aspect-ratio="1"
+              class="product-photo"
+            >
+              <template v-slot:placeholder>
+                <v-row
+                  class="fill-height ma-0"
+                  align="center"
+                  justify="center"
+                >
+                  <v-progress-circular
+                    indeterminate
+                    color="primary"
+                  ></v-progress-circular>
+                </v-row>
+              </template>
+              <template v-slot:error>
+                <v-row
+                  class="fill-height ma-0"
+                  align="center"
+                  justify="center"
+                >
+                  <v-icon size="64" color="grey-lighten-1">
+                    mdi-image-off
+                  </v-icon>
+                </v-row>
+              </template>
+            </v-img>
+            <v-card-text class="text-center text-caption text-medium-emphasis pa-2">
+              {{ product.photoName || 'Fotka produktu' }}
+            </v-card-text>
+          </v-card>
+
+          <!-- Metadata -->
           <v-card variant="outlined">
             <v-card-text>
               <div class="text-h6 mb-4">Metadata</div>
@@ -962,7 +1007,7 @@ onMounted(() => {
             </v-card-text>
           </v-card>
 
-          <!-- **NOVÉ: Rychlé akce s funkční duplikací a exportem** -->
+          <!-- Rychlé akce -->
           <v-card variant="outlined" class="mt-4">
             <v-card-text>
               <div class="text-h6 mb-4">Rychlé akce</div>
@@ -1015,7 +1060,7 @@ onMounted(() => {
     </v-col>
   </v-row>
 
-  <!-- **NOVÉ: Dialog pro výběr formátu exportu** -->
+  <!-- Dialog pro výběr formátu exportu -->
   <v-dialog v-model="showExportDialog" max-width="400">
     <v-card>
       <v-card-title class="d-flex justify-space-between align-center">
@@ -1092,5 +1137,9 @@ onMounted(() => {
 
 :deep(.v-data-table) {
   border-radius: 8px;
+}
+
+.product-photo {
+  border-radius: 8px 8px 0 0;
 }
 </style>

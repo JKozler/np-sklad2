@@ -5,6 +5,8 @@ export interface Product {
   id: string;
   abraId: number;
   code: string;
+  photoId: string;
+  photoName: string;
   name: string;
   description?: string | null;
   ean?: string;
