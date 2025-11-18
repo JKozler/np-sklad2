@@ -44,16 +44,6 @@ const sidebarItem: menu[] = [
     icon: ShoppingCartIcon,
     to: '/orders'
   },
-  {
-    title: 'Zákazníci',
-    icon: UsersIcon,
-    to: '/customers'
-  },
-  {
-    title: 'Faktury',
-    icon: FileInvoiceIcon,
-    to: '/invoices'
-  },
   
   { divider: true },
   { header: 'Statistiky' },
