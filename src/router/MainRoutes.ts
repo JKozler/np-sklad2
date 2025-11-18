@@ -29,6 +29,11 @@ const MainRoutes = {
       component: () => import('@/views/utilities/orders/OrdersPage.vue')
     },
     {
+      name: 'Detail objednávky',
+      path: '/orders/:id',
+      component: () => import('@/views/utilities/orders/OrderDetailPage.vue')
+    },
+    {
       name: 'Zákazníci',
       path: '/customers',
       component: () => import('@/views/utilities/customers/CustomersPage.vue')

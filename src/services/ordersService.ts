@@ -1,201 +1,191 @@
 // src/services/ordersService.ts
-export type OrderStatus = 'pending' | 'processing' | 'shipped' | 'completed' | 'cancelled';
+import { apiClient } from './apiClient';
 
-export interface OrderItem {
-  productId: number;
-  productName: string;
-  quantity: number;
-  price: number;
-}
+export type OrderStatus = 'new' | 'processing' | 'shipped' | 'completed' | 'cancelled';
 
-export interface Order {
-  id: number;
-  orderNumber: string;
-  customerId: number;
-  customerName: string;
-  status: OrderStatus;
-  totalAmount: number;
-  items: OrderItem[];
-  notes?: string | null;
+export interface SalesOrderItem {
+  id: string;
+  name: string;
   createdAt: string;
-  updatedAt: string;
+  quantity: number;
+  vatRate: number;
+  unitPrice: number;
+  priceWithoutVat: number;
+  priceWithVat: number;
+  createdById: string;
+  assignedUserId: string | null;
+  productId: string | null;
+  productName: string | null;
 }
 
-export interface CreateOrderData {
-  customerId: number;
-  customerName: string;
-  items: OrderItem[];
-  notes?: string;
+export interface SalesOrder {
+  id: string;
+  name: string;
+  deleted?: boolean;
+  description?: string | null;
+  createdAt: string;
+  modifiedAt?: string;
+  status: OrderStatus;
+  priceWithoutVat?: number;
+  priceWithVat: number;
+  paymentMethod?: string;
+  shippingAddressFirstName: string;
+  shippingAddressLastName: string;
+  shippingAddressStreet?: string;
+  shippingAddressCity?: string;
+  shippingAddressCountry?: string;
+  shippingAddressPostalCode?: string;
+  billingAddressFirstName?: string;
+  billingAddressLastName?: string;
+  billingAddressStreet?: string;
+  billingAddressCity?: string;
+  billingAddressCountry?: string;
+  billingAddressPostalCode?: string;
+  billingAddressCompanyName?: string | null;
+  channel?: string;
+  customerNote?: string;
+  internalNote?: string;
+  currency: string;
+  email?: string;
+  phoneNumber?: string;
+  carrierPickupPoint?: string;
+  streamUpdatedAt?: string;
+  createdById: string;
+  createdByName?: string;
+  modifiedById?: string | null;
+  modifiedByName?: string | null;
+  assignedUserId?: string | null;
+  assignedUserName?: string | null;
+  teamsIds?: string[];
+  teamsNames?: Record<string, string>;
+  carrierId?: string;
+  carrierName?: string;
+  warehouseWorkerId?: string | null;
+  warehouseWorkerName?: string | null;
+  isFollowed?: boolean;
+  followersIds?: string[];
+  followersNames?: Record<string, string>;
+  isStarred?: boolean;
 }
 
-const MOCK_ORDERS: Order[] = [
-  {
-    id: 1,
-    orderNumber: 'ORD-2024-0001',
-    customerId: 1,
-    customerName: 'Jan Novák',
-    status: 'completed',
-    totalAmount: 4850.50,
-    items: [
-      { productId: 1, productName: '3x Maca 60 cps', quantity: 10, price: 80.90 },
-      { productId: 3, productName: 'Acerola 60 kapslí', quantity: 50, price: 62.00 }
-    ],
-    notes: 'Prosím o rychlé dodání',
-    createdAt: '2024-10-01',
-    updatedAt: '2024-10-02'
-  },
-  {
-    id: 2,
-    orderNumber: 'ORD-2024-0002',
-    customerId: 3,
-    customerName: 'Petr Dvořák',
-    status: 'processing',
-    totalAmount: 12450.00,
-    items: [
-      { productId: 10, productName: 'Bezlaktózový protein 350g', quantity: 100, price: 113.33 },
-      { productId: 8, productName: 'BCAA a Kreatin Malina 300g', quantity: 20, price: 161.34 }
-    ],
-    notes: 'Velkoobchodní objednávka',
-    createdAt: '2024-10-05',
-    updatedAt: '2024-10-05'
-  },
-  {
-    id: 3,
-    orderNumber: 'ORD-2024-0003',
-    customerId: 2,
-    customerName: 'Marie Svobodová',
-    status: 'pending',
-    totalAmount: 2340.00,
-    items: [
-      { productId: 7, productName: 'Ashwagandha 60cps', quantity: 20, price: 91.10 },
-      { productId: 4, productName: 'ALFA ALFA 60g', quantity: 30, price: 20.94 }
-    ],
-    notes: null,
-    createdAt: '2024-10-07',
-    updatedAt: '2024-10-07'
-  },
-  {
-    id: 4,
-    orderNumber: 'ORD-2024-0004',
-    customerId: 5,
-    customerName: 'Tomáš Procházka',
-    status: 'shipped',
-    totalAmount: 8920.00,
-    items: [
-      { productId: 10, productName: 'Bezlaktózový protein 350g', quantity: 50, price: 113.33 },
-      { productId: 11, productName: 'Bezlaktózový protein Banán 350g', quantity: 30, price: 117.43 }
-    ],
-    notes: 'Měsíční dodávka',
-    createdAt: '2024-10-03',
-    updatedAt: '2024-10-06'
-  },
-  {
-    id: 5,
-    orderNumber: 'ORD-2024-0005',
-    customerId: 4,
-    customerName: 'Eva Černá',
-    status: 'cancelled',
-    totalAmount: 1580.00,
-    items: [
-      { productId: 2, productName: 'ACAI 70g', quantity: 15, price: 105.69 }
-    ],
-    notes: 'Zákazník zrušil objednávku',
-    createdAt: '2024-09-28',
-    updatedAt: '2024-09-29'
-  }
-];
+export interface SalesOrdersResponse {
+  total: number;
+  list: SalesOrder[];
+}
+
+export interface SalesOrderItemsResponse {
+  total: number;
+  list: SalesOrderItem[];
+}
+
+export interface UpdateOrderData {
+  status?: OrderStatus;
+  assignedUserId?: string | null;
+  internalNote?: string;
+  customerNote?: string;
+  isStarred?: boolean;
+  // Shipping address
+  shippingAddressFirstName?: string;
+  shippingAddressLastName?: string;
+  shippingAddressStreet?: string;
+  shippingAddressCity?: string;
+  shippingAddressPostalCode?: string;
+  shippingAddressCountry?: string;
+  // Billing address
+  billingAddressFirstName?: string;
+  billingAddressLastName?: string;
+  billingAddressStreet?: string;
+  billingAddressCity?: string;
+  billingAddressPostalCode?: string;
+  billingAddressCountry?: string;
+  billingAddressCompanyName?: string | null;
+  // Contact
+  email?: string;
+  phoneNumber?: string;
+  // Other
+  paymentMethod?: string;
+  carrierPickupPoint?: string;
+}
 
 export const ordersService = {
-  async getAll(filters?: { status?: OrderStatus; customerId?: number }): Promise<Order[]> {
-    await new Promise(resolve => setTimeout(resolve, 300));
+  /**
+   * Načte seznam objednávek s možností vyhledávání
+   */
+  async getAll(searchText?: string): Promise<SalesOrdersResponse> {
+    const queryParams = new URLSearchParams({
+      maxSize: '20',
+      offset: '0',
+      orderBy: 'createdAt',
+      order: 'desc',
+      attributeSelect: 'name,priceWithVat,currency,shippingAddressLastName,shippingAddressFirstName,status,carrierId,carrierName,createdAt,isStarred'
+    });
 
-    let filtered = [...MOCK_ORDERS];
-
-    if (filters?.status) {
-      filtered = filtered.filter(o => o.status === filters.status);
+    // Přidat textový filtr pokud existuje
+    if (searchText) {
+      queryParams.append('whereGroup[0][type]', 'textFilter');
+      queryParams.append('whereGroup[0][value]', searchText);
     }
 
-    if (filters?.customerId) {
-      filtered = filtered.filter(o => o.customerId === filters.customerId);
-    }
+    console.log('🔍 API Request:', `/SalesOrder?${queryParams}`);
+    return apiClient.get<SalesOrdersResponse>(`/SalesOrder?${queryParams}`);
+  },
 
-    return filtered.sort((a, b) => 
-      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  /**
+   * Načte detail objednávky
+   */
+  async getById(id: string): Promise<SalesOrder> {
+    console.log('🔍 Getting order:', id);
+    return apiClient.get<SalesOrder>(`/SalesOrder/${id}`);
+  },
+
+  /**
+   * Načte položky objednávky
+   */
+  async getOrderItems(orderId: string): Promise<SalesOrderItem[]> {
+    const queryParams = new URLSearchParams({
+      primaryFilter: '',
+      maxSize: '100',
+      offset: '0',
+      orderBy: 'createdAt',
+      order: 'desc',
+      attributeSelect: 'productId,productName,name,quantity,unitPrice,priceWithoutVat,vatRate,priceWithVat'
+    });
+
+    console.log('📋 Getting order items:', orderId);
+    const response = await apiClient.get<SalesOrderItemsResponse>(
+      `/SalesOrder/${orderId}/salesOrderItems?${queryParams}`
     );
+    
+    return response.list;
   },
 
-  async getById(id: number): Promise<Order | null> {
-    await new Promise(resolve => setTimeout(resolve, 200));
-    return MOCK_ORDERS.find(o => o.id === id) || null;
+  /**
+   * Aktualizuje objednávku
+   */
+  async update(id: string, data: UpdateOrderData): Promise<SalesOrder> {
+    console.log('✏️ Updating order:', id, data);
+    return apiClient.put<SalesOrder>(`/SalesOrder/${id}`, data);
   },
 
-  async create(data: CreateOrderData): Promise<Order> {
-    await new Promise(resolve => setTimeout(resolve, 400));
-
-    const orderNumber = `ORD-${new Date().getFullYear()}-${String(MOCK_ORDERS.length + 1).padStart(4, '0')}`;
-    const totalAmount = data.items.reduce((sum, item) => sum + (item.quantity * item.price), 0);
-
-    const newOrder: Order = {
-      id: MOCK_ORDERS.length + 1,
-      orderNumber,
-      customerId: data.customerId,
-      customerName: data.customerName,
-      status: 'pending',
-      totalAmount,
-      items: data.items,
-      notes: data.notes || null,
-      createdAt: new Date().toISOString().split('T')[0],
-      updatedAt: new Date().toISOString().split('T')[0]
-    };
-
-    MOCK_ORDERS.push(newOrder);
-    return newOrder;
+  /**
+   * Změní status objednávky
+   */
+  async updateStatus(id: string, status: OrderStatus): Promise<SalesOrder> {
+    return this.update(id, { status });
   },
 
-  async updateStatus(id: number, status: OrderStatus): Promise<Order> {
-    await new Promise(resolve => setTimeout(resolve, 400));
-
-    const index = MOCK_ORDERS.findIndex(o => o.id === id);
-    if (index === -1) throw new Error('Objednávka nenalezena');
-
-    MOCK_ORDERS[index] = { 
-      ...MOCK_ORDERS[index], 
-      status,
-      updatedAt: new Date().toISOString().split('T')[0]
-    };
-
-    return MOCK_ORDERS[index];
+  /**
+   * Označí/odznačí objednávku jako hvězdičkovou
+   */
+  async toggleStar(id: string, isStarred: boolean): Promise<SalesOrder> {
+    return this.update(id, { isStarred });
   },
 
-  async delete(id: number): Promise<void> {
-    await new Promise(resolve => setTimeout(resolve, 300));
-    const index = MOCK_ORDERS.findIndex(o => o.id === id);
-    if (index !== -1) {
-      MOCK_ORDERS.splice(index, 1);
-    }
-  },
-
-  async getStats(): Promise<{
-    total: number;
-    pending: number;
-    processing: number;
-    shipped: number;
-    completed: number;
-    cancelled: number;
-    totalRevenue: number;
-  }> {
-    await new Promise(resolve => setTimeout(resolve, 200));
-
-    return {
-      total: MOCK_ORDERS.length,
-      pending: MOCK_ORDERS.filter(o => o.status === 'pending').length,
-      processing: MOCK_ORDERS.filter(o => o.status === 'processing').length,
-      shipped: MOCK_ORDERS.filter(o => o.status === 'shipped').length,
-      completed: MOCK_ORDERS.filter(o => o.status === 'completed').length,
-      cancelled: MOCK_ORDERS.filter(o => o.status === 'cancelled').length,
-      totalRevenue: MOCK_ORDERS
-        .filter(o => o.status === 'completed')
-        .reduce((sum, o) => sum + o.totalAmount, 0)
-    };
+  /**
+   * Smaže objednávku
+   */
+  async delete(id: string): Promise<void> {
+    console.log('🗑️ Deleting order:', id);
+    await apiClient.delete(`/SalesOrder/${id}`);
   }
 };

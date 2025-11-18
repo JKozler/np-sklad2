@@ -4,7 +4,7 @@ import { ref, computed, onMounted } from 'vue';
 import BaseBreadcrumb from '@/components/shared/BaseBreadcrumb.vue';
 import UiParentCard from '@/components/shared/UiParentCard.vue';
 import { ordersService } from '@/services/ordersService';
-import type { Order, OrderStatus } from '@/types/auth';
+import type { SalesOrder, OrderStatus } from '@/services/ordersService';
 
 const page = ref({ title: 'Objednávky' });
 const breadcrumbs = ref([
@@ -12,32 +12,24 @@ const breadcrumbs = ref([
   { title: 'Objednávky', disabled: true, href: '#' }
 ]);
 
-const orders = ref<Order[]>([]);
+const orders = ref<SalesOrder[]>([]);
 const loading = ref(false);
-const selectedStatus = ref<OrderStatus | 'all'>('all');
-const itemsPerPage = ref(10);
+const searchText = ref('');
+const itemsPerPage = ref(20);
 const currentPage = ref(1);
 
 const headers = ref([
-  { title: 'Číslo objednávky', key: 'orderNumber', sortable: true },
-  { title: 'Zákazník', key: 'customerName', sortable: true },
+  { title: 'Číslo', key: 'name', sortable: true },
+  { title: 'Zákazník', key: 'customer', sortable: true },
   { title: 'Status', key: 'status', sortable: true },
-  { title: 'Celková cena', key: 'totalAmount', sortable: true },
-  { title: 'Datum vytvoření', key: 'createdAt', sortable: true },
+  { title: 'Dopravce', key: 'carrierName', sortable: true },
+  { title: 'Celková cena', key: 'priceWithVat', sortable: true },
+  { title: 'Datum', key: 'createdAt', sortable: true },
   { title: 'Akce', key: 'actions', sortable: false }
 ]);
 
-const statusOptions = [
-  { value: 'all', title: 'Všechny' },
-  { value: 'pending', title: 'Čekající' },
-  { value: 'processing', title: 'Zpracovává se' },
-  { value: 'shipped', title: 'Odesláno' },
-  { value: 'completed', title: 'Dokončeno' },
-  { value: 'cancelled', title: 'Zrušeno' }
-];
-
 const statusColors: Record<OrderStatus, string> = {
-  pending: 'warning',
+  new: 'warning',
   processing: 'info',
   shipped: 'primary',
   completed: 'success',
@@ -45,46 +37,49 @@ const statusColors: Record<OrderStatus, string> = {
 };
 
 const statusLabels: Record<OrderStatus, string> = {
-  pending: 'Čekající',
+  new: 'Nová',
   processing: 'Zpracovává se',
   shipped: 'Odesláno',
   completed: 'Dokončeno',
   cancelled: 'Zrušeno'
 };
 
-const filteredOrders = computed(() => {
-  if (selectedStatus.value === 'all') return orders.value;
-  return orders.value.filter((o: Order) => o.status === selectedStatus.value);
-});
-
 const paginatedOrders = computed(() => {
   const start = (currentPage.value - 1) * itemsPerPage.value;
   const end = start + itemsPerPage.value;
-  return filteredOrders.value.slice(start, end);
+  return orders.value.slice(start, end);
 });
 
 const totalPages = computed(() => {
-  return Math.ceil(filteredOrders.value.length / itemsPerPage.value);
+  return Math.ceil(orders.value.length / itemsPerPage.value);
 });
 
-const formatPrice = (price: number) => {
+const formatPrice = (price: number, currency: string = 'CZK') => {
   return new Intl.NumberFormat('cs-CZ', {
     style: 'currency',
-    currency: 'CZK'
+    currency: currency
   }).format(price);
 };
 
 const formatDate = (dateString: string) => {
-  return new Date(dateString).toLocaleDateString('cs-CZ');
+  return new Date(dateString).toLocaleDateString('cs-CZ', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+};
+
+const getCustomerName = (order: SalesOrder) => {
+  return `${order.shippingAddressFirstName} ${order.shippingAddressLastName}`;
 };
 
 const loadOrders = async () => {
   loading.value = true;
   try {
-    const filters = selectedStatus.value !== 'all' 
-      ? { status: selectedStatus.value as OrderStatus }
-      : undefined;
-    orders.value = await ordersService.getAll(filters);
+    const response = await ordersService.getAll(searchText.value);
+    orders.value = response.list;
   } catch (error) {
     console.error('Chyba při načítání objednávek:', error);
   } finally {
@@ -92,7 +87,7 @@ const loadOrders = async () => {
   }
 };
 
-const changeStatus = async (order: Order, newStatus: OrderStatus) => {
+const changeStatus = async (order: SalesOrder, newStatus: OrderStatus) => {
   try {
     await ordersService.updateStatus(order.id, newStatus);
     await loadOrders();
@@ -101,7 +96,16 @@ const changeStatus = async (order: Order, newStatus: OrderStatus) => {
   }
 };
 
-const deleteOrder = async (id: number) => {
+const toggleStar = async (order: SalesOrder) => {
+  try {
+    await ordersService.toggleStar(order.id, !order.isStarred);
+    await loadOrders();
+  } catch (error) {
+    console.error('Chyba při označování hvězdičkou:', error);
+  }
+};
+
+const deleteOrder = async (id: string) => {
   if (confirm('Opravdu chcete smazat tuto objednávku?')) {
     try {
       await ordersService.delete(id);
@@ -110,6 +114,11 @@ const deleteOrder = async (id: number) => {
       console.error('Chyba při mazání objednávky:', error);
     }
   }
+};
+
+const handleSearch = () => {
+  currentPage.value = 1;
+  loadOrders();
 };
 
 onMounted(() => {
@@ -124,20 +133,40 @@ onMounted(() => {
     <v-col cols="12">
       <UiParentCard title="Seznam objednávek">
         <div class="d-flex justify-space-between align-center mb-4 flex-wrap gap-2">
-          <v-select
-            v-model="selectedStatus"
-            :items="statusOptions"
-            @update:model-value="loadOrders"
-            label="Filtrovat podle statusu"
+          <v-text-field
+            v-model="searchText"
+            @keyup.enter="handleSearch"
+            label="Vyhledat objednávku..."
+            prepend-inner-icon="mdi-magnify"
             variant="outlined"
             density="compact"
             hide-details
-            style="max-width: 250px"
-          ></v-select>
+            style="max-width: 400px"
+            clearable
+            @click:clear="handleSearch"
+          >
+            <template v-slot:append>
+              <v-btn
+                @click="handleSearch"
+                color="primary"
+                size="small"
+                :loading="loading"
+              >
+                Hledat
+              </v-btn>
+            </template>
+          </v-text-field>
           
-          <v-btn color="primary" prepend-icon="mdi-plus" to="/orders/new">
-            Nová objednávka
-          </v-btn>
+          <div class="d-flex gap-2">
+            <v-btn
+              @click="loadOrders"
+              variant="outlined"
+              prepend-icon="mdi-refresh"
+              :loading="loading"
+            >
+              Obnovit
+            </v-btn>
+          </div>
         </div>
 
         <v-data-table
@@ -147,10 +176,37 @@ onMounted(() => {
           hide-default-footer
           class="elevation-1"
         >
-          <template v-slot:item.orderNumber="{ item }">
-            <router-link :to="`/orders/${item.id}`" class="text-primary text-decoration-none font-weight-medium">
-              {{ item.orderNumber }}
-            </router-link>
+          <template v-slot:item.name="{ item }">
+            <div class="d-flex align-center gap-2">
+              <v-btn
+                icon
+                size="x-small"
+                variant="text"
+                @click.stop="toggleStar(item)"
+              >
+                <v-icon 
+                  :color="item.isStarred ? 'warning' : 'grey-lighten-1'"
+                  size="small"
+                >
+                  {{ item.isStarred ? 'mdi-star' : 'mdi-star-outline' }}
+                </v-icon>
+              </v-btn>
+              <router-link 
+                :to="`/orders/${item.id}`" 
+                class="text-primary text-decoration-none font-weight-medium"
+              >
+                {{ item.name }}
+              </router-link>
+            </div>
+          </template>
+
+          <template v-slot:item.customer="{ item }">
+            <div>
+              <div class="font-weight-medium">{{ getCustomerName(item) }}</div>
+              <div class="text-caption text-medium-emphasis" v-if="item.email">
+                {{ item.email }}
+              </div>
+            </div>
           </template>
 
           <template v-slot:item.status="{ item }">
@@ -163,12 +219,25 @@ onMounted(() => {
             </v-chip>
           </template>
 
-          <template v-slot:item.totalAmount="{ item }">
-            <span class="font-weight-medium">{{ formatPrice(item.totalAmount) }}</span>
+          <template v-slot:item.carrierName="{ item }">
+            <v-chip 
+              v-if="item.carrierName"
+              size="small"
+              variant="outlined"
+            >
+              {{ item.carrierName }}
+            </v-chip>
+            <span v-else class="text-medium-emphasis">—</span>
+          </template>
+
+          <template v-slot:item.priceWithVat="{ item }">
+            <span class="font-weight-medium">
+              {{ formatPrice(item.priceWithVat, item.currency) }}
+            </span>
           </template>
 
           <template v-slot:item.createdAt="{ item }">
-            {{ formatDate(item.createdAt) }}
+            <div class="text-body-2">{{ formatDate(item.createdAt) }}</div>
           </template>
 
           <template v-slot:item.actions="{ item }">
@@ -184,18 +253,52 @@ onMounted(() => {
                 </v-btn>
               </template>
               <v-list density="compact">
-                <v-list-item @click="changeStatus(item, 'processing')" v-if="item.status === 'pending'">
-                  <v-list-item-title>Zpracovat</v-list-item-title>
+                <v-list-item :to="`/orders/${item.id}`">
+                  <v-list-item-title>
+                    <v-icon size="small" class="mr-2">mdi-eye</v-icon>
+                    Detail
+                  </v-list-item-title>
                 </v-list-item>
-                <v-list-item @click="changeStatus(item, 'shipped')" v-if="item.status === 'processing'">
-                  <v-list-item-title>Odeslat</v-list-item-title>
-                </v-list-item>
-                <v-list-item @click="changeStatus(item, 'completed')" v-if="item.status === 'shipped'">
-                  <v-list-item-title>Dokončit</v-list-item-title>
-                </v-list-item>
+                
                 <v-divider></v-divider>
+                
+                <v-list-item 
+                  @click="changeStatus(item, 'processing')" 
+                  v-if="item.status === 'new'"
+                >
+                  <v-list-item-title>
+                    <v-icon size="small" class="mr-2">mdi-play</v-icon>
+                    Zpracovat
+                  </v-list-item-title>
+                </v-list-item>
+                
+                <v-list-item 
+                  @click="changeStatus(item, 'shipped')" 
+                  v-if="item.status === 'processing'"
+                >
+                  <v-list-item-title>
+                    <v-icon size="small" class="mr-2">mdi-truck</v-icon>
+                    Odeslat
+                  </v-list-item-title>
+                </v-list-item>
+                
+                <v-list-item 
+                  @click="changeStatus(item, 'completed')" 
+                  v-if="item.status === 'shipped'"
+                >
+                  <v-list-item-title>
+                    <v-icon size="small" class="mr-2">mdi-check-circle</v-icon>
+                    Dokončit
+                  </v-list-item-title>
+                </v-list-item>
+                
+                <v-divider></v-divider>
+                
                 <v-list-item @click="deleteOrder(item.id)" class="text-error">
-                  <v-list-item-title>Smazat</v-list-item-title>
+                  <v-list-item-title>
+                    <v-icon size="small" class="mr-2">mdi-delete</v-icon>
+                    Smazat
+                  </v-list-item-title>
                 </v-list-item>
               </v-list>
             </v-menu>
@@ -203,21 +306,9 @@ onMounted(() => {
 
           <template v-slot:bottom>
             <div class="d-flex justify-space-between align-center pa-4 flex-wrap">
-              <div class="d-flex align-center gap-2">
-                <span class="text-body-2">Položek na stránku:</span>
-                <v-select
-                  v-model="itemsPerPage"
-                  :items="[10, 25, 50, 100]"
-                  density="compact"
-                  variant="outlined"
-                  hide-details
-                  style="max-width: 100px"
-                ></v-select>
-              </div>
-              
               <div class="text-body-2">
-                {{ (currentPage - 1) * itemsPerPage + 1 }}-{{ Math.min(currentPage * itemsPerPage, filteredOrders.length) }} 
-                z {{ filteredOrders.length }}
+                Zobrazeno {{ (currentPage - 1) * itemsPerPage + 1 }}-{{ Math.min(currentPage * itemsPerPage, orders.length) }} 
+                z {{ orders.length }} objednávek
               </div>
 
               <v-pagination
@@ -226,6 +317,18 @@ onMounted(() => {
                 :total-visible="7"
                 density="comfortable"
               ></v-pagination>
+            </div>
+          </template>
+
+          <template v-slot:no-data>
+            <div class="text-center pa-6">
+              <v-icon size="64" color="grey-lighten-1">mdi-package-variant</v-icon>
+              <div class="text-h6 mt-4 text-medium-emphasis">
+                {{ searchText ? 'Žádné objednávky nenalezeny' : 'Zatím nemáte žádné objednávky' }}
+              </div>
+              <div class="text-body-2 text-medium-emphasis mt-2">
+                {{ searchText ? 'Zkuste jiné vyhledávací kritérium' : 'Objednávky se zobrazí automaticky po vytvoření' }}
+              </div>
             </div>
           </template>
         </v-data-table>
