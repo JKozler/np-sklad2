@@ -55,27 +55,36 @@ const editForm = ref({
 });
 
 const statusOptions: Array<{ value: OrderStatus; title: string; color: string }> = [
-  { value: 'new', title: 'Nová', color: 'warning' },
-  { value: 'processing', title: 'Zpracovává se', color: 'info' },
-  { value: 'shipped', title: 'Odesláno', color: 'primary' },
-  { value: 'completed', title: 'Dokončeno', color: 'success' },
-  { value: 'cancelled', title: 'Zrušeno', color: 'error' }
+  { value: 'new', title: 'Nová', color: 'default' },
+  { value: 'in-progress', title: 'V průběhu', color: 'warning' },
+  { value: 'expedition-error', title: 'Expediční problém', color: 'error' },
+  { value: 'data-error', title: 'Datový problém', color: 'error' },
+  { value: 'sent', title: 'Odesláno', color: 'success' },
+  { value: 'return', title: 'Vratka', color: 'info' },
+  { value: 'delivered', title: 'Doručeno', color: 'primary' },
+  { value: 'cancelled', title: 'Zrušeno', color: 'default' }
 ];
 
-const statusColors: Record<OrderStatus, string> = {
-  new: 'warning',
-  processing: 'info',
-  shipped: 'primary',
-  completed: 'success',
-  cancelled: 'error'
+const statusColors: Record<string, string> = {
+  'new': 'default',
+  'in-progress': 'warning',
+  'expedition-error': 'error',
+  'data-error': 'error',
+  'sent': 'success',
+  'return': 'info',
+  'delivered': 'primary',
+  'cancelled': 'default'
 };
 
-const statusLabels: Record<OrderStatus, string> = {
-  new: 'Nová',
-  processing: 'Zpracovává se',
-  shipped: 'Odesláno',
-  completed: 'Dokončeno',
-  cancelled: 'Zrušeno'
+const statusLabels: Record<string, string> = {
+  'new': 'Nová',
+  'in-progress': 'V průběhu',
+  'expedition-error': 'Expediční problém',
+  'data-error': 'Datový problém',
+  'sent': 'Odesláno',
+  'return': 'Vratka',
+  'delivered': 'Doručeno',
+  'cancelled': 'Zrušeno'
 };
 
 const itemHeaders = [

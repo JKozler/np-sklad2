@@ -28,20 +28,26 @@ const headers = ref([
   { title: 'Akce', key: 'actions', sortable: false }
 ]);
 
-const statusColors: Record<OrderStatus, string> = {
-  new: 'warning',
-  processing: 'info',
-  shipped: 'primary',
-  completed: 'success',
-  cancelled: 'error'
+const statusColors: Record<string, string> = {
+  'new': 'default',
+  'in-progress': 'warning',
+  'expedition-error': 'error',
+  'data-error': 'error',
+  'sent': 'success',
+  'return': 'info',
+  'delivered': 'primary',
+  'cancelled': 'default'
 };
 
-const statusLabels: Record<OrderStatus, string> = {
-  new: 'Nová',
-  processing: 'Zpracovává se',
-  shipped: 'Odesláno',
-  completed: 'Dokončeno',
-  cancelled: 'Zrušeno'
+const statusLabels: Record<string, string> = {
+  'new': 'Nová',
+  'in-progress': 'V průběhu',
+  'expedition-error': 'Expediční problém',
+  'data-error': 'Datový problém',
+  'sent': 'Odesláno',
+  'return': 'Vratka',
+  'delivered': 'Doručeno',
+  'cancelled': 'Zrušeno'
 };
 
 const paginatedOrders = computed(() => {
@@ -263,7 +269,7 @@ onMounted(() => {
                 <v-divider></v-divider>
                 
                 <v-list-item 
-                  @click="changeStatus(item, 'processing')" 
+                  @click="changeStatus(item, 'in-progress')" 
                   v-if="item.status === 'new'"
                 >
                   <v-list-item-title>
@@ -273,8 +279,8 @@ onMounted(() => {
                 </v-list-item>
                 
                 <v-list-item 
-                  @click="changeStatus(item, 'shipped')" 
-                  v-if="item.status === 'processing'"
+                  @click="changeStatus(item, 'sent')" 
+                  v-if="item.status === 'in-progress'"
                 >
                   <v-list-item-title>
                     <v-icon size="small" class="mr-2">mdi-truck</v-icon>
@@ -283,8 +289,8 @@ onMounted(() => {
                 </v-list-item>
                 
                 <v-list-item 
-                  @click="changeStatus(item, 'completed')" 
-                  v-if="item.status === 'shipped'"
+                  @click="changeStatus(item, 'delivered')" 
+                  v-if="item.status === 'sent'"
                 >
                   <v-list-item-title>
                     <v-icon size="small" class="mr-2">mdi-check-circle</v-icon>

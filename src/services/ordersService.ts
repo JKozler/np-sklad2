@@ -1,7 +1,15 @@
 // src/services/ordersService.ts
 import { apiClient } from './apiClient';
 
-export type OrderStatus = 'new' | 'processing' | 'shipped' | 'completed' | 'cancelled';
+export type OrderStatus = 
+  | 'new' 
+  | 'in-progress' 
+  | 'expedition-error' 
+  | 'data-error' 
+  | 'sent' 
+  | 'return' 
+  | 'delivered' 
+  | 'cancelled';
 
 export interface SalesOrderItem {
   id: string;
