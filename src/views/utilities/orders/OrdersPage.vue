@@ -1,6 +1,6 @@
 <!-- src/views/utilities/orders/OrdersPage.vue -->
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import BaseBreadcrumb from '@/components/shared/BaseBreadcrumb.vue';
 import UiParentCard from '@/components/shared/UiParentCard.vue';
 import { ordersService } from '@/services/ordersService';
@@ -17,6 +17,7 @@ const loading = ref(false);
 const searchText = ref('');
 const itemsPerPage = ref(20);
 const currentPage = ref(1);
+const activeTab = ref<string | undefined>(undefined);
 
 const headers = ref([
   { title: 'Číslo', key: 'name', sortable: true },
@@ -26,6 +27,11 @@ const headers = ref([
   { title: 'Celková cena', key: 'priceWithVat', sortable: true },
   { title: 'Datum', key: 'createdAt', sortable: true },
   { title: 'Akce', key: 'actions', sortable: false }
+]);
+
+const tabs = ref([
+  { value: undefined, title: 'Všechny objednávky' },
+  { value: 'starred', title: 'Oblíbené' }
 ]);
 
 const statusColors: Record<string, string> = {
@@ -84,7 +90,10 @@ const getCustomerName = (order: SalesOrder) => {
 const loadOrders = async () => {
   loading.value = true;
   try {
-    const response = await ordersService.getAll(searchText.value);
+    const response = await ordersService.getAll(
+      searchText.value || undefined,
+      activeTab.value || undefined
+    );
     orders.value = response.list;
   } catch (error) {
     console.error('Chyba při načítání objednávek:', error);
@@ -105,7 +114,8 @@ const changeStatus = async (order: SalesOrder, newStatus: OrderStatus) => {
 const toggleStar = async (order: SalesOrder) => {
   try {
     await ordersService.toggleStar(order.id, !order.isStarred);
-    await loadOrders();
+    // Aktualizace lokálního stavu
+    order.isStarred = !order.isStarred;
   } catch (error) {
     console.error('Chyba při označování hvězdičkou:', error);
   }
@@ -127,6 +137,12 @@ const handleSearch = () => {
   loadOrders();
 };
 
+// Watch pro změnu tabu
+watch(activeTab, () => {
+  currentPage.value = 1;
+  loadOrders();
+});
+
 onMounted(() => {
   loadOrders();
 });
@@ -138,6 +154,29 @@ onMounted(() => {
   <v-row>
     <v-col cols="12">
       <UiParentCard title="Seznam objednávek">
+        <!-- Tab menu -->
+        <v-tabs
+          v-model="activeTab"
+          class="mb-4"
+          color="primary"
+          align-tabs="start"
+        >
+          <v-tab
+            v-for="tab in tabs"
+            :key="tab.value"
+            :value="tab.value"
+          >
+            <v-icon
+              v-if="tab.value === 'starred'"
+              start
+              size="small"
+            >
+              mdi-star
+            </v-icon>
+            {{ tab.title }}
+          </v-tab>
+        </v-tabs>
+
         <div class="d-flex justify-space-between align-center mb-4 flex-wrap gap-2">
           <v-text-field
             v-model="searchText"
@@ -330,10 +369,10 @@ onMounted(() => {
             <div class="text-center pa-6">
               <v-icon size="64" color="grey-lighten-1">mdi-package-variant</v-icon>
               <div class="text-h6 mt-4 text-medium-emphasis">
-                {{ searchText ? 'Žádné objednávky nenalezeny' : 'Zatím nemáte žádné objednávky' }}
+                {{ searchText ? 'Žádné objednávky nenalezeny' : activeTab === 'starred' ? 'Žádné oblíbené objednávky' : 'Zatím nemáte žádné objednávky' }}
               </div>
               <div class="text-body-2 text-medium-emphasis mt-2">
-                {{ searchText ? 'Zkuste jiné vyhledávací kritérium' : 'Objednávky se zobrazí automaticky po vytvoření' }}
+                {{ searchText ? 'Zkuste jiné vyhledávací kritérium' : activeTab === 'starred' ? 'Označte objednávky hvězdičkou pro rychlý přístup' : 'Objednávky se zobrazí automaticky po vytvoření' }}
               </div>
             </div>
           </template>

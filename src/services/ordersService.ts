@@ -117,9 +117,11 @@ export interface UpdateOrderData {
 
 export const ordersService = {
   /**
-   * Načte seznam objednávek s možností vyhledávání
+   * Načte seznam objednávek s možností vyhledávání a filtrování
+   * @param searchText - Textové vyhledávání
+   * @param primaryFilter - Primární filtr (např. 'starred' pro oblíbené)
    */
-  async getAll(searchText?: string): Promise<SalesOrdersResponse> {
+  async getAll(searchText?: string, primaryFilter?: string): Promise<SalesOrdersResponse> {
     const queryParams = new URLSearchParams({
       maxSize: '20',
       offset: '0',
@@ -128,10 +130,17 @@ export const ordersService = {
       attributeSelect: 'name,priceWithVat,currency,shippingAddressLastName,shippingAddressFirstName,status,carrierId,carrierName,createdAt,isStarred'
     });
 
+    // Přidat primární filtr pokud existuje
+    if (primaryFilter) {
+      queryParams.append('whereGroup[0][type]', 'primary');
+      queryParams.append('whereGroup[0][value]', primaryFilter);
+    }
+
     // Přidat textový filtr pokud existuje
     if (searchText) {
-      queryParams.append('whereGroup[0][type]', 'textFilter');
-      queryParams.append('whereGroup[0][value]', searchText);
+      const groupIndex = primaryFilter ? '1' : '0';
+      queryParams.append(`whereGroup[${groupIndex}][type]`, 'textFilter');
+      queryParams.append(`whereGroup[${groupIndex}][value]`, searchText);
     }
 
     console.log('🔍 API Request:', `/SalesOrder?${queryParams}`);
@@ -184,9 +193,15 @@ export const ordersService = {
 
   /**
    * Označí/odznačí objednávku jako hvězdičkovou
+   * Používá speciální endpoint pro star subscription
    */
-  async toggleStar(id: string, isStarred: boolean): Promise<SalesOrder> {
-    return this.update(id, { isStarred });
+  async toggleStar(id: string, isStarred: boolean): Promise<void> {
+    console.log('⭐ Toggling star for order:', id, isStarred);
+    if (isStarred) {
+      await apiClient.put(`/SalesOrder/${id}/starSubscription`, {});
+    } else {
+      await apiClient.delete(`/SalesOrder/${id}/starSubscription`);
+    }
   },
 
   /**

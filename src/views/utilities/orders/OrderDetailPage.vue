@@ -242,7 +242,8 @@ const toggleStar = async () => {
   
   try {
     await ordersService.toggleStar(order.value.id, !order.value.isStarred);
-    await loadOrder();
+    // Aktualizace lokálního stavu
+    order.value.isStarred = !order.value.isStarred;
   } catch (error) {
     console.error('Chyba při označování hvězdičkou:', error);
   }

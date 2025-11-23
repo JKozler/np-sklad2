@@ -3,14 +3,12 @@ import {
   CircleIcon,
   DashboardIcon,
   ShoppingCartIcon,
-  UsersIcon,
   PackageIcon,
-  FileInvoiceIcon,
-  TruckDeliveryIcon,
   ChartBarIcon,
   SettingsIcon,
   BrandProducthuntIcon,
-  BuildingWarehouseIcon
+  BuildingWarehouseIcon,
+  TruckDeliveryIcon
 } from 'vue-tabler-icons';
 
 export interface menu {
@@ -43,6 +41,12 @@ const sidebarItem: menu[] = [
     title: 'Objednávky',
     icon: ShoppingCartIcon,
     to: '/orders'
+  },
+  {
+    title: 'Expedice',
+    icon: TruckDeliveryIcon,
+    to: 'https://crm.naturalprotein.cz/?entryPoint=expeditionPortal',
+    type: 'external'
   },
   
   { divider: true },
