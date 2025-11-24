@@ -1,11 +1,26 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { SettingsIcon, LogoutIcon, UserIcon } from 'vue-tabler-icons';
 import { useAuthStore } from '@/stores/auth';
 
 const swt1 = ref(true);
 const swt2 = ref(false);
 const authStore = useAuthStore();
+
+// User info from store
+const userFullName = computed(() => authStore.fullName || 'Uživatel');
+const userName = computed(() => authStore.userName || '');
+const userDashboards = computed(() => {
+  const dashboards = authStore.currentUser?.dashboards || [];
+  if (dashboards.length === 0) return '';
+
+  const labels: Record<string, string> = {
+    'CUSTOMER_SUPPORT': 'Zákaznická podpora',
+    'WAREHOUSE_MANAGER': 'Správce skladu'
+  };
+
+  return dashboards.map(d => labels[d] || d).join(', ');
+});
 </script>
 
 <template>
@@ -13,7 +28,13 @@ const authStore = useAuthStore();
   <!-- profile DD -->
   <!-- ---------------------------------------------- -->
   <div class="pa-4">
-    <span class="text-subtitle-2 text-medium-emphasis">Project admin</span>
+    <div class="mb-2">
+      <div class="text-h6 font-weight-bold">{{ userFullName }}</div>
+      <div class="text-caption text-medium-emphasis">@{{ userName }}</div>
+      <div v-if="userDashboards" class="text-caption text-primary mt-1">
+        {{ userDashboards }}
+      </div>
+    </div>
 
     <perfect-scrollbar style="height: calc(100vh - 300px); max-height: 515px">
       <div class="bg-lightwarning rounded-md pa-5 my-3 circle sm-circle lg-circle">

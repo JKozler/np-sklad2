@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { useCustomizerStore } from '../../../stores/customizer';
+import { useAuthStore } from '@/stores/auth';
 // Icon Imports
 import { BellIcon, SettingsIcon, SearchIcon, Menu2Icon } from 'vue-tabler-icons';
 
@@ -10,10 +11,15 @@ import ProfileDD from './ProfileDD.vue';
 import Searchbar from './SearchBarPanel.vue';
 
 const customizer = useCustomizerStore();
+const authStore = useAuthStore();
 const showSearch = ref(false);
+
 function searchbox() {
   showSearch.value = !showSearch.value;
 }
+
+// User display name
+const userFullName = computed(() => authStore.fullName || 'Uživatel');
 </script>
 
 <template>
@@ -88,18 +94,23 @@ function searchbox() {
 -->
     <!-- User Profile -->
     <!-- ---------------------------------------------- -->
-    <v-menu :close-on-content-click="false">
-      <template v-slot:activator="{ props }">
-        <v-btn class="profileBtn text-primary" color="lightprimary" variant="flat" rounded="pill" v-bind="props">
-          <!--<v-avatar size="30" class="mr-2 py-2">
-            <img src="@/assets/images/profile/user-round.svg" alt="Julia" />
-          </v-avatar>-->
-          <SettingsIcon stroke-width="1.5" />
-        </v-btn>
-      </template>
-      <v-sheet rounded="md" width="330" elevation="12">
-        <ProfileDD />
-      </v-sheet>
-    </v-menu>
+    <div class="d-flex align-center">
+      <div class="mr-3 d-none d-sm-block">
+        <div class="text-subtitle-2 font-weight-medium">{{ userFullName }}</div>
+      </div>
+      <v-menu :close-on-content-click="false">
+        <template v-slot:activator="{ props }">
+          <v-btn class="profileBtn text-primary" color="lightprimary" variant="flat" rounded="pill" v-bind="props">
+            <!--<v-avatar size="30" class="mr-2 py-2">
+              <img src="@/assets/images/profile/user-round.svg" alt="Julia" />
+            </v-avatar>-->
+            <SettingsIcon stroke-width="1.5" />
+          </v-btn>
+        </template>
+        <v-sheet rounded="md" width="330" elevation="12">
+          <ProfileDD />
+        </v-sheet>
+      </v-menu>
+    </div>
   </v-app-bar>
 </template>
