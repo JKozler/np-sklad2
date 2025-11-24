@@ -46,6 +46,10 @@ const photoUrl = computed(() => {
   return `https://smart-int-be.naturalprotein.net/?entryPoint=image&size=medium&id=${product.value.photoId}`;
 });
 
+// **NOVÉ: Upload fotky**
+const uploadingPhoto = ref(false);
+const photoInput = ref<HTMLInputElement | null>(null);
+
 const inventoryCardHeaders = ref([
   { title: 'Sklad / Období', key: 'warehouseName', sortable: true },
   { title: 'Aktuální stav', key: 'currentStockQuantity', sortable: true },
@@ -429,7 +433,7 @@ const openExportDialog = () => {
  */
 const performExport = () => {
   showExportDialog.value = false;
-  
+
   switch (exportFormat.value) {
     case 'csv':
       exportToCSV();
@@ -440,6 +444,58 @@ const performExport = () => {
     case 'xlsx':
       alert('Export do XLSX bude dostupný v příští verzi');
       break;
+  }
+};
+
+/**
+ * **NOVÉ: Otevře dialog pro výběr fotky**
+ */
+const openPhotoDialog = () => {
+  photoInput.value?.click();
+};
+
+/**
+ * **NOVÉ: Upload fotky produktu**
+ */
+const handlePhotoUpload = async (event: Event) => {
+  if (!product.value) return;
+
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+
+  if (!file) return;
+
+  // Validace typu souboru
+  if (!file.type.startsWith('image/')) {
+    error.value = 'Můžete nahrát pouze obrázky';
+    return;
+  }
+
+  // Validace velikosti (max 10MB)
+  if (file.size > 10 * 1024 * 1024) {
+    error.value = 'Obrázek je příliš velký (max 10MB)';
+    return;
+  }
+
+  uploadingPhoto.value = true;
+  error.value = null;
+
+  try {
+    console.log('📸 Nahrávám fotku:', file.name);
+    const updated = await productsService.uploadPhoto(productId, file);
+    product.value = updated;
+
+    // Refresh data produktu aby se načetla nová fotka
+    await loadProduct();
+
+    console.log('✅ Fotka úspěšně nahrána');
+  } catch (err: any) {
+    error.value = err.message || 'Chyba při nahrávání fotky';
+    console.error('❌ Chyba při nahrávání fotky:', err);
+  } finally {
+    uploadingPhoto.value = false;
+    // Reset input aby bylo možné nahrát stejný soubor znovu
+    if (input) input.value = '';
   }
 };
 
@@ -899,8 +955,9 @@ onMounted(() => {
         <!-- Boční panel -->
         <v-col cols="12" md="4">
           <!-- **NOVÉ: Fotka produktu** -->
-          <v-card variant="outlined" v-if="photoUrl" class="mb-4">
+          <v-card variant="outlined" class="mb-4">
             <v-img
+              v-if="photoUrl"
               :src="photoUrl"
               :alt="product.name"
               cover
@@ -931,8 +988,37 @@ onMounted(() => {
                 </v-row>
               </template>
             </v-img>
-            <v-card-text class="text-center text-caption text-medium-emphasis pa-2">
-              {{ product.photoName || 'Fotka produktu' }}
+
+            <!-- Placeholder pokud není fotka -->
+            <div v-else class="d-flex align-center justify-center" style="height: 300px; background: #f5f5f5;">
+              <v-icon size="64" color="grey-lighten-1">
+                mdi-image-outline
+              </v-icon>
+            </div>
+
+            <v-card-text class="pa-2">
+              <div class="text-center text-caption text-medium-emphasis mb-2">
+                {{ product.photoName || 'Žádná fotka' }}
+              </div>
+
+              <!-- Upload button -->
+              <input
+                ref="photoInput"
+                type="file"
+                accept="image/*"
+                style="display: none"
+                @change="handlePhotoUpload"
+              />
+              <v-btn
+                block
+                variant="outlined"
+                prepend-icon="mdi-camera"
+                @click="openPhotoDialog"
+                :loading="uploadingPhoto"
+                size="small"
+              >
+                {{ photoUrl ? 'Změnit fotku' : 'Nahrát fotku' }}
+              </v-btn>
             </v-card-text>
           </v-card>
 
