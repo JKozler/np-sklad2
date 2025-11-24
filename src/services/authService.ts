@@ -8,6 +8,7 @@ export interface User {
   role: 'admin' | 'user';
   token: string;
   type?: string;
+  dashboards?: string[];
 }
 
 export interface LoginCredentials {
@@ -25,6 +26,7 @@ export interface EspoCRMResponse {
     lastName: string;
     emailAddress: string | null;
     token: string;
+    dashboards?: string[];
   };
 }
 
@@ -65,7 +67,8 @@ export const authService = {
 
       const data: EspoCRMResponse = await response.json();
       console.log('✅ Login successful:', data.user.userName);
-      
+      console.log('📊 User dashboards:', data.user.dashboards);
+
       const user: User = {
         id: data.user.id,
         email: data.user.emailAddress || data.user.userName,
@@ -74,7 +77,8 @@ export const authService = {
         userName: data.user.userName,
         role: data.user.type === 'admin' ? 'admin' : 'user',
         token: data.user.token,
-        type: data.user.type
+        type: data.user.type,
+        dashboards: data.user.dashboards || []
       };
 
       localStorage.setItem('authToken', data.user.token);
