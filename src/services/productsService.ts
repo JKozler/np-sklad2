@@ -87,6 +87,8 @@ export interface UpdateProductData {
   priceType?: string;
   productGroupId?: string | null;
   uomId?: string;
+  photoId?: string;
+  photoName?: string;
 }
 
 export const productsService = {
@@ -157,5 +159,59 @@ export const productsService = {
 
     const response = await apiClient.get<UOMsResponse>(`/UOM?${queryParams}`);
     return response.list;
+  },
+
+  /**
+   * Upload fotky produktu
+   * @param productId ID produktu
+   * @param file Soubor k uploadu
+   * @returns Aktualizovaný produkt s novou fotkou
+   */
+  async uploadPhoto(productId: string, file: File): Promise<Product> {
+    console.log('📸 Uploading photo for product:', productId);
+
+    // Krok 1: Přečti soubor jako base64
+    const base64 = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result as string;
+        resolve(result);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
+    // Krok 2: Upload do Attachment API
+    const attachmentData = {
+      field: 'photo',
+      file: base64,
+      name: file.name,
+      relatedType: 'Product',
+      role: 'Attachment',
+      size: file.size,
+      type: file.type
+    };
+
+    console.log('📤 Posting attachment:', { name: file.name, size: file.size, type: file.type });
+
+    interface AttachmentResponse {
+      id: string;
+      name: string;
+    }
+
+    const attachment = await apiClient.post<AttachmentResponse>('/Attachment', attachmentData);
+    console.log('✅ Attachment created:', attachment);
+
+    // Krok 3: Aktualizuj produkt s photoId
+    const updateData = {
+      photoId: attachment.id,
+      photoName: attachment.name
+    };
+
+    console.log('📤 Updating product with photo:', updateData);
+    const updatedProduct = await apiClient.put<Product>(`/Product/${productId}`, updateData);
+    console.log('✅ Product updated with photo');
+
+    return updatedProduct;
   }
 };
