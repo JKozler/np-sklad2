@@ -87,6 +87,28 @@ const getCustomerName = (order: SalesOrder) => {
   return `${order.shippingAddressFirstName} ${order.shippingAddressLastName}`;
 };
 
+const getCarrierColor = (carrierName: string) => {
+  const name = carrierName.toLowerCase();
+
+  // Zásilkovna - červená s bílým textem
+  if (name.includes('zásilkovna') || name.includes('zasilkovna')) {
+    return { color: 'red-darken-1', variant: 'flat' as const };
+  }
+
+  // PPL - modrá s bílým textem
+  if (name.includes('ppl')) {
+    return { color: 'blue-darken-1', variant: 'flat' as const };
+  }
+
+  // Balíkovna - světlejší modrá než PPL
+  if (name.includes('balíkovna') || name.includes('balikovna')) {
+    return { color: 'light-blue-darken-1', variant: 'flat' as const };
+  }
+
+  // Ostatní dopravci - výchozí styl
+  return { color: undefined, variant: 'outlined' as const };
+};
+
 const loadOrders = async () => {
   loading.value = true;
   try {
@@ -265,10 +287,11 @@ onMounted(() => {
           </template>
 
           <template v-slot:item.carrierName="{ item }">
-            <v-chip 
+            <v-chip
               v-if="item.carrierName"
               size="small"
-              variant="outlined"
+              :color="getCarrierColor(item.carrierName).color"
+              :variant="getCarrierColor(item.carrierName).variant"
             >
               {{ item.carrierName }}
             </v-chip>
