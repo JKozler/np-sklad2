@@ -144,6 +144,28 @@ const formatDate = (dateString: string) => {
   });
 };
 
+const getCarrierColor = (carrierName: string) => {
+  const name = carrierName.toLowerCase();
+
+  // Zásilkovna - červená s bílým textem
+  if (name.includes('zásilkovna') || name.includes('zasilkovna')) {
+    return { color: 'red-darken-1', variant: 'flat' as const };
+  }
+
+  // PPL - modrá s bílým textem
+  if (name.includes('ppl')) {
+    return { color: 'blue-darken-1', variant: 'flat' as const };
+  }
+
+  // Balíkovna - světlejší modrá než PPL
+  if (name.includes('balíkovna') || name.includes('balikovna')) {
+    return { color: 'light-blue-darken-1', variant: 'flat' as const };
+  }
+
+  // Ostatní dopravci - výchozí styl
+  return { color: undefined, variant: 'outlined' as const };
+};
+
 const loadOrder = async () => {
   loading.value = true;
   try {
@@ -441,7 +463,13 @@ onMounted(() => {
                   <tr>
                     <td class="text-medium-emphasis font-weight-medium">Dopravce:</td>
                     <td>
-                      <v-chip size="small" variant="outlined">{{ order.carrierName }}</v-chip>
+                      <v-chip
+                        size="small"
+                        :color="getCarrierColor(order.carrierName).color"
+                        :variant="getCarrierColor(order.carrierName).variant"
+                      >
+                        {{ order.carrierName }}
+                      </v-chip>
                     </td>
                   </tr>
                   <tr v-if="order.carrierPickupPoint">
