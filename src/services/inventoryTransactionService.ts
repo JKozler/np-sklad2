@@ -5,6 +5,7 @@ export interface InventoryTransactionItem {
   id?: string;
   productId: string;
   productName?: string;
+  stockType?: string;
   unitPrice?: number;
   quantity: number;
   price?: number;

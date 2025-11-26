@@ -195,7 +195,14 @@ const addItem = async () => {
   }
 
   try {
-    await inventoryTransactionService.addItem(transactionId, newItem.value);
+    // Najdi produkt pro získání stockType
+    const product = autocompleteProducts.value.find(p => p.id === newItem.value.productId);
+    const itemWithStockType = {
+      ...newItem.value,
+      stockType: product?.stockType
+    };
+
+    await inventoryTransactionService.addItem(transactionId, itemWithStockType);
     await loadItems();
     showAddItemPanel.value = false;
   } catch (err: any) {
@@ -292,6 +299,14 @@ const completeTransaction = async () => {
 
 const navigateToProduct = (productId: string) => {
   router.push(`/products/${productId}`);
+};
+
+const getStockTypeIcon = (stockType: string | undefined) => {
+  if (stockType === 'typZasoby.vyrobek') {
+    return 'mdi-food-drumstick';
+  }
+  // Default pro typZasoby.material a ostatní
+  return 'mdi-package-variant';
 };
 
 onMounted(() => {
@@ -518,10 +533,10 @@ onMounted(() => {
             >
               <template v-slot:item.productName="{ item }">
                 <div class="d-flex align-center">
-                  <v-icon class="mr-2" color="primary">mdi-package-variant</v-icon>
+                  <v-icon class="mr-2" color="primary">{{ getStockTypeIcon(item.stockType) }}</v-icon>
                   <div>
-                    <div 
-                      class="font-weight-medium product-link" 
+                    <div
+                      class="font-weight-medium product-link"
                       @click="navigateToProduct(item.productId)"
                     >
                       {{ item.productName }}
@@ -722,7 +737,7 @@ onMounted(() => {
               <template v-slot:item="{ props: itemProps, item }">
                 <v-list-item v-bind="itemProps">
                   <template v-slot:prepend>
-                    <v-icon color="primary">mdi-package-variant</v-icon>
+                    <v-icon color="primary">{{ getStockTypeIcon(item.raw.stockType) }}</v-icon>
                   </template>
                   <v-list-item-title>{{ item.raw.name }}</v-list-item-title>
                   <v-list-item-subtitle class="text-caption">

@@ -34,7 +34,7 @@ const {
   searchQuery: productSearchQuery
 } = useProductAutocomplete();
 
-const DEFAULT_TRANSACTION_TYPE_ID = '68f019f2daffeee60';
+const DEFAULT_TRANSACTION_TYPE_ID = '690d2882b7b77c02f';
 
 const formData = ref<CreateInventoryTransactionData>({
   name: '',
@@ -192,10 +192,11 @@ const addItemToLocal = () => {
   }
 
   const product = autocompleteProducts.value.find(p => p.id === newItem.value.productId);
-  
+
   const itemToAdd: InventoryTransactionItem = {
     productId: newItem.value.productId,
     productName: product?.name || 'Neznámý produkt',
+    stockType: product?.stockType,
     quantity: newItem.value.quantity,
     unitPrice: newItem.value.unitPrice || 0,
     totalPrice: (newItem.value.quantity || 0) * (newItem.value.unitPrice || 0),
@@ -298,6 +299,14 @@ const getTypeColor = (abraId: number) => {
     default:
       return 'default';
   }
+};
+
+const getStockTypeIcon = (stockType: string | undefined) => {
+  if (stockType === 'typZasoby.vyrobek') {
+    return 'mdi-food-drumstick';
+  }
+  // Default pro typZasoby.material a ostatní
+  return 'mdi-package-variant';
 };
 
 onMounted(() => {
@@ -551,12 +560,12 @@ onMounted(() => {
                   class="border-b"
                 >
                   <template v-slot:prepend>
-                    <v-icon color="primary">mdi-package-variant</v-icon>
+                    <v-icon color="primary">{{ getStockTypeIcon(item.stockType) }}</v-icon>
                   </template>
                   <v-list-item-title>{{ item.productName }}</v-list-item-title>
                   <v-list-item-subtitle>
-                    Množství: {{ item.quantity }} | 
-                    Cena: {{ formatPrice(item.unitPrice || 0) }} | 
+                    Množství: {{ item.quantity }} |
+                    Cena: {{ formatPrice(item.unitPrice || 0) }} |
                     Celkem: {{ formatPrice((item.quantity || 0) * (item.unitPrice || 0)) }}
                   </v-list-item-subtitle>
                   <template v-slot:append>
@@ -661,7 +670,7 @@ onMounted(() => {
               <template v-slot:item="{ props: itemProps, item }">
                 <v-list-item v-bind="itemProps">
                   <template v-slot:prepend>
-                    <v-icon color="primary">mdi-package-variant</v-icon>
+                    <v-icon color="primary">{{ getStockTypeIcon(item.raw.stockType) }}</v-icon>
                   </template>
                   <v-list-item-title>{{ item.raw.name }}</v-list-item-title>
                   <v-list-item-subtitle class="text-caption">
