@@ -1,5 +1,6 @@
 // src/services/ordersService.ts
 import { apiClient } from './apiClient';
+import { wrapWithWildcards } from '@/utils/searchHelpers';
 
 export type OrderStatus = 
   | 'new' 
@@ -140,7 +141,7 @@ export const ordersService = {
     if (searchText) {
       const groupIndex = primaryFilter ? '1' : '0';
       queryParams.append(`whereGroup[${groupIndex}][type]`, 'textFilter');
-      queryParams.append(`whereGroup[${groupIndex}][value]`, searchText);
+      queryParams.append(`whereGroup[${groupIndex}][value]`, wrapWithWildcards(searchText));
     }
 
     console.log('🔍 API Request:', `/SalesOrder?${queryParams}`);

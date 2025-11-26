@@ -1,5 +1,6 @@
 // src/services/inventoryTransactionService.ts
 import { apiClient } from './apiClient';
+import { wrapWithWildcards } from '@/utils/searchHelpers';
 
 export interface InventoryTransactionItem {
   id?: string;
@@ -106,7 +107,7 @@ export const inventoryTransactionService = {
     // Přidání textového filtru pokud existuje
     if (filters?.searchText) {
       queryParams.append('whereGroup[0][type]', 'textFilter');
-      queryParams.append('whereGroup[0][value]', filters.searchText);
+      queryParams.append('whereGroup[0][value]', wrapWithWildcards(filters.searchText));
     }
 
     console.log('🔍 API Request:', `/InventoryTransaction?${queryParams}`);
