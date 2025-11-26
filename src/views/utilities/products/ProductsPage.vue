@@ -7,6 +7,7 @@ import BaseBreadcrumb from '@/components/shared/BaseBreadcrumb.vue';
 import UiParentCard from '@/components/shared/UiParentCard.vue';
 import { productsService } from '@/services/productsService';
 import type { Product } from '@/services/productsService';
+import { wrapWithWildcards } from '@/utils/searchHelpers';
 
 const router = useRouter();
 
@@ -123,7 +124,7 @@ const loadProducts = async () => {
     // **1. Textový filtr (search)**
     if (searchText.value.trim()) {
       queryParams[`whereGroup[${whereGroupIndex}][type]`] = 'textFilter';
-      queryParams[`whereGroup[${whereGroupIndex}][value]`] = searchText.value.trim();
+      queryParams[`whereGroup[${whereGroupIndex}][value]`] = wrapWithWildcards(searchText.value.trim());
       whereGroupIndex++;
     }
 

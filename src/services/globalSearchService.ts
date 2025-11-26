@@ -1,5 +1,6 @@
 // src/services/globalSearchService.ts
 import { apiClient } from './apiClient';
+import { wrapWithWildcards } from '@/utils/searchHelpers';
 
 export interface GlobalSearchResult {
   id: string;
@@ -29,7 +30,7 @@ export const globalSearchService = {
    */
   async search(params: GlobalSearchParams): Promise<GlobalSearchResponse> {
     const queryParams = new URLSearchParams({
-      q: params.q,
+      q: wrapWithWildcards(params.q),
       maxSize: (params.maxSize || 10).toString(),
       offset: (params.offset || 0).toString(),
       orderBy: params.orderBy || '',

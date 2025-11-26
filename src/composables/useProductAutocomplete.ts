@@ -2,6 +2,7 @@
 import { ref, watch } from 'vue';
 import { productsService } from '@/services/productsService';
 import type { Product } from '@/services/productsService';
+import { wrapWithWildcards } from '@/utils/searchHelpers';
 
 /**
  * Composable pro autocomplete vyhledávání produktů
@@ -36,7 +37,7 @@ export function useProductAutocomplete() {
         orderBy: 'name',
         order: 'asc',
         'whereGroup[0][type]': 'textFilter',
-        'whereGroup[0][value]': query.trim()
+        'whereGroup[0][value]': wrapWithWildcards(query.trim())
       } as any);
 
       products.value = response.list;
