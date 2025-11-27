@@ -278,7 +278,7 @@ export const inventoryTransactionService = {
    */
   async getByProductId(productId: string): Promise<InventoryTransaction[]> {
     const queryParams = new URLSearchParams({
-      maxSize: '1000',
+      maxSize: '200',
       offset: '0',
       orderBy: 'transactionDate',
       order: 'asc'
