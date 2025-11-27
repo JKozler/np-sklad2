@@ -212,5 +212,51 @@ export const inventoryTransactionService = {
     console.log('📋 Getting transaction items:', transactionId);
     const response = await apiClient.get<{ list: InventoryTransactionItem[] }>(`/InventoryTransaction/${transactionId}/items`);
     return response.list;
+  },
+
+  /**
+   * Načte transakce pro konkrétní produkt (pro grafy)
+   * Vrací agregovaná data pro výdejky a příjemky v čase
+   */
+  async getByProductId(productId: string): Promise<InventoryTransaction[]> {
+    const queryParams = new URLSearchParams({
+      maxSize: '1000',
+      offset: '0',
+      orderBy: 'transactionDate',
+      order: 'asc'
+    });
+
+    // Filtrování podle produktu se provádí na backendu přes items relation
+    console.log('📊 Getting transactions for product:', productId);
+
+    try {
+      const response = await apiClient.get<InventoryTransactionsResponse>(`/InventoryTransaction?${queryParams}`);
+
+      // Načteme položky pro každou transakci a filtrujeme ty, které obsahují daný produkt
+      const transactionsWithProduct: InventoryTransaction[] = [];
+
+      for (const transaction of response.list) {
+        try {
+          const items = await this.getItems(transaction.id);
+          const hasProduct = items.some(item => item.productId === productId);
+
+          if (hasProduct) {
+            // Přidáme pouze relevantní položky k transakci
+            const relevantItems = items.filter(item => item.productId === productId);
+            transactionsWithProduct.push({
+              ...transaction,
+              items: relevantItems
+            });
+          }
+        } catch (err) {
+          console.warn(`Failed to load items for transaction ${transaction.id}:`, err);
+        }
+      }
+
+      return transactionsWithProduct;
+    } catch (err) {
+      console.error('❌ Error loading product transactions:', err);
+      throw err;
+    }
   }
 };

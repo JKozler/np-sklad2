@@ -8,6 +8,8 @@ import { productsService } from '@/services/productsService';
 import type { Product, UpdateProductData, CreateProductData } from '@/services/productsService';
 import { inventoryCardService } from '@/services/inventoryCardService';
 import type { InventoryCard } from '@/services/inventoryCardService';
+import { inventoryTransactionService } from '@/services/inventoryTransactionService';
+import type { InventoryTransaction } from '@/services/inventoryTransactionService';
 
 const route = useRoute();
 const router = useRouter();
@@ -50,6 +52,10 @@ const photoUrl = computed(() => {
 const uploadingPhoto = ref(false);
 const photoInput = ref<HTMLInputElement | null>(null);
 
+// **NOVÉ: Grafy**
+const transactions = ref<InventoryTransaction[]>([]);
+const loadingTransactions = ref(false);
+
 const inventoryCardHeaders = ref([
   { title: 'Sklad / Období', key: 'warehouseName', sortable: true },
   { title: 'Aktuální stav', key: 'currentStockQuantity', sortable: true },
@@ -73,6 +79,197 @@ const averageCostPrice = computed(() => {
   if (inventoryCards.value.length === 0) return 0;
   const sum = inventoryCards.value.reduce((sum, card) => sum + card.averageCostPrice, 0);
   return sum / inventoryCards.value.length;
+});
+
+// **NOVÉ: Computed data pro grafy**
+
+// Graf 1: Výdeje a příjmy v čase
+const transactionChartOptions = computed(() => {
+  return {
+    chart: {
+      type: 'line',
+      height: 300,
+      fontFamily: 'inherit',
+      foreColor: '#666',
+      toolbar: {
+        show: true
+      }
+    },
+    colors: ['#4CAF50', '#f44336'],
+    stroke: {
+      width: 3,
+      curve: 'smooth'
+    },
+    dataLabels: {
+      enabled: false
+    },
+    markers: {
+      size: 4,
+      hover: {
+        size: 6
+      }
+    },
+    xaxis: {
+      type: 'datetime',
+      labels: {
+        format: 'dd.MM.yyyy'
+      }
+    },
+    yaxis: {
+      title: {
+        text: 'Množství (ks)'
+      },
+      labels: {
+        formatter: (value: number) => Math.round(value).toString()
+      }
+    },
+    legend: {
+      show: true,
+      position: 'top'
+    },
+    tooltip: {
+      x: {
+        format: 'dd.MM.yyyy'
+      },
+      y: {
+        formatter: (value: number) => `${Math.round(value)} ks`
+      }
+    },
+    grid: {
+      borderColor: '#e7e7e7'
+    }
+  };
+});
+
+const transactionChartSeries = computed(() => {
+  // Agreguj data podle data transakce
+  const receiptsByDate = new Map<string, number>();
+  const issuesByDate = new Map<string, number>();
+
+  transactions.value.forEach(transaction => {
+    const date = new Date(transaction.transactionDate).getTime();
+    const quantity = transaction.items?.reduce((sum, item) => sum + item.quantity, 0) || 0;
+
+    if (transaction.transactionDirection === 'Receipt') {
+      receiptsByDate.set(transaction.transactionDate, (receiptsByDate.get(transaction.transactionDate) || 0) + quantity);
+    } else if (transaction.transactionDirection === 'Issue') {
+      issuesByDate.set(transaction.transactionDate, (issuesByDate.get(transaction.transactionDate) || 0) + quantity);
+    }
+  });
+
+  // Konverze do formátu pro ApexCharts
+  const receiptsData = Array.from(receiptsByDate.entries())
+    .map(([date, quantity]) => ({
+      x: new Date(date).getTime(),
+      y: quantity
+    }))
+    .sort((a, b) => a.x - b.x);
+
+  const issuesData = Array.from(issuesByDate.entries())
+    .map(([date, quantity]) => ({
+      x: new Date(date).getTime(),
+      y: quantity
+    }))
+    .sort((a, b) => a.x - b.x);
+
+  return [
+    {
+      name: 'Příjemky',
+      data: receiptsData
+    },
+    {
+      name: 'Výdejky',
+      data: issuesData
+    }
+  ];
+});
+
+// Graf 2: Nákladová vs prodejní cena v čase
+const priceChartOptions = computed(() => {
+  return {
+    chart: {
+      type: 'line',
+      height: 300,
+      fontFamily: 'inherit',
+      foreColor: '#666',
+      toolbar: {
+        show: true
+      }
+    },
+    colors: ['#f44336', '#4CAF50'],
+    stroke: {
+      width: 3,
+      curve: 'smooth'
+    },
+    dataLabels: {
+      enabled: false
+    },
+    markers: {
+      size: 4,
+      hover: {
+        size: 6
+      }
+    },
+    xaxis: {
+      type: 'datetime',
+      labels: {
+        format: 'dd.MM.yyyy'
+      }
+    },
+    yaxis: {
+      title: {
+        text: 'Cena (Kč)'
+      },
+      labels: {
+        formatter: (value: number) => `${Math.round(value)} Kč`
+      }
+    },
+    legend: {
+      show: true,
+      position: 'top'
+    },
+    tooltip: {
+      x: {
+        format: 'dd.MM.yyyy'
+      },
+      y: {
+        formatter: (value: number) => `${Math.round(value)} Kč`
+      }
+    },
+    grid: {
+      borderColor: '#e7e7e7'
+    }
+  };
+});
+
+const priceChartSeries = computed(() => {
+  // Nákladová cena z inventoryCards
+  const costPriceData = inventoryCards.value
+    .map(card => ({
+      x: new Date(card.createdAt).getTime(),
+      y: card.averageCostPrice
+    }))
+    .sort((a, b) => a.x - b.x);
+
+  // Prodejní cena - použijeme aktuální cenu produktu jako konstantu
+  const sellingPrice = product.value?.priceWithoutVat || 0;
+
+  // Vytvoříme data pro prodejní cenu - stejná data jako pro nákladovou, ale s prodejní cenou
+  const sellingPriceData = costPriceData.map(point => ({
+    x: point.x,
+    y: sellingPrice
+  }));
+
+  return [
+    {
+      name: 'Nákladová cena',
+      data: costPriceData
+    },
+    {
+      name: 'Prodejní cena',
+      data: sellingPriceData
+    }
+  ];
 });
 
 // Editovatelná data
@@ -150,8 +347,9 @@ const loadProduct = async () => {
       uomId: product.value.uomId || undefined
     };
 
-    // Automaticky načti skladové karty
+    // Automaticky načti skladové karty a transakce
     await loadInventoryCards();
+    await loadTransactions();
   } catch (err: any) {
     error.value = err.message || 'Chyba při načítání produktu';
     console.error('Chyba při načítání produktu:', err);
@@ -162,10 +360,10 @@ const loadProduct = async () => {
 
 const loadInventoryCards = async () => {
   if (!productId) return;
-  
+
   loadingInventoryCards.value = true;
   inventoryCardsError.value = null;
-  
+
   try {
     console.log('📦 Načítám skladové karty pro produkt:', productId);
     inventoryCards.value = await inventoryCardService.getByProductId(productId);
@@ -175,6 +373,26 @@ const loadInventoryCards = async () => {
     console.error('❌ Chyba při načítání skladových karet:', err);
   } finally {
     loadingInventoryCards.value = false;
+  }
+};
+
+/**
+ * **NOVÉ: Načte transakce pro grafy**
+ */
+const loadTransactions = async () => {
+  if (!productId) return;
+
+  loadingTransactions.value = true;
+
+  try {
+    console.log('📊 Načítám transakce pro produkt:', productId);
+    transactions.value = await inventoryTransactionService.getByProductId(productId);
+    console.log('✅ Načteno transakcí:', transactions.value.length);
+  } catch (err: any) {
+    console.error('❌ Chyba při načítání transakcí:', err);
+    // Nebudeme zobrazovat error, grafy prostě budou prázdné
+  } finally {
+    loadingTransactions.value = false;
   }
 };
 
@@ -1065,7 +1283,7 @@ onMounted(() => {
           <v-card variant="outlined" class="mt-4" v-if="inventoryCards.length > 0">
             <v-card-text>
               <div class="text-h6 mb-4">Přehled zásob</div>
-              
+
               <div class="mb-4">
                 <div class="text-subtitle-2 text-medium-emphasis">Skladů celkem</div>
                 <div class="text-h5 font-weight-bold text-primary mt-1">
@@ -1090,6 +1308,80 @@ onMounted(() => {
                   {{ formatPrice(totalStockValue) }}
                 </div>
               </div>
+            </v-card-text>
+          </v-card>
+
+          <!-- **NOVÉ: Graf výdejů a příjmů** -->
+          <v-card variant="outlined" class="mt-4">
+            <v-card-text>
+              <div class="d-flex justify-space-between align-center mb-4">
+                <div class="text-h6">Vývoj množství na skladě</div>
+                <v-btn
+                  icon
+                  size="small"
+                  variant="text"
+                  @click="loadTransactions"
+                  :loading="loadingTransactions"
+                >
+                  <v-icon>mdi-refresh</v-icon>
+                </v-btn>
+              </div>
+
+              <div v-if="loadingTransactions" class="text-center py-8">
+                <v-progress-circular indeterminate color="primary" size="48"></v-progress-circular>
+              </div>
+
+              <div v-else-if="transactionChartSeries[0].data.length === 0 && transactionChartSeries[1].data.length === 0" class="text-center py-8">
+                <v-icon size="48" color="grey-lighten-1">mdi-chart-line</v-icon>
+                <div class="text-subtitle-2 text-medium-emphasis mt-2">
+                  Žádná data k zobrazení
+                </div>
+              </div>
+
+              <apexchart
+                v-else
+                type="line"
+                :height="300"
+                :options="transactionChartOptions"
+                :series="transactionChartSeries"
+              ></apexchart>
+            </v-card-text>
+          </v-card>
+
+          <!-- **NOVÉ: Graf nákladové vs prodejní ceny** -->
+          <v-card variant="outlined" class="mt-4">
+            <v-card-text>
+              <div class="d-flex justify-space-between align-center mb-4">
+                <div class="text-h6">Vývoj nákladové ceny</div>
+                <v-btn
+                  icon
+                  size="small"
+                  variant="text"
+                  @click="loadInventoryCards"
+                  :loading="loadingInventoryCards"
+                >
+                  <v-icon>mdi-refresh</v-icon>
+                </v-btn>
+              </div>
+
+              <div v-if="loadingInventoryCards" class="text-center py-8">
+                <v-progress-circular indeterminate color="primary" size="48"></v-progress-circular>
+              </div>
+
+              <div v-else-if="priceChartSeries[0].data.length === 0" class="text-center py-8">
+                <v-icon size="48" color="grey-lighten-1">mdi-chart-line</v-icon>
+                <div class="text-subtitle-2 text-medium-emphasis mt-2">
+                  Žádná data k zobrazení
+                </div>
+              </div>
+
+              <apexchart
+                v-else
+                type="line"
+                :height="300"
+                :options="priceChartOptions"
+                :series="priceChartSeries"
+              ></apexchart>
             </v-card-text>
           </v-card>
 
