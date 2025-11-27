@@ -6,8 +6,10 @@ import BaseBreadcrumb from '@/components/shared/BaseBreadcrumb.vue';
 import UiParentCard from '@/components/shared/UiParentCard.vue';
 import { inventoryTransactionService } from '@/services/inventoryTransactionService';
 import { inventoryTransactionTypeService } from '@/services/inventoryTransactionTypeService';
+import { productsService } from '@/services/productsService';
 import type { InventoryTransaction } from '@/services/inventoryTransactionService';
 import type { InventoryTransactionType } from '@/services/inventoryTransactionTypeService';
+import type { Product } from '@/services/productsService';
 
 const router = useRouter();
 
@@ -19,6 +21,7 @@ const breadcrumbs = ref([
 
 const transactions = ref<InventoryTransaction[]>([]);
 const transactionTypes = ref<InventoryTransactionType[]>([]);
+const products = ref<Product[]>([]);
 const loading = ref(false);
 const error = ref<string | null>(null);
 
@@ -27,6 +30,7 @@ const activeTab = ref<'all' | 'prijem' | 'vydej'>('all');
 
 const selectedType = ref<string>('');
 const selectedStatus = ref<string>('');
+const selectedProduct = ref<string>('');
 const dateFrom = ref<string>('');
 const dateTo = ref<string>('');
 const searchText = ref('');
@@ -68,6 +72,14 @@ const filteredTransactions = computed(() => {
 
   if (selectedStatus.value) {
     filtered = filtered.filter(t => t.status === selectedStatus.value);
+  }
+
+  // **NOVÉ: Filtr podle produktu**
+  if (selectedProduct.value) {
+    filtered = filtered.filter(t => {
+      // Zkontroluj, jestli transakce obsahuje vybraný produkt v items
+      return t.items?.some(item => item.productId === selectedProduct.value) || false;
+    });
   }
 
   if (dateFrom.value) {
@@ -171,11 +183,37 @@ const loadTransactions = async () => {
     });
     transactions.value = response.list;
     console.log('✅ Načteno skladových pohybů:', transactions.value.length);
+
+    // **NOVÉ: Načti items pro každou transakci (pro filtrování podle produktu)**
+    await loadItemsForTransactions();
   } catch (err: any) {
     error.value = err.message || 'Chyba při načítání skladových pohybů';
     console.error('❌ Chyba při načítání:', err);
   } finally {
     loading.value = false;
+  }
+};
+
+/**
+ * Načte items pro všechny transakce
+ */
+const loadItemsForTransactions = async () => {
+  try {
+    // Načti items pro každou transakci paralelně
+    const itemsPromises = transactions.value.map(async (transaction) => {
+      try {
+        const items = await inventoryTransactionService.getItems(transaction.id);
+        transaction.items = items;
+      } catch (err) {
+        console.warn(`Nepodařilo se načíst položky pro transakci ${transaction.id}:`, err);
+        transaction.items = [];
+      }
+    });
+
+    await Promise.all(itemsPromises);
+    console.log('✅ Načteny položky pro všechny transakce');
+  } catch (err) {
+    console.error('❌ Chyba při načítání položek transakcí:', err);
   }
 };
 
@@ -216,6 +254,19 @@ const loadTransactionTypes = async () => {
   }
 };
 
+/**
+ * Načte produkty pro filtr
+ */
+const loadProducts = async () => {
+  try {
+    const response = await productsService.getAll();
+    products.value = response.list;
+    console.log('✅ Načteno produktů:', products.value.length);
+  } catch (err) {
+    console.error('Chyba při načítání produktů:', err);
+  }
+};
+
 const deleteTransaction = async (id: string, name: string) => {
   if (!confirm(`Opravdu chcete smazat skladový pohyb "${name}"?`)) {
     return;
@@ -233,6 +284,7 @@ const deleteTransaction = async (id: string, name: string) => {
 const resetFilters = () => {
   selectedType.value = '';
   selectedStatus.value = '';
+  selectedProduct.value = '';
   dateFrom.value = '';
   dateTo.value = '';
   searchText.value = '';
@@ -248,6 +300,7 @@ watch(activeTab, () => {
 onMounted(() => {
   loadTransactions();
   loadTransactionTypes();
+  loadProducts();
 });
 </script>
 
@@ -384,6 +437,15 @@ onMounted(() => {
             
             <v-col cols="12" md="6" class="d-flex justify-end align-start gap-2">
               <v-btn
+                color="info"
+                prepend-icon="mdi-calendar-text"
+                @click="router.push('/inventory-daily-summary')"
+                variant="outlined"
+              >
+                Denní přehled
+              </v-btn>
+
+              <v-btn
                 color="primary"
                 prepend-icon="mdi-refresh"
                 @click="loadTransactions"
@@ -391,7 +453,7 @@ onMounted(() => {
               >
                 Obnovit
               </v-btn>
-              
+
               <v-btn
                 color="success"
                 prepend-icon="mdi-plus"
@@ -432,14 +494,14 @@ onMounted(() => {
         >
           <div class="d-flex align-center justify-space-between">
             <div class="d-flex align-center">
-              <v-icon 
-                start 
+              <v-icon
+                start
                 :color="activeTab === 'prijem' ? 'success' : 'error'"
               >
                 {{ activeTab === 'prijem' ? 'mdi-arrow-down-circle' : 'mdi-arrow-up-circle' }}
               </v-icon>
               <span>
-                Zobrazeny pouze pohyby typu: 
+                Zobrazeny pouze pohyby typu:
                 <strong>{{ activeTab === 'prijem' ? 'Příjem' : 'Výdej' }}</strong>
                 <span class="text-medium-emphasis ml-2">({{ filteredTransactions.length }} pohybů)</span>
               </span>
@@ -454,16 +516,36 @@ onMounted(() => {
           </div>
         </v-alert>
 
+        <!-- Info o filtru podle produktu -->
+        <v-alert
+          v-if="selectedProduct"
+          type="success"
+          variant="tonal"
+          density="compact"
+          class="mb-4"
+          closable
+          @click:close="selectedProduct = ''"
+        >
+          <div class="d-flex align-center">
+            <v-icon start>mdi-package-variant</v-icon>
+            <span>
+              Filtrováno podle produktu:
+              <strong>{{ products.find(p => p.id === selectedProduct)?.name }}</strong>
+              <span class="text-medium-emphasis ml-2">(nalezeno {{ filteredTransactions.length }} pohybů)</span>
+            </span>
+          </div>
+        </v-alert>
+
         <!-- Filtry -->
         <v-expansion-panels class="mb-4">
           <v-expansion-panel>
             <v-expansion-panel-title>
               <v-icon class="mr-2">mdi-filter</v-icon>
               Pokročilé filtry
-              <v-chip 
-                v-if="selectedType || selectedStatus || dateFrom || dateTo"
-                color="primary" 
-                size="small" 
+              <v-chip
+                v-if="selectedType || selectedStatus || selectedProduct || dateFrom || dateTo"
+                color="primary"
+                size="small"
                 class="ml-2"
               >
                 Aktivní
@@ -502,6 +584,20 @@ onMounted(() => {
                 </v-col>
 
                 <v-col cols="12" md="3">
+                  <v-select
+                    v-model="selectedProduct"
+                    :items="[
+                      { title: 'Všechny produkty', value: '' },
+                      ...products.map(p => ({ title: `${p.code} - ${p.name}`, value: p.id }))
+                    ]"
+                    label="Produkt / Materiál"
+                    variant="outlined"
+                    density="compact"
+                    clearable
+                  ></v-select>
+                </v-col>
+
+                <v-col cols="12" md="3">
                   <v-text-field
                     v-model="dateFrom"
                     label="Datum od"
@@ -511,8 +607,10 @@ onMounted(() => {
                     clearable
                   ></v-text-field>
                 </v-col>
+              </v-row>
 
-                <v-col cols="12" md="3">
+              <v-row>
+                <v-col cols="12" md="6">
                   <v-text-field
                     v-model="dateTo"
                     label="Datum do"

@@ -63,6 +63,11 @@ const MainRoutes = {
       path: '/inventory-transactions/:id',
       component: () => import('@/views/utilities/inventory/InventoryTransactionDetailPage.vue')
     },
+    {
+      name: 'Denní přehled skladových pohybů',
+      path: '/inventory-daily-summary',
+      component: () => import('@/views/utilities/inventory/InventoryDailySummaryPage.vue')
+    },
     // Sklad
     {
       name: 'Produkty',
