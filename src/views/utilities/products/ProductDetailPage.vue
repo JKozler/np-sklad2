@@ -296,7 +296,8 @@ const formatDate = (dateString: string) => {
 
 const getStockTypeLabel = (type: string) => {
   if (type === 'typZasoby.zbozi') return 'Zboží';
-  if (type === 'typZasoby.material') return 'Materiál';
+  if (type === 'typZasoby.material') return 'Surovina';
+  if (type === 'typZasoby.vyrobek') return 'Výrobek';
   return type;
 };
 
@@ -1124,7 +1125,8 @@ onMounted(() => {
                   v-model="editData.stockType"
                   :items="[
                     { title: 'Zboží', value: 'typZasoby.zbozi' },
-                    { title: 'Materiál', value: 'typZasoby.material' }
+                    { title: 'Surovina', value: 'typZasoby.material' },
+                    { title: 'Výrobek', value: 'typZasoby.vyrobek' }
                   ]"
                   label="Typ zásob"
                   variant="outlined"
@@ -1132,8 +1134,8 @@ onMounted(() => {
                 ></v-select>
                 <div v-else>
                   <div class="text-subtitle-2 text-medium-emphasis">Typ zásob</div>
-                  <v-chip 
-                    :color="product.stockType === 'typZasoby.zbozi' ? 'primary' : 'secondary'" 
+                  <v-chip
+                    :color="product.stockType === 'typZasoby.zbozi' ? 'primary' : 'secondary'"
                     class="mt-2"
                   >
                     {{ getStockTypeLabel(product.stockType) }}
@@ -1151,8 +1153,8 @@ onMounted(() => {
                 ></v-switch>
                 <div v-else>
                   <div class="text-subtitle-2 text-medium-emphasis">Skladová položka</div>
-                  <v-chip 
-                    :color="product.isStockItem ? 'success' : 'default'" 
+                  <v-chip
+                    :color="product.isStockItem ? 'success' : 'default'"
                     class="mt-2"
                   >
                     {{ product.isStockItem ? 'Ano' : 'Ne' }}
@@ -1167,6 +1169,74 @@ onMounted(() => {
                 </div>
               </v-col>
             </v-row>
+          </UiParentCard>
+
+          <!-- **GRAFY: Graf výdejů a příjmů** -->
+          <UiParentCard title="Vývoj množství na skladě" class="mt-4">
+            <template v-slot:action>
+              <v-btn
+                icon
+                size="small"
+                variant="text"
+                @click="loadTransactions"
+                :loading="loadingTransactions"
+              >
+                <v-icon>mdi-refresh</v-icon>
+              </v-btn>
+            </template>
+
+            <div v-if="loadingTransactions" class="text-center py-8">
+              <v-progress-circular indeterminate color="primary" size="48"></v-progress-circular>
+            </div>
+
+            <div v-else-if="transactionChartSeries[0].data.length === 0 && transactionChartSeries[1].data.length === 0" class="text-center py-8">
+              <v-icon size="48" color="grey-lighten-1">mdi-chart-line</v-icon>
+              <div class="text-subtitle-2 text-medium-emphasis mt-2">
+                Žádná data k zobrazení
+              </div>
+            </div>
+
+            <apexchart
+              v-else
+              type="line"
+              :height="300"
+              :options="transactionChartOptions"
+              :series="transactionChartSeries"
+            ></apexchart>
+          </UiParentCard>
+
+          <!-- **GRAFY: Graf nákladové vs prodejní ceny** -->
+          <UiParentCard title="Vývoj nákladové ceny" class="mt-4">
+            <template v-slot:action>
+              <v-btn
+                icon
+                size="small"
+                variant="text"
+                @click="loadInventoryCards"
+                :loading="loadingInventoryCards"
+              >
+                <v-icon>mdi-refresh</v-icon>
+              </v-btn>
+            </template>
+
+            <div v-if="loadingInventoryCards" class="text-center py-8">
+              <v-progress-circular indeterminate color="primary" size="48"></v-progress-circular>
+            </div>
+
+            <div v-else-if="priceChartSeries[0].data.length === 0" class="text-center py-8">
+              <v-icon size="48" color="grey-lighten-1">mdi-chart-line</v-icon>
+              <div class="text-subtitle-2 text-medium-emphasis mt-2">
+                Žádná data k zobrazení
+              </div>
+            </div>
+
+            <apexchart
+              v-else
+              type="line"
+              :height="300"
+              :options="priceChartOptions"
+              :series="priceChartSeries"
+            ></apexchart>
           </UiParentCard>
         </v-col>
 
@@ -1308,80 +1378,6 @@ onMounted(() => {
                   {{ formatPrice(totalStockValue) }}
                 </div>
               </div>
-            </v-card-text>
-          </v-card>
-
-          <!-- **NOVÉ: Graf výdejů a příjmů** -->
-          <v-card variant="outlined" class="mt-4">
-            <v-card-text>
-              <div class="d-flex justify-space-between align-center mb-4">
-                <div class="text-h6">Vývoj množství na skladě</div>
-                <v-btn
-                  icon
-                  size="small"
-                  variant="text"
-                  @click="loadTransactions"
-                  :loading="loadingTransactions"
-                >
-                  <v-icon>mdi-refresh</v-icon>
-                </v-btn>
-              </div>
-
-              <div v-if="loadingTransactions" class="text-center py-8">
-                <v-progress-circular indeterminate color="primary" size="48"></v-progress-circular>
-              </div>
-
-              <div v-else-if="transactionChartSeries[0].data.length === 0 && transactionChartSeries[1].data.length === 0" class="text-center py-8">
-                <v-icon size="48" color="grey-lighten-1">mdi-chart-line</v-icon>
-                <div class="text-subtitle-2 text-medium-emphasis mt-2">
-                  Žádná data k zobrazení
-                </div>
-              </div>
-
-              <apexchart
-                v-else
-                type="line"
-                :height="300"
-                :options="transactionChartOptions"
-                :series="transactionChartSeries"
-              ></apexchart>
-            </v-card-text>
-          </v-card>
-
-          <!-- **NOVÉ: Graf nákladové vs prodejní ceny** -->
-          <v-card variant="outlined" class="mt-4">
-            <v-card-text>
-              <div class="d-flex justify-space-between align-center mb-4">
-                <div class="text-h6">Vývoj nákladové ceny</div>
-                <v-btn
-                  icon
-                  size="small"
-                  variant="text"
-                  @click="loadInventoryCards"
-                  :loading="loadingInventoryCards"
-                >
-                  <v-icon>mdi-refresh</v-icon>
-                </v-btn>
-              </div>
-
-              <div v-if="loadingInventoryCards" class="text-center py-8">
-                <v-progress-circular indeterminate color="primary" size="48"></v-progress-circular>
-              </div>
-
-              <div v-else-if="priceChartSeries[0].data.length === 0" class="text-center py-8">
-                <v-icon size="48" color="grey-lighten-1">mdi-chart-line</v-icon>
-                <div class="text-subtitle-2 text-medium-emphasis mt-2">
-                  Žádná data k zobrazení
-                </div>
-              </div>
-
-              <apexchart
-                v-else
-                type="line"
-                :height="300"
-                :options="priceChartOptions"
-                :series="priceChartSeries"
-              ></apexchart>
             </v-card-text>
           </v-card>
 
