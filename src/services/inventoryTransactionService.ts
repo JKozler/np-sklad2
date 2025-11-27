@@ -135,11 +135,15 @@ export const inventoryTransactionService = {
     }
 
     // Filtr podle směru pohybu
+    // OPRAVA: Odstraň prefix "typPohybu." před odesláním do API
+    // Backend ukládá hodnoty s prefixem (typPohybu.prijem, typPohybu.vydej),
+    // ale WHERE filtr má problém s tečkou v hodnotě, proto posíláme jen "prijem" nebo "vydej"
     if (filters?.direction) {
+      const directionValue = filters.direction.replace('typPohybu.', '');
       queryParams.append(`whereGroup[${whereGroupIndex}][type]`, 'where');
       queryParams.append(`whereGroup[${whereGroupIndex}][column]`, 'transactionDirection');
       queryParams.append(`whereGroup[${whereGroupIndex}][operator]`, '=');
-      queryParams.append(`whereGroup[${whereGroupIndex}][value]`, filters.direction);
+      queryParams.append(`whereGroup[${whereGroupIndex}][value]`, directionValue);
       whereGroupIndex++;
     }
 
