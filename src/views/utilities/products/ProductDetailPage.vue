@@ -150,9 +150,10 @@ const transactionChartSeries = computed(() => {
     const date = new Date(transaction.transactionDate).getTime();
     const quantity = transaction.items?.reduce((sum, item) => sum + item.quantity, 0) || 0;
 
-    if (transaction.transactionDirection === 'Receipt') {
+    // Fix: Správné hodnoty z API jsou typPohybu.prijem a typPohybu.vydej
+    if (transaction.transactionDirection === 'typPohybu.prijem') {
       receiptsByDate.set(transaction.transactionDate, (receiptsByDate.get(transaction.transactionDate) || 0) + quantity);
-    } else if (transaction.transactionDirection === 'Issue') {
+    } else if (transaction.transactionDirection === 'typPohybu.vydej') {
       issuesByDate.set(transaction.transactionDate, (issuesByDate.get(transaction.transactionDate) || 0) + quantity);
     }
   });
@@ -1185,8 +1186,11 @@ onMounted(() => {
               </v-btn>
             </template>
 
-            <div v-if="loadingTransactions" class="text-center py-8">
-              <v-progress-circular indeterminate color="primary" size="48"></v-progress-circular>
+            <div v-if="loadingTransactions" class="py-8">
+              <v-skeleton-loader type="image" height="300"></v-skeleton-loader>
+              <div class="text-center text-caption text-medium-emphasis mt-2">
+                Načítání dat grafu...
+              </div>
             </div>
 
             <div v-else-if="transactionChartSeries[0].data.length === 0 && transactionChartSeries[1].data.length === 0" class="text-center py-8">
@@ -1219,8 +1223,11 @@ onMounted(() => {
               </v-btn>
             </template>
 
-            <div v-if="loadingInventoryCards" class="text-center py-8">
-              <v-progress-circular indeterminate color="primary" size="48"></v-progress-circular>
+            <div v-if="loadingInventoryCards" class="py-8">
+              <v-skeleton-loader type="image" height="300"></v-skeleton-loader>
+              <div class="text-center text-caption text-medium-emphasis mt-2">
+                Načítání dat grafu...
+              </div>
             </div>
 
             <div v-else-if="priceChartSeries[0].data.length === 0" class="text-center py-8">
