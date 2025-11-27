@@ -290,26 +290,27 @@ export const inventoryTransactionService = {
     try {
       const response = await apiClient.get<InventoryTransactionsResponse>(`/InventoryTransaction?${queryParams}`);
 
-      // Načteme položky pro každou transakci a filtrujeme ty, které obsahují daný produkt
-      const transactionsWithProduct: InventoryTransaction[] = [];
-
-      for (const transaction of response.list) {
+      // Načteme položky pro všechny transakce PARALELNĚ (místo sekvenčně)
+      const itemsPromises = response.list.map(async (transaction) => {
         try {
           const items = await this.getItems(transaction.id);
-          const hasProduct = items.some(item => item.productId === productId);
-
-          if (hasProduct) {
-            // Přidáme pouze relevantní položky k transakci
-            const relevantItems = items.filter(item => item.productId === productId);
-            transactionsWithProduct.push({
-              ...transaction,
-              items: relevantItems
-            });
-          }
+          return { transaction, items };
         } catch (err) {
           console.warn(`Failed to load items for transaction ${transaction.id}:`, err);
+          return { transaction, items: [] };
         }
-      }
+      });
+
+      // Počkáme na všechny requesty najednou
+      const allResults = await Promise.all(itemsPromises);
+
+      // Filtrujeme transakce, které obsahují daný produkt
+      const transactionsWithProduct: InventoryTransaction[] = allResults
+        .filter(({ items }) => items.some(item => item.productId === productId))
+        .map(({ transaction, items }) => ({
+          ...transaction,
+          items: items.filter(item => item.productId === productId)
+        }));
 
       return transactionsWithProduct;
     } catch (err) {
