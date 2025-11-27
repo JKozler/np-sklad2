@@ -92,6 +92,9 @@ export interface InventoryTransactionFilters {
   dateFrom?: string;
   dateTo?: string;
   searchText?: string;
+  status?: string;
+  productId?: string;
+  direction?: string;
 }
 
 export const inventoryTransactionService = {
@@ -104,11 +107,62 @@ export const inventoryTransactionService = {
       attributeSelect: 'code,transactionDirection,transactionTypeId,transactionTypeName,name,status,totalPriceCurrency,totalPrice,warehouseFromId,warehouseFromName,warehouseToId,warehouseToName,transactionDate,createdAt'
     });
 
+    let whereGroupIndex = 0;
+
     // Přidání textového filtru pokud existuje
     if (filters?.searchText) {
-      queryParams.append('whereGroup[0][type]', 'textFilter');
-      queryParams.append('whereGroup[0][value]', wrapWithWildcards(filters.searchText));
+      queryParams.append(`whereGroup[${whereGroupIndex}][type]`, 'textFilter');
+      queryParams.append(`whereGroup[${whereGroupIndex}][value]`, wrapWithWildcards(filters.searchText));
+      whereGroupIndex++;
     }
+
+    // Filtr podle typu pohybu
+    if (filters?.typeId) {
+      queryParams.append(`whereGroup[${whereGroupIndex}][type]`, 'where');
+      queryParams.append(`whereGroup[${whereGroupIndex}][column]`, 'transactionTypeId');
+      queryParams.append(`whereGroup[${whereGroupIndex}][operator]`, '=');
+      queryParams.append(`whereGroup[${whereGroupIndex}][value]`, filters.typeId);
+      whereGroupIndex++;
+    }
+
+    // Filtr podle statusu
+    if (filters?.status) {
+      queryParams.append(`whereGroup[${whereGroupIndex}][type]`, 'where');
+      queryParams.append(`whereGroup[${whereGroupIndex}][column]`, 'status');
+      queryParams.append(`whereGroup[${whereGroupIndex}][operator]`, '=');
+      queryParams.append(`whereGroup[${whereGroupIndex}][value]`, filters.status);
+      whereGroupIndex++;
+    }
+
+    // Filtr podle směru pohybu
+    if (filters?.direction) {
+      queryParams.append(`whereGroup[${whereGroupIndex}][type]`, 'where');
+      queryParams.append(`whereGroup[${whereGroupIndex}][column]`, 'transactionDirection');
+      queryParams.append(`whereGroup[${whereGroupIndex}][operator]`, '=');
+      queryParams.append(`whereGroup[${whereGroupIndex}][value]`, filters.direction);
+      whereGroupIndex++;
+    }
+
+    // Filtr podle data od
+    if (filters?.dateFrom) {
+      queryParams.append(`whereGroup[${whereGroupIndex}][type]`, 'where');
+      queryParams.append(`whereGroup[${whereGroupIndex}][column]`, 'transactionDate');
+      queryParams.append(`whereGroup[${whereGroupIndex}][operator]`, '>=');
+      queryParams.append(`whereGroup[${whereGroupIndex}][value]`, filters.dateFrom);
+      whereGroupIndex++;
+    }
+
+    // Filtr podle data do
+    if (filters?.dateTo) {
+      queryParams.append(`whereGroup[${whereGroupIndex}][type]`, 'where');
+      queryParams.append(`whereGroup[${whereGroupIndex}][column]`, 'transactionDate');
+      queryParams.append(`whereGroup[${whereGroupIndex}][operator]`, '<=');
+      queryParams.append(`whereGroup[${whereGroupIndex}][value]`, filters.dateTo);
+      whereGroupIndex++;
+    }
+
+    // Poznámka: Filtrování podle produktu (productId) se musí provádět po načtení,
+    // protože je v related entitě (items). API to neumožňuje přímo.
 
     console.log('🔍 API Request:', `/InventoryTransaction?${queryParams}`);
 

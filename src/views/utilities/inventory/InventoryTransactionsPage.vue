@@ -6,10 +6,9 @@ import BaseBreadcrumb from '@/components/shared/BaseBreadcrumb.vue';
 import UiParentCard from '@/components/shared/UiParentCard.vue';
 import { inventoryTransactionService } from '@/services/inventoryTransactionService';
 import { inventoryTransactionTypeService } from '@/services/inventoryTransactionTypeService';
-import { productsService } from '@/services/productsService';
+import { useProductAutocomplete } from '@/composables/useProductAutocomplete';
 import type { InventoryTransaction } from '@/services/inventoryTransactionService';
 import type { InventoryTransactionType } from '@/services/inventoryTransactionTypeService';
-import type { Product } from '@/services/productsService';
 
 const router = useRouter();
 
@@ -21,9 +20,15 @@ const breadcrumbs = ref([
 
 const transactions = ref<InventoryTransaction[]>([]);
 const transactionTypes = ref<InventoryTransactionType[]>([]);
-const products = ref<Product[]>([]);
 const loading = ref(false);
 const error = ref<string | null>(null);
+
+// Product autocomplete
+const {
+  products: autocompleteProducts,
+  loading: loadingAutocomplete,
+  searchQuery: productSearchQuery
+} = useProductAutocomplete();
 
 // **NOVÉ: Taby pro směr pohybu**
 const activeTab = ref<'all' | 'prijem' | 'vydej'>('all');
@@ -53,41 +58,16 @@ const headers = ref([
   { title: 'Akce', key: 'actions', sortable: false }
 ]);
 
-// **NOVÉ: Filtrování podle aktivního tabu**
+// **Filtrování pouze podle produktu (FE) - ostatní filtry jsou v API**
 const filteredTransactions = computed(() => {
   let filtered = [...transactions.value];
 
-  // Filtr podle aktivního tabu (směru)
-  if (activeTab.value === 'prijem') {
-    filtered = filtered.filter(t => t.transactionDirection === 'typPohybu.prijem');
-  } else if (activeTab.value === 'vydej') {
-    filtered = filtered.filter(t => t.transactionDirection === 'typPohybu.vydej');
-  }
-  // activeTab.value === 'all' - žádný směrový filtr
-
-  // Ostatní filtry
-  if (selectedType.value) {
-    filtered = filtered.filter(t => t.transactionTypeId === selectedType.value);
-  }
-
-  if (selectedStatus.value) {
-    filtered = filtered.filter(t => t.status === selectedStatus.value);
-  }
-
-  // **NOVÉ: Filtr podle produktu**
+  // Filtr podle produktu (jediný FE filtr - ostatní jsou v API)
   if (selectedProduct.value) {
     filtered = filtered.filter(t => {
       // Zkontroluj, jestli transakce obsahuje vybraný produkt v items
       return t.items?.some(item => item.productId === selectedProduct.value) || false;
     });
-  }
-
-  if (dateFrom.value) {
-    filtered = filtered.filter(t => t.transactionDate >= dateFrom.value);
-  }
-
-  if (dateTo.value) {
-    filtered = filtered.filter(t => t.transactionDate <= dateTo.value);
   }
 
   return filtered;
@@ -171,21 +151,62 @@ const getDirectionColor = (direction: string | undefined) => {
 };
 
 /**
- * Načte skladové pohyby z API s textovým filtrem
+ * Vrací ikonu podle typu zásob (materiál vs. výrobek)
+ */
+const getStockTypeIcon = (stockType: string | undefined) => {
+  if (stockType === 'typZasoby.vyrobek') {
+    return 'mdi-food-drumstick';  // Product icon
+  }
+  // Default for typZasoby.material and others
+  return 'mdi-package-variant';   // Material/package icon
+};
+
+/**
+ * Načte skladové pohyby z API s filtry
  */
 const loadTransactions = async () => {
   loading.value = true;
   error.value = null;
 
   try {
-    const response = await inventoryTransactionService.getAll({
-      searchText: searchText.value.trim() || undefined
-    });
+    // Sestavení filtrů pro API
+    const filters: any = {};
+
+    if (searchText.value.trim()) {
+      filters.searchText = searchText.value.trim();
+    }
+
+    if (selectedType.value) {
+      filters.typeId = selectedType.value;
+    }
+
+    if (selectedStatus.value) {
+      filters.status = selectedStatus.value;
+    }
+
+    // Směr podle aktivního tabu
+    if (activeTab.value === 'prijem') {
+      filters.direction = 'typPohybu.prijem';
+    } else if (activeTab.value === 'vydej') {
+      filters.direction = 'typPohybu.vydej';
+    }
+
+    if (dateFrom.value) {
+      filters.dateFrom = dateFrom.value;
+    }
+
+    if (dateTo.value) {
+      filters.dateTo = dateTo.value;
+    }
+
+    const response = await inventoryTransactionService.getAll(filters);
     transactions.value = response.list;
     console.log('✅ Načteno skladových pohybů:', transactions.value.length);
 
     // **NOVÉ: Načti items pro každou transakci (pro filtrování podle produktu)**
-    await loadItemsForTransactions();
+    if (selectedProduct.value) {
+      await loadItemsForTransactions();
+    }
   } catch (err: any) {
     error.value = err.message || 'Chyba při načítání skladových pohybů';
     console.error('❌ Chyba při načítání:', err);
@@ -254,19 +275,6 @@ const loadTransactionTypes = async () => {
   }
 };
 
-/**
- * Načte produkty pro filtr
- */
-const loadProducts = async () => {
-  try {
-    const response = await productsService.getAll();
-    products.value = response.list;
-    console.log('✅ Načteno produktů:', products.value.length);
-  } catch (err) {
-    console.error('Chyba při načítání produktů:', err);
-  }
-};
-
 const deleteTransaction = async (id: string, name: string) => {
   if (!confirm(`Opravdu chcete smazat skladový pohyb "${name}"?`)) {
     return;
@@ -292,15 +300,41 @@ const resetFilters = () => {
   loadTransactions();
 };
 
-// **NOVÉ: Reset stránkování při změně tabu**
+// **NOVÉ: Reset stránkování a reload při změně tabu**
 watch(activeTab, () => {
   page_number.value = 0;
+  loadTransactions();
+});
+
+// Watchers pro filtry - reload při změně
+watch(selectedType, () => {
+  page_number.value = 0;
+  loadTransactions();
+});
+
+watch(selectedStatus, () => {
+  page_number.value = 0;
+  loadTransactions();
+});
+
+watch(selectedProduct, () => {
+  page_number.value = 0;
+  loadTransactions();
+});
+
+watch(dateFrom, () => {
+  page_number.value = 0;
+  loadTransactions();
+});
+
+watch(dateTo, () => {
+  page_number.value = 0;
+  loadTransactions();
 });
 
 onMounted(() => {
   loadTransactions();
   loadTransactionTypes();
-  loadProducts();
 });
 </script>
 
@@ -530,7 +564,7 @@ onMounted(() => {
             <v-icon start>mdi-package-variant</v-icon>
             <span>
               Filtrováno podle produktu:
-              <strong>{{ products.find(p => p.id === selectedProduct)?.name }}</strong>
+              <strong>{{ autocompleteProducts.find(p => p.id === selectedProduct)?.name || selectedProduct }}</strong>
               <span class="text-medium-emphasis ml-2">(nalezeno {{ filteredTransactions.length }} pohybů)</span>
             </span>
           </div>
@@ -584,17 +618,42 @@ onMounted(() => {
                 </v-col>
 
                 <v-col cols="12" md="3">
-                  <v-select
+                  <v-autocomplete
                     v-model="selectedProduct"
-                    :items="[
-                      { title: 'Všechny produkty', value: '' },
-                      ...products.map(p => ({ title: `${p.code} - ${p.name}`, value: p.id }))
-                    ]"
+                    v-model:search="productSearchQuery"
+                    :items="autocompleteProducts"
+                    item-title="name"
+                    item-value="id"
                     label="Produkt / Materiál"
                     variant="outlined"
                     density="compact"
+                    :loading="loadingAutocomplete"
+                    placeholder="Začněte psát pro vyhledání..."
+                    no-filter
                     clearable
-                  ></v-select>
+                  >
+                    <template v-slot:item="{ props: itemProps, item }">
+                      <v-list-item v-bind="itemProps">
+                        <template v-slot:prepend>
+                          <v-icon color="primary">{{ getStockTypeIcon(item.raw.stockType) }}</v-icon>
+                        </template>
+                        <v-list-item-title>{{ item.raw.name }}</v-list-item-title>
+                        <v-list-item-subtitle class="text-caption">
+                          Kód: {{ item.raw.code }}
+                        </v-list-item-subtitle>
+                      </v-list-item>
+                    </template>
+
+                    <template v-slot:no-data>
+                      <v-list-item>
+                        <v-list-item-title>
+                          {{ productSearchQuery.length < 2
+                            ? 'Začněte psát pro vyhledání (min. 2 znaky)'
+                            : 'Žádné produkty nenalezeny' }}
+                        </v-list-item-title>
+                      </v-list-item>
+                    </template>
+                  </v-autocomplete>
                 </v-col>
 
                 <v-col cols="12" md="3">
