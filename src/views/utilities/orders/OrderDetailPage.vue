@@ -420,7 +420,7 @@ const toggleStar = async () => {
 
 const deleteOrder = async () => {
   if (!order.value) return;
-  
+
   if (confirm(`Opravdu chcete smazat objednávku ${order.value.name}?`)) {
     try {
       await ordersService.delete(order.value.id);
@@ -430,6 +430,13 @@ const deleteOrder = async () => {
       alert('Chyba při mazání objednávky');
     }
   }
+};
+
+const applyDiscount = () => {
+  if (!order.value) return;
+
+  const url = `https://www.naturalprotein.cz/admin/cs/eshop.orders.orders/export?id=${order.value.name}&voucher=ddLkkfg331deffklkekldCmnqo341omkaL00p&apiKey=asdkjne_asdkjkw23ds`;
+  window.open(url, '_blank');
 };
 
 onMounted(() => {
@@ -473,6 +480,14 @@ onMounted(() => {
 
         <div class="d-flex gap-2">
           <v-btn
+            @click="applyDiscount"
+            color="warning"
+            size="large"
+            prepend-icon="mdi-ticket-percent"
+          >
+            Aplikovat 10% slevu
+          </v-btn>
+          <v-btn
             v-if="!editMode"
             @click="toggleEdit"
             color="primary"
@@ -501,7 +516,7 @@ onMounted(() => {
               Zrušit
             </v-btn>
           </template>
-          
+
           <v-menu>
             <template v-slot:activator="{ props }">
               <v-btn
