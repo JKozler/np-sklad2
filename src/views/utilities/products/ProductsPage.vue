@@ -27,7 +27,7 @@ const searchText = ref('');
 const totalFromAPI = ref(0);
 
 // **NOVÉ: Aktivní tab pro typ zásob**
-const activeTab = ref<'all' | 'vyrobek' | 'material'>('all');
+const activeTab = ref<'all' | 'vyrobek' | 'material' | 'neskladove'>('all');
 
 // **UPRAVENÉ: stockType už není v filters, protože se řídí přes taby**
 const filters = ref({
@@ -128,7 +128,7 @@ const loadProducts = async () => {
       whereGroupIndex++;
     }
 
-    // **2. NOVÉ: Filtr podle aktivního tabu (stockType)**
+    // **2. NOVÉ: Filtr podle aktivního tabu (stockType nebo isStockItem)**
     if (activeTab.value === 'vyrobek') {
       queryParams[`whereGroup[${whereGroupIndex}][type]`] = 'equals';
       queryParams[`whereGroup[${whereGroupIndex}][attribute]`] = 'stockType';
@@ -139,11 +139,16 @@ const loadProducts = async () => {
       queryParams[`whereGroup[${whereGroupIndex}][attribute]`] = 'stockType';
       queryParams[`whereGroup[${whereGroupIndex}][value]`] = 'typZasoby.material';
       whereGroupIndex++;
+    } else if (activeTab.value === 'neskladove') {
+      queryParams[`whereGroup[${whereGroupIndex}][type]`] = 'isFalse';
+      queryParams[`whereGroup[${whereGroupIndex}][attribute]`] = 'isStockItem';
+      queryParams[`whereGroup[${whereGroupIndex}][value]`] = '';
+      whereGroupIndex++;
     }
-    // activeTab.value === 'all' - žádný stockType filtr
+    // activeTab.value === 'all' - žádný filtr
 
-    // **3. Filtr podle isStockItem (boolean)**
-    if (filters.value.isStockItem !== null) {
+    // **3. Filtr podle isStockItem (boolean) - neaplikuje se při neskladove tabu**
+    if (filters.value.isStockItem !== null && activeTab.value !== 'neskladove') {
       if (filters.value.isStockItem === true) {
         queryParams[`whereGroup[${whereGroupIndex}][type]`] = 'isTrue';
         queryParams[`whereGroup[${whereGroupIndex}][attribute]`] = 'isStockItem';
@@ -304,6 +309,11 @@ onMounted(() => {
           <v-tab value="material">
             <v-icon start color="info">mdi-package-variant-closed</v-icon>
             Materiál
+          </v-tab>
+
+          <v-tab value="neskladove">
+            <v-icon start color="warning">mdi-package-variant-remove</v-icon>
+            Nejsou ve skladu
           </v-tab>
         </v-tabs>
       </v-card>
@@ -502,15 +512,15 @@ onMounted(() => {
         >
           <div class="d-flex align-center justify-space-between">
             <div class="d-flex align-center">
-              <v-icon 
-                start 
-                :color="activeTab === 'vyrobek' ? 'success' : 'info'"
+              <v-icon
+                start
+                :color="activeTab === 'vyrobek' ? 'success' : activeTab === 'material' ? 'info' : 'warning'"
               >
-                {{ activeTab === 'vyrobek' ? 'mdi-hammer-wrench' : 'mdi-package-variant-closed' }}
+                {{ activeTab === 'vyrobek' ? 'mdi-hammer-wrench' : activeTab === 'material' ? 'mdi-package-variant-closed' : 'mdi-package-variant-remove' }}
               </v-icon>
               <span>
-                Zobrazeny pouze produkty typu: 
-                <strong>{{ activeTab === 'vyrobek' ? 'Výrobek' : 'Materiál' }}</strong>
+                Zobrazeny pouze produkty:
+                <strong>{{ activeTab === 'vyrobek' ? 'Výrobek' : activeTab === 'material' ? 'Materiál' : 'Nejsou ve skladu' }}</strong>
                 <span class="text-medium-emphasis ml-2">({{ products.length }} produktů)</span>
               </span>
             </div>
@@ -609,12 +619,14 @@ onMounted(() => {
               </div>
               <div class="text-caption text-medium-emphasis">
                 {{ searchText.trim() || activeFiltersCount > 0
-                  ? 'Pro zadaná kritéria nebyly nalezeny žádné produkty.' 
+                  ? 'Pro zadaná kritéria nebyly nalezeny žádné produkty.'
                   : activeTab === 'vyrobek'
                     ? 'V kategorii "Výrobek" nejsou žádné produkty.'
                     : activeTab === 'material'
                       ? 'V kategorii "Materiál" nejsou žádné produkty.'
-                      : 'Zatím nebyly načteny žádné produkty.'
+                      : activeTab === 'neskladove'
+                        ? 'Nejsou žádné neskladové produkty.'
+                        : 'Zatím nebyly načteny žádné produkty.'
                 }}
               </div>
               <v-btn
@@ -733,7 +745,7 @@ onMounted(() => {
           {{ searchText.trim() || activeFiltersCount > 0 ? 'Výsledky filtrování: ' : 'Celkem produktů: ' }}
           <strong>{{ products.length }}</strong>
           <span v-if="activeTab !== 'all'" class="ml-2">
-            ({{ activeTab === 'vyrobek' ? 'Výrobek' : 'Materiál' }})
+            ({{ activeTab === 'vyrobek' ? 'Výrobek' : activeTab === 'material' ? 'Materiál' : 'Nejsou ve skladu' }})
           </span>
           <span v-if="activeFiltersCount > 0" class="ml-2">
             ({{ activeFiltersCount }} {{ activeFiltersCount === 1 ? 'filtr' : activeFiltersCount < 5 ? 'filtry' : 'filtrů' }})
