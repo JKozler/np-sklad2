@@ -31,7 +31,8 @@ const headers = ref([
 
 const tabs = ref([
   { value: undefined, title: 'Všechny objednávky' },
-  { value: 'starred', title: 'Oblíbené' }
+  { value: 'starred', title: 'Oblíbené' },
+  { value: 'errors', title: 'Chybové' }
 ]);
 
 const statusColors: Record<string, string> = {
@@ -194,6 +195,13 @@ onMounted(() => {
               size="small"
             >
               mdi-star
+            </v-icon>
+            <v-icon
+              v-if="tab.value === 'errors'"
+              start
+              size="small"
+            >
+              mdi-alert-circle
             </v-icon>
             {{ tab.title }}
           </v-tab>
@@ -392,10 +400,10 @@ onMounted(() => {
             <div class="text-center pa-6">
               <v-icon size="64" color="grey-lighten-1">mdi-package-variant</v-icon>
               <div class="text-h6 mt-4 text-medium-emphasis">
-                {{ searchText ? 'Žádné objednávky nenalezeny' : activeTab === 'starred' ? 'Žádné oblíbené objednávky' : 'Zatím nemáte žádné objednávky' }}
+                {{ searchText ? 'Žádné objednávky nenalezeny' : activeTab === 'starred' ? 'Žádné oblíbené objednávky' : activeTab === 'errors' ? 'Žádné chybové objednávky' : 'Zatím nemáte žádné objednávky' }}
               </div>
               <div class="text-body-2 text-medium-emphasis mt-2">
-                {{ searchText ? 'Zkuste jiné vyhledávací kritérium' : activeTab === 'starred' ? 'Označte objednávky hvězdičkou pro rychlý přístup' : 'Objednávky se zobrazí automaticky po vytvoření' }}
+                {{ searchText ? 'Zkuste jiné vyhledávací kritérium' : activeTab === 'starred' ? 'Označte objednávky hvězdičkou pro rychlý přístup' : activeTab === 'errors' ? 'Skvělé! Nemáte žádné objednávky s chybou' : 'Objednávky se zobrazí automaticky po vytvoření' }}
               </div>
             </div>
           </template>
