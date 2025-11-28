@@ -5,7 +5,7 @@ import { useRoute, useRouter } from 'vue-router';
 import BaseBreadcrumb from '@/components/shared/BaseBreadcrumb.vue';
 import UiParentCard from '@/components/shared/UiParentCard.vue';
 import { ordersService } from '@/services/ordersService';
-import type { SalesOrder, SalesOrderItem, OrderStatus } from '@/services/ordersService';
+import type { SalesOrder, SalesOrderItem, OrderStatus, StreamEntry, Package, PackageDetail } from '@/services/ordersService';
 
 const route = useRoute();
 const router = useRouter();
@@ -24,6 +24,17 @@ const items = ref<SalesOrderItem[]>([]);
 const loading = ref(false);
 const saving = ref(false);
 const editMode = ref(false);
+
+// Stream/Log data
+const streamEntries = ref<StreamEntry[]>([]);
+const loadingStream = ref(false);
+
+// Packages data
+const packages = ref<Package[]>([]);
+const loadingPackages = ref(false);
+const selectedPackage = ref<PackageDetail | null>(null);
+const packageDetailDialog = ref(false);
+const loadingPackageDetail = ref(false);
 
 // Editovatelné fieldy
 const editForm = ref({
@@ -171,7 +182,7 @@ const loadOrder = async () => {
   try {
     order.value = await ordersService.getById(orderId.value);
     items.value = await ordersService.getOrderItems(orderId.value);
-    
+
     // Naplnit editovací formulář
     editForm.value = {
       status: order.value.status,
@@ -200,11 +211,71 @@ const loadOrder = async () => {
       paymentMethod: order.value.paymentMethod || '',
       carrierPickupPoint: order.value.carrierPickupPoint || ''
     };
+
+    // Načíst stream a balíky paralelně
+    loadStream();
+    loadPackages();
   } catch (error) {
     console.error('Chyba při načítání objednávky:', error);
   } finally {
     loading.value = false;
   }
+};
+
+const loadStream = async () => {
+  loadingStream.value = true;
+  try {
+    const response = await ordersService.getOrderStream(orderId.value);
+    streamEntries.value = response.list;
+  } catch (error) {
+    console.error('Chyba při načítání streamu:', error);
+  } finally {
+    loadingStream.value = false;
+  }
+};
+
+const loadPackages = async () => {
+  loadingPackages.value = true;
+  try {
+    const response = await ordersService.getOrderPackages(orderId.value);
+    packages.value = response.list;
+  } catch (error) {
+    console.error('Chyba při načítání balíků:', error);
+  } finally {
+    loadingPackages.value = false;
+  }
+};
+
+const openPackageDetail = async (packageId: string) => {
+  loadingPackageDetail.value = true;
+  packageDetailDialog.value = true;
+  try {
+    selectedPackage.value = await ordersService.getPackageDetail(packageId);
+  } catch (error) {
+    console.error('Chyba při načítání detailu balíku:', error);
+  } finally {
+    loadingPackageDetail.value = false;
+  }
+};
+
+const downloadLabel = (labelId: string) => {
+  const url = ordersService.getLabelDownloadUrl(labelId);
+  window.open(url, '_blank');
+};
+
+const getStreamActionText = (entry: StreamEntry): string => {
+  if (entry.type === 'Create') {
+    return 'vytvořil objednávku';
+  }
+  if (entry.type === 'Update' && entry.data.fields?.includes('status')) {
+    const was = entry.data.attributes?.was?.status;
+    const became = entry.data.attributes?.became?.status;
+    return `upravil stav z "${statusLabels[was] || was}" na "${statusLabels[became] || became}"`;
+  }
+  if (entry.type === 'Update') {
+    return `upravil objednávku (${entry.data.fields?.join(', ')})`;
+  }
+  return entry.type.toLowerCase();
 };
 
 const toggleEdit = () => {
@@ -813,7 +884,260 @@ onMounted(() => {
         </v-data-table>
       </UiParentCard>
     </v-col>
+
+    <!-- Balíky -->
+    <v-col cols="12" md="6">
+      <UiParentCard title="Balíky">
+        <template v-slot:action>
+          <v-chip color="primary" variant="outlined">
+            {{ packages.length }} {{ packages.length === 1 ? 'balík' : packages.length < 5 ? 'balíky' : 'balíků' }}
+          </v-chip>
+        </template>
+
+        <div v-if="loadingPackages" class="pa-4">
+          <v-skeleton-loader type="list-item-three-line"></v-skeleton-loader>
+        </div>
+
+        <div v-else-if="packages.length === 0" class="pa-6 text-center text-medium-emphasis">
+          <v-icon size="48" color="grey-lighten-1" class="mb-2">mdi-package-variant</v-icon>
+          <div>Žádné balíky</div>
+        </div>
+
+        <v-list v-else lines="two">
+          <v-list-item
+            v-for="pkg in packages"
+            :key="pkg.id"
+            @click="openPackageDetail(pkg.id)"
+            class="package-item"
+          >
+            <template v-slot:prepend>
+              <v-icon color="primary">mdi-package-variant</v-icon>
+            </template>
+
+            <v-list-item-title class="font-weight-medium">
+              {{ pkg.name }}
+            </v-list-item-title>
+
+            <v-list-item-subtitle>
+              <div class="d-flex align-center gap-2 mt-1">
+                <v-chip
+                  size="x-small"
+                  :color="pkg.lastTrackingStatusNormalized === 'CREATED' ? 'default' : 'success'"
+                  variant="flat"
+                >
+                  {{ pkg.lastTrackingStatusNormalized }}
+                </v-chip>
+                <span class="text-caption">{{ pkg.boxCount }} {{ pkg.boxCount === 1 ? 'kus' : 'kusy' }}</span>
+                <span class="text-caption text-medium-emphasis">{{ formatDate(pkg.createdAt) }}</span>
+              </div>
+            </v-list-item-subtitle>
+
+            <template v-slot:append>
+              <v-icon>mdi-chevron-right</v-icon>
+            </template>
+          </v-list-item>
+        </v-list>
+      </UiParentCard>
+    </v-col>
+
+    <!-- Stream/Log -->
+    <v-col cols="12" md="6">
+      <UiParentCard title="Historie změn">
+        <template v-slot:action>
+          <v-btn
+            icon="mdi-refresh"
+            variant="text"
+            size="small"
+            @click="loadStream"
+            :loading="loadingStream"
+          ></v-btn>
+        </template>
+
+        <div v-if="loadingStream" class="pa-4">
+          <v-skeleton-loader type="list-item-three-line"></v-skeleton-loader>
+        </div>
+
+        <div v-else-if="streamEntries.length === 0" class="pa-6 text-center text-medium-emphasis">
+          <v-icon size="48" color="grey-lighten-1" class="mb-2">mdi-timeline-text-outline</v-icon>
+          <div>Žádná historie</div>
+        </div>
+
+        <v-timeline v-else align="start" density="compact" side="end">
+          <v-timeline-item
+            v-for="entry in streamEntries"
+            :key="entry.id"
+            dot-color="primary"
+            size="x-small"
+          >
+            <template v-slot:opposite>
+              <div class="text-caption text-medium-emphasis">
+                {{ formatDate(entry.createdAt) }}
+              </div>
+            </template>
+
+            <div>
+              <div class="text-body-2">
+                <span class="font-weight-medium">{{ entry.createdByName }}</span>
+                <span class="text-medium-emphasis"> {{ getStreamActionText(entry) }}</span>
+              </div>
+              <div v-if="entry.post" class="text-caption mt-1 text-medium-emphasis">
+                {{ entry.post }}
+              </div>
+            </div>
+          </v-timeline-item>
+        </v-timeline>
+      </UiParentCard>
+    </v-col>
   </v-row>
+
+  <!-- Package Detail Dialog -->
+  <v-dialog v-model="packageDetailDialog" max-width="800px">
+    <v-card>
+      <v-card-title class="d-flex align-center justify-space-between">
+        <span>Detail balíku {{ selectedPackage?.name }}</span>
+        <v-btn
+          icon="mdi-close"
+          variant="text"
+          size="small"
+          @click="packageDetailDialog = false"
+        ></v-btn>
+      </v-card-title>
+
+      <v-divider></v-divider>
+
+      <v-card-text v-if="loadingPackageDetail" class="pa-8">
+        <v-skeleton-loader type="article"></v-skeleton-loader>
+      </v-card-text>
+
+      <v-card-text v-else-if="selectedPackage" class="pa-6">
+        <v-row>
+          <v-col cols="12" md="6">
+            <h4 class="text-subtitle-1 font-weight-bold mb-3">Základní informace</h4>
+            <v-table density="compact" class="info-table">
+              <tbody>
+                <tr>
+                  <td class="text-medium-emphasis font-weight-medium">Číslo balíku:</td>
+                  <td class="font-weight-bold">{{ selectedPackage.name }}</td>
+                </tr>
+                <tr>
+                  <td class="text-medium-emphasis font-weight-medium">Interní číslo:</td>
+                  <td>{{ selectedPackage.internalNumber }}</td>
+                </tr>
+                <tr>
+                  <td class="text-medium-emphasis font-weight-medium">Vytvořeno:</td>
+                  <td>{{ formatDate(selectedPackage.createdAt) }}</td>
+                </tr>
+                <tr>
+                  <td class="text-medium-emphasis font-weight-medium">Stav:</td>
+                  <td>
+                    <v-chip size="small" :color="selectedPackage.lastTrackingStatusNormalized === 'CREATED' ? 'default' : 'success'">
+                      {{ selectedPackage.lastTrackingStatusNormalized }}
+                    </v-chip>
+                  </td>
+                </tr>
+                <tr>
+                  <td class="text-medium-emphasis font-weight-medium">Počet kusů:</td>
+                  <td>{{ selectedPackage.boxCount }}</td>
+                </tr>
+                <tr>
+                  <td class="text-medium-emphasis font-weight-medium">Dopravce:</td>
+                  <td>
+                    <v-chip size="small" variant="outlined">
+                      {{ selectedPackage.carrierName }}
+                    </v-chip>
+                  </td>
+                </tr>
+              </tbody>
+            </v-table>
+
+            <div class="mt-6">
+              <h4 class="text-subtitle-1 font-weight-bold mb-3">Cenové údaje</h4>
+              <v-table density="compact" class="info-table">
+                <tbody>
+                  <tr>
+                    <td class="text-medium-emphasis font-weight-medium">Hodnota zásilky:</td>
+                    <td class="text-end">{{ formatPrice(selectedPackage.value, selectedPackage.valueCurrency) }}</td>
+                  </tr>
+                  <tr v-if="selectedPackage.codAmount > 0">
+                    <td class="text-medium-emphasis font-weight-medium">Dobírka:</td>
+                    <td class="text-end font-weight-bold">{{ formatPrice(selectedPackage.codAmount, selectedPackage.codAmountCurrency) }}</td>
+                  </tr>
+                  <tr>
+                    <td class="text-medium-emphasis font-weight-medium">Způsob platby:</td>
+                    <td class="text-end">{{ selectedPackage.paymentMethod }}</td>
+                  </tr>
+                </tbody>
+              </v-table>
+            </div>
+          </v-col>
+
+          <v-col cols="12" md="6">
+            <h4 class="text-subtitle-1 font-weight-bold mb-3">Dodací adresa</h4>
+            <v-card variant="outlined">
+              <v-card-text>
+                <div class="font-weight-medium">
+                  {{ selectedPackage.shippingAddressFirstName }} {{ selectedPackage.shippingAddressLastName }}
+                </div>
+                <div class="text-medium-emphasis">{{ selectedPackage.shippingAddressStreet }}</div>
+                <div class="text-medium-emphasis">
+                  {{ selectedPackage.shippingAddressCity }}, {{ selectedPackage.shippingAddressPostalCode }}
+                </div>
+                <div class="text-medium-emphasis">{{ selectedPackage.shippingAddressCountry }}</div>
+                <div v-if="selectedPackage.carrierPickupPoint" class="mt-2 text-caption">
+                  <strong>Výdejní místo:</strong> {{ selectedPackage.carrierPickupPoint }}
+                </div>
+              </v-card-text>
+            </v-card>
+
+            <div class="mt-6">
+              <h4 class="text-subtitle-1 font-weight-bold mb-3">Kontakt</h4>
+              <v-table density="compact" class="info-table">
+                <tbody>
+                  <tr>
+                    <td class="text-medium-emphasis font-weight-medium">Email:</td>
+                    <td>
+                      <a :href="`mailto:${selectedPackage.email}`" class="text-decoration-none">
+                        {{ selectedPackage.email }}
+                      </a>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td class="text-medium-emphasis font-weight-medium">Telefon:</td>
+                    <td>
+                      <a :href="`tel:${selectedPackage.phoneNumber}`" class="text-decoration-none">
+                        {{ selectedPackage.phoneNumber }}
+                      </a>
+                    </td>
+                  </tr>
+                </tbody>
+              </v-table>
+            </div>
+          </v-col>
+        </v-row>
+      </v-card-text>
+
+      <v-divider></v-divider>
+
+      <v-card-actions class="pa-4">
+        <v-btn
+          v-if="selectedPackage?.labelId"
+          color="primary"
+          size="large"
+          prepend-icon="mdi-download"
+          @click="downloadLabel(selectedPackage.labelId)"
+        >
+          Stáhnout štítek
+        </v-btn>
+        <v-spacer></v-spacer>
+        <v-btn
+          variant="outlined"
+          @click="packageDetailDialog = false"
+        >
+          Zavřít
+        </v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
 </template>
 
 <style scoped>
@@ -849,5 +1173,14 @@ onMounted(() => {
 
 .border-t {
   border-top: 1px solid rgba(var(--v-border-color), 0.12);
+}
+
+.package-item {
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.package-item:hover {
+  background-color: rgba(var(--v-theme-primary), 0.05);
 }
 </style>
