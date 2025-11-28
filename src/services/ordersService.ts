@@ -116,6 +116,107 @@ export interface UpdateOrderData {
   carrierPickupPoint?: string;
 }
 
+export interface StreamEntry {
+  id: string;
+  deleted: boolean;
+  post: string | null;
+  data: {
+    fields?: string[];
+    attributes?: {
+      was?: Record<string, any>;
+      became?: Record<string, any>;
+    };
+  };
+  type: string;
+  targetType: string | null;
+  number: number;
+  isGlobal: boolean;
+  createdByGender: string | null;
+  isInternal: boolean;
+  isPinned: boolean;
+  reactionCounts: any | null;
+  myReactions: any[];
+  createdAt: string;
+  modifiedAt: string;
+  parentId: string;
+  parentType: string;
+  relatedId: string | null;
+  relatedType: string | null;
+  createdById: string;
+  createdByName: string;
+  modifiedById: string | null;
+  modifiedByName: string | null;
+  superParentId: string | null;
+  superParentType: string | null;
+}
+
+export interface StreamResponse {
+  total: number;
+  list: StreamEntry[];
+  pinnedList: StreamEntry[];
+}
+
+export interface Package {
+  id: string;
+  name: string;
+  createdAt: string;
+  trackingDetails: any[];
+  boxCount: number;
+  lastTrackingStatus: string | null;
+  lastTrackingStatusNormalized: string;
+  createdById: string;
+  assignedUserId: string | null;
+}
+
+export interface PackagesResponse {
+  total: number;
+  list: Package[];
+}
+
+export interface PackageDetail {
+  id: string;
+  name: string;
+  deleted: boolean;
+  description: string | null;
+  createdAt: string;
+  modifiedAt: string;
+  paymentMethod: string;
+  shippingAddressFirstName: string;
+  shippingAddressLastName: string;
+  shippingAddressStreet: string;
+  shippingAddressCity: string;
+  shippingAddressCountry: string;
+  shippingAddressPostalCode: string;
+  carrierPickupPoint: string;
+  trackingDetails: any[];
+  boxCount: number;
+  lastTrackingStatus: string | null;
+  lastTrackingStatusNormalized: string;
+  codAmount: number;
+  email: string;
+  phoneNumber: string;
+  value: number;
+  internalNumber: string;
+  codAmountCurrency: string;
+  valueCurrency: string;
+  createdById: string;
+  createdByName: string;
+  modifiedById: string;
+  modifiedByName: string;
+  assignedUserId: string | null;
+  assignedUserName: string | null;
+  teamsIds: string[];
+  teamsNames: Record<string, string>;
+  salesOrderId: string;
+  salesOrderName: string;
+  carrierId: string;
+  carrierName: string;
+  labelId: string;
+  labelName: string;
+  codAmountConverted: number;
+  valueConverted: number;
+}
+
 export const ordersService = {
   /**
    * Načte seznam objednávek s možností vyhledávání a filtrování
@@ -218,5 +319,53 @@ export const ordersService = {
   async delete(id: string): Promise<void> {
     console.log('🗑️ Deleting order:', id);
     await apiClient.delete(`/SalesOrder/${id}`);
+  },
+
+  /**
+   * Načte stream/log objednávky
+   */
+  async getOrderStream(orderId: string): Promise<StreamResponse> {
+    const queryParams = new URLSearchParams({
+      filter: '',
+      maxSize: '20',
+      offset: '0',
+      orderBy: 'number',
+      order: 'desc'
+    });
+
+    console.log('📝 Getting order stream:', orderId);
+    return apiClient.get<StreamResponse>(`/SalesOrder/${orderId}/stream?${queryParams}`);
+  },
+
+  /**
+   * Načte balíky objednávky
+   */
+  async getOrderPackages(orderId: string): Promise<PackagesResponse> {
+    const queryParams = new URLSearchParams({
+      primaryFilter: '',
+      maxSize: '20',
+      offset: '0',
+      orderBy: 'createdAt',
+      order: 'desc',
+      attributeSelect: 'name,trackingDetails,lastTrackingStatus,boxCount,lastTrackingStatusNormalized'
+    });
+
+    console.log('📦 Getting order packages:', orderId);
+    return apiClient.get<PackagesResponse>(`/SalesOrder/${orderId}/packages?${queryParams}`);
+  },
+
+  /**
+   * Načte detail balíku
+   */
+  async getPackageDetail(packageId: string): Promise<PackageDetail> {
+    console.log('📦 Getting package detail:', packageId);
+    return apiClient.get<PackageDetail>(`/Package/${packageId}`);
+  },
+
+  /**
+   * Vrátí URL pro stažení štítku balíku
+   */
+  getLabelDownloadUrl(labelId: string): string {
+    return `https://smart-int-be.naturalprotein.net/?entryPoint=download&id=${labelId}`;
   }
 };
