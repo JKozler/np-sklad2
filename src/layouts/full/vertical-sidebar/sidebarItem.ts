@@ -48,6 +48,12 @@ const sidebarItem: menu[] = [
     to: 'https://crm.naturalprotein.cz/?entryPoint=expeditionPortal',
     type: 'external'
   },
+  {
+    title: 'Výroba',
+    icon: TruckDeliveryIcon,
+    to: 'https://crm.naturalprotein.cz/?entryPoint=productionPortal',
+    type: 'external'
+  },
   
   { divider: true },
   { header: 'Statistiky' },
