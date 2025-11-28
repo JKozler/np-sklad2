@@ -8,7 +8,8 @@ import {
   SettingsIcon,
   BrandProducthuntIcon,
   BuildingWarehouseIcon,
-  TruckDeliveryIcon
+  TruckDeliveryIcon,
+  TruckLoadingIcon
 } from 'vue-tabler-icons';
 
 export interface menu {
@@ -50,7 +51,7 @@ const sidebarItem: menu[] = [
   },
   {
     title: 'Výroba',
-    icon: TruckDeliveryIcon,
+    icon: TruckLoadingIcon,
     to: 'https://crm.naturalprotein.cz/?entryPoint=productionPortal',
     type: 'external'
   },
