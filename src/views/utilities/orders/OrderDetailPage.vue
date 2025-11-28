@@ -36,6 +36,23 @@ const selectedPackage = ref<PackageDetail | null>(null);
 const packageDetailDialog = ref(false);
 const loadingPackageDetail = ref(false);
 
+// Regenerate package
+const regeneratingPackage = ref(false);
+const regenerateError = ref<string | null>(null);
+
+// Split package
+const splitPackageDialog = ref(false);
+const loadingSplitPackageData = ref(false);
+const splittingPackage = ref(false);
+const packageToSplit = ref<PackageDetail | null>(null);
+const packageItemsToSplit = ref<any[]>([]);
+const selectedItemsToMove = ref<string[]>([]);
+const splitOverrides = ref({
+  carrierId: '',
+  paymentMethod: 'Keep Original',
+  codAmount: 0
+});
+
 // Editovatelné fieldy
 const editForm = ref({
   status: '' as OrderStatus,
@@ -439,6 +456,107 @@ const applyDiscount = () => {
   window.open(url, '_blank');
 };
 
+const regeneratePackage = async () => {
+  if (!order.value) return;
+
+  if (!confirm('Opravdu chcete přegenerovat balík pro tuto objednávku?')) {
+    return;
+  }
+
+  regeneratingPackage.value = true;
+  regenerateError.value = null;
+
+  try {
+    const response = await ordersService.regeneratePackage(order.value.id);
+
+    // Zkontrolovat, jestli je v odpovědi error
+    if (response && response.status === 'error') {
+      regenerateError.value = response.message || 'Chyba při regeneraci balíku';
+    } else {
+      // Úspěch - obnovit data
+      await loadOrder();
+      alert('Balík byl úspěšně přegenerován');
+    }
+  } catch (error: any) {
+    console.error('Chyba při regeneraci balíku:', error);
+
+    // Pokusit se získat chybovou zprávu z API odpovědi
+    if (error.response?.data?.message) {
+      regenerateError.value = error.response.data.message;
+    } else if (error.message) {
+      regenerateError.value = error.message;
+    } else {
+      regenerateError.value = 'Neznámá chyba při regeneraci balíku';
+    }
+  } finally {
+    regeneratingPackage.value = false;
+  }
+};
+
+const openSplitPackageDialog = async () => {
+  if (!order.value) return;
+
+  splitPackageDialog.value = true;
+  loadingSplitPackageData.value = true;
+  selectedItemsToMove.value = [];
+
+  try {
+    // Načíst balík pro split
+    packageToSplit.value = await ordersService.getPackageForSplit(order.value.id);
+
+    // Načíst položky balíku
+    packageItemsToSplit.value = await ordersService.getPackageItems(packageToSplit.value.id);
+  } catch (error) {
+    console.error('Chyba při načítání dat pro split:', error);
+    alert('Chyba při načítání dat pro rozdělení balíku');
+    splitPackageDialog.value = false;
+  } finally {
+    loadingSplitPackageData.value = false;
+  }
+};
+
+const confirmSplitPackage = async () => {
+  if (!packageToSplit.value || selectedItemsToMove.value.length === 0) {
+    alert('Vyberte alespoň jednu položku k přesunutí');
+    return;
+  }
+
+  splittingPackage.value = true;
+
+  try {
+    // Připravit overrides (pouze pokud je něco vyplněno)
+    const overrides: any[] = [];
+
+    await ordersService.splitPackage(
+      packageToSplit.value.id,
+      selectedItemsToMove.value,
+      overrides
+    );
+
+    // Úspěch - zavřít dialog a obnovit data
+    splitPackageDialog.value = false;
+    await loadOrder();
+    alert('Balík byl úspěšně rozdělen');
+  } catch (error) {
+    console.error('Chyba při rozdělování balíku:', error);
+    alert('Chyba při rozdělování balíku');
+  } finally {
+    splittingPackage.value = false;
+  }
+};
+
+const closeSplitDialog = () => {
+  splitPackageDialog.value = false;
+  selectedItemsToMove.value = [];
+  packageToSplit.value = null;
+  packageItemsToSplit.value = [];
+  splitOverrides.value = {
+    carrierId: '',
+    paymentMethod: 'Keep Original',
+    codAmount: 0
+  };
+};
+
 onMounted(() => {
   loadOrder();
 });
@@ -457,28 +575,65 @@ onMounted(() => {
     <!-- Akční tlačítka -->
     <v-col cols="12">
       <div class="d-flex justify-space-between align-center mb-4">
-        <div class="d-flex align-center gap-3">
-          <v-btn
-            icon
-            size="default"
-            variant="text"
-            @click="toggleStar"
-          >
-            <v-icon :color="order.isStarred ? 'warning' : 'grey-lighten-1'">
-              {{ order.isStarred ? 'mdi-star' : 'mdi-star-outline' }}
-            </v-icon>
-          </v-btn>
-          <h2 class="text-h4">Objednávka {{ order.name }}</h2>
-          <v-chip 
-            :color="statusColors[order.status]" 
-            size="default"
+        <div>
+          <div class="d-flex align-center gap-3">
+            <v-btn
+              icon
+              size="default"
+              variant="text"
+              @click="toggleStar"
+            >
+              <v-icon :color="order.isStarred ? 'warning' : 'grey-lighten-1'">
+                {{ order.isStarred ? 'mdi-star' : 'mdi-star-outline' }}
+              </v-icon>
+            </v-btn>
+            <h2 class="text-h4">Objednávka {{ order.name }}</h2>
+            <v-chip
+              :color="statusColors[order.status]"
+              size="default"
+              variant="tonal"
+            >
+              {{ statusLabels[order.status] }}
+            </v-chip>
+          </div>
+
+          <!-- Chybová zpráva z regenerace balíku -->
+          <v-alert
+            v-if="regenerateError"
+            type="error"
             variant="tonal"
+            closable
+            class="mt-3"
+            @click:close="regenerateError = null"
           >
-            {{ statusLabels[order.status] }}
-          </v-chip>
+            {{ regenerateError }}
+          </v-alert>
         </div>
 
         <div class="d-flex gap-2">
+          <!-- Tlačítko pro přegenerování balíku (pouze pro chybové stavy) -->
+          <v-btn
+            v-if="order.status === 'expedition-error' || order.status === 'data-error'"
+            @click="regeneratePackage"
+            color="error"
+            size="large"
+            prepend-icon="mdi-package-variant"
+            :loading="regeneratingPackage"
+          >
+            Přegenerovat balík
+          </v-btn>
+
+          <!-- Tlačítko pro rozdělení balíku (pouze pro in-progress) -->
+          <v-btn
+            v-if="order.status === 'in-progress'"
+            @click="openSplitPackageDialog"
+            color="info"
+            size="large"
+            prepend-icon="mdi-package-variant-closed"
+          >
+            Rozdělit balík
+          </v-btn>
+
           <v-btn
             @click="applyDiscount"
             color="warning"
@@ -1229,6 +1384,143 @@ onMounted(() => {
       </v-card-actions>
     </v-card>
   </v-dialog>
+
+  <!-- Split Package Dialog -->
+  <v-dialog v-model="splitPackageDialog" max-width="900px" persistent>
+    <v-card>
+      <v-card-title class="d-flex align-center justify-space-between bg-grey-lighten-4">
+        <span class="text-h5">Rozdělit balík</span>
+        <v-btn
+          icon="mdi-close"
+          variant="text"
+          size="small"
+          @click="closeSplitDialog"
+          :disabled="splittingPackage"
+        ></v-btn>
+      </v-card-title>
+
+      <v-divider></v-divider>
+
+      <v-card-text v-if="loadingSplitPackageData" class="pa-8">
+        <v-skeleton-loader type="article"></v-skeleton-loader>
+      </v-card-text>
+
+      <v-card-text v-else class="pa-6">
+        <!-- Výběr položek k přesunutí -->
+        <div class="mb-6">
+          <h3 class="text-h6 mb-4">Vyberte položky k přesunutí do nového balíku:</h3>
+
+          <v-card variant="outlined">
+            <v-list>
+              <v-list-item
+                v-for="item in packageItemsToSplit"
+                :key="item.id"
+                class="border-b"
+              >
+                <template v-slot:prepend>
+                  <v-checkbox
+                    v-model="selectedItemsToMove"
+                    :value="item.id"
+                    hide-details
+                  ></v-checkbox>
+                </template>
+
+                <v-list-item-title>
+                  <div class="d-flex justify-space-between align-center">
+                    <div>
+                      <div class="font-weight-medium">
+                        {{ item.salesOrderItemName }}
+                      </div>
+                      <div class="text-caption text-medium-emphasis" v-if="item.productName">
+                        {{ item.productName }}
+                      </div>
+                    </div>
+                    <div class="text-right">
+                      <v-chip size="small" variant="outlined">
+                        Množství: {{ item.quantity }}
+                      </v-chip>
+                    </div>
+                  </div>
+                </v-list-item-title>
+              </v-list-item>
+            </v-list>
+          </v-card>
+
+          <div v-if="packageItemsToSplit.length === 0" class="text-center text-medium-emphasis pa-4">
+            Žádné položky k rozdělení
+          </div>
+        </div>
+
+        <!-- Volitelné přepsání nastavení -->
+        <v-divider class="my-6"></v-divider>
+
+        <div>
+          <h3 class="text-h6 mb-4">Přepsání nastavení (volitelné):</h3>
+
+          <v-row>
+            <v-col cols="12" md="6">
+              <v-text-field
+                v-model="splitOverrides.carrierId"
+                label="ID dopravce"
+                variant="outlined"
+                density="compact"
+                hint="Ponechte prázdné pro zachování původního"
+                persistent-hint
+                placeholder="Ponechte prázdné pro zachování původního"
+              ></v-text-field>
+            </v-col>
+
+            <v-col cols="12" md="6">
+              <v-select
+                v-model="splitOverrides.paymentMethod"
+                label="Způsob platby"
+                variant="outlined"
+                density="compact"
+                :items="['Keep Original', 'card', 'cash', 'bank_transfer']"
+                hint="Ponechte 'Keep Original' pro zachování původního"
+                persistent-hint
+              ></v-select>
+            </v-col>
+
+            <v-col cols="12" md="6">
+              <v-text-field
+                v-model.number="splitOverrides.codAmount"
+                label="Částka na dobírku"
+                variant="outlined"
+                density="compact"
+                type="number"
+                step="0.01"
+                hint="0.00 = žádná dobírka"
+                persistent-hint
+              ></v-text-field>
+            </v-col>
+          </v-row>
+        </div>
+      </v-card-text>
+
+      <v-divider></v-divider>
+
+      <v-card-actions class="pa-4">
+        <v-btn
+          variant="outlined"
+          @click="closeSplitDialog"
+          :disabled="splittingPackage"
+        >
+          Zrušit
+        </v-btn>
+        <v-spacer></v-spacer>
+        <v-btn
+          color="primary"
+          size="large"
+          @click="confirmSplitPackage"
+          :loading="splittingPackage"
+          :disabled="selectedItemsToMove.length === 0"
+        >
+          Rozdělit balík
+        </v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
 </template>
 
 <style scoped>
@@ -1273,5 +1565,13 @@ onMounted(() => {
 
 .package-item:hover {
   background-color: rgba(var(--v-theme-primary), 0.05);
+}
+
+.border-b {
+  border-bottom: 1px solid rgba(var(--v-border-color), 0.12);
+}
+
+.border-b:last-child {
+  border-bottom: none;
 }
 </style>
