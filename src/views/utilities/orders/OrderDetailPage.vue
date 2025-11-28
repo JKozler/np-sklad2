@@ -316,10 +316,86 @@ const toggleEdit = () => {
 
 const saveChanges = async () => {
   if (!order.value) return;
-  
+
   saving.value = true;
   try {
-    await ordersService.update(order.value.id, editForm.value);
+    // Poslat pouze změněné hodnoty
+    const changedData: any = {};
+
+    // Porovnat všechny fieldy a přidat pouze změněné
+    if (editForm.value.status !== order.value.status) {
+      changedData.status = editForm.value.status;
+    }
+    if (editForm.value.internalNote !== (order.value.internalNote || '')) {
+      changedData.internalNote = editForm.value.internalNote;
+    }
+    if (editForm.value.customerNote !== (order.value.customerNote || '')) {
+      changedData.customerNote = editForm.value.customerNote;
+    }
+    if (editForm.value.assignedUserId !== order.value.assignedUserId) {
+      changedData.assignedUserId = editForm.value.assignedUserId;
+    }
+
+    // Shipping address
+    if (editForm.value.shippingAddressFirstName !== (order.value.shippingAddressFirstName || '')) {
+      changedData.shippingAddressFirstName = editForm.value.shippingAddressFirstName;
+    }
+    if (editForm.value.shippingAddressLastName !== (order.value.shippingAddressLastName || '')) {
+      changedData.shippingAddressLastName = editForm.value.shippingAddressLastName;
+    }
+    if (editForm.value.shippingAddressStreet !== (order.value.shippingAddressStreet || '')) {
+      changedData.shippingAddressStreet = editForm.value.shippingAddressStreet;
+    }
+    if (editForm.value.shippingAddressCity !== (order.value.shippingAddressCity || '')) {
+      changedData.shippingAddressCity = editForm.value.shippingAddressCity;
+    }
+    if (editForm.value.shippingAddressPostalCode !== (order.value.shippingAddressPostalCode || '')) {
+      changedData.shippingAddressPostalCode = editForm.value.shippingAddressPostalCode;
+    }
+    if (editForm.value.shippingAddressCountry !== (order.value.shippingAddressCountry || '')) {
+      changedData.shippingAddressCountry = editForm.value.shippingAddressCountry;
+    }
+
+    // Billing address
+    if (editForm.value.billingAddressFirstName !== (order.value.billingAddressFirstName || '')) {
+      changedData.billingAddressFirstName = editForm.value.billingAddressFirstName;
+    }
+    if (editForm.value.billingAddressLastName !== (order.value.billingAddressLastName || '')) {
+      changedData.billingAddressLastName = editForm.value.billingAddressLastName;
+    }
+    if (editForm.value.billingAddressStreet !== (order.value.billingAddressStreet || '')) {
+      changedData.billingAddressStreet = editForm.value.billingAddressStreet;
+    }
+    if (editForm.value.billingAddressCity !== (order.value.billingAddressCity || '')) {
+      changedData.billingAddressCity = editForm.value.billingAddressCity;
+    }
+    if (editForm.value.billingAddressPostalCode !== (order.value.billingAddressPostalCode || '')) {
+      changedData.billingAddressPostalCode = editForm.value.billingAddressPostalCode;
+    }
+    if (editForm.value.billingAddressCountry !== (order.value.billingAddressCountry || '')) {
+      changedData.billingAddressCountry = editForm.value.billingAddressCountry;
+    }
+    if (editForm.value.billingAddressCompanyName !== (order.value.billingAddressCompanyName || '')) {
+      changedData.billingAddressCompanyName = editForm.value.billingAddressCompanyName;
+    }
+
+    // Contact
+    if (editForm.value.email !== (order.value.email || '')) {
+      changedData.email = editForm.value.email;
+    }
+    if (editForm.value.phoneNumber !== (order.value.phoneNumber || '')) {
+      changedData.phoneNumber = editForm.value.phoneNumber;
+    }
+
+    // Other
+    if (editForm.value.paymentMethod !== (order.value.paymentMethod || '')) {
+      changedData.paymentMethod = editForm.value.paymentMethod;
+    }
+    if (editForm.value.carrierPickupPoint !== (order.value.carrierPickupPoint || '')) {
+      changedData.carrierPickupPoint = editForm.value.carrierPickupPoint;
+    }
+
+    await ordersService.update(order.value.id, changedData);
     await loadOrder();
     editMode.value = false;
   } catch (error) {
