@@ -104,7 +104,7 @@ export const inventoryTransactionService = {
       offset: '0',
       orderBy: 'createdAt',
       order: 'desc',
-      attributeSelect: 'code,transactionDirection,transactionTypeId,transactionTypeName,name,status,totalPriceCurrency,totalPrice,warehouseFromId,warehouseFromName,warehouseToId,warehouseToName,transactionDate,createdAt'
+      attributeSelect: 'code,transactionDirection,transactionTypeId,transactionTypeName,name,status,totalPriceCurrency,totalPrice,warehouse,transactionDate,createdAt'
     });
 
     let whereGroupIndex = 0;
@@ -135,15 +135,11 @@ export const inventoryTransactionService = {
     }
 
     // Filtr podle směru pohybu
-    // OPRAVA: Odstraň prefix "typPohybu." před odesláním do API
-    // Backend ukládá hodnoty s prefixem (typPohybu.prijem, typPohybu.vydej),
-    // ale WHERE filtr má problém s tečkou v hodnotě, proto posíláme jen "prijem" nebo "vydej"
+    // Pro enum pole se musí používat 'in' typ filtru s 'attribute' místo 'column'
     if (filters?.direction) {
-      const directionValue = filters.direction.replace('typPohybu.', '');
-      queryParams.append(`whereGroup[${whereGroupIndex}][type]`, 'where');
-      queryParams.append(`whereGroup[${whereGroupIndex}][column]`, 'transactionDirection');
-      queryParams.append(`whereGroup[${whereGroupIndex}][operator]`, '=');
-      queryParams.append(`whereGroup[${whereGroupIndex}][value]`, directionValue);
+      queryParams.append(`whereGroup[${whereGroupIndex}][type]`, 'in');
+      queryParams.append(`whereGroup[${whereGroupIndex}][attribute]`, 'transactionDirection');
+      queryParams.append(`whereGroup[${whereGroupIndex}][value][]`, filters.direction);
       whereGroupIndex++;
     }
 
