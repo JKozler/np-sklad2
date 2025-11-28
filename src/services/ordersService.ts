@@ -367,5 +367,63 @@ export const ordersService = {
    */
   getLabelDownloadUrl(labelId: string): string {
     return `https://smart-int-be.naturalprotein.net/?entryPoint=download&id=${labelId}`;
+  },
+
+  /**
+   * Přegeneruje balík pro objednávku
+   */
+  async regeneratePackage(orderId: string): Promise<any> {
+    console.log('🔄 Regenerating package for order:', orderId);
+    return apiClient.post(`/SalesOrder/${orderId}/regeneratePackage`, {});
+  },
+
+  /**
+   * Načte balík objednávky pro split operaci
+   */
+  async getPackageForSplit(salesOrderId: string): Promise<PackageDetail> {
+    const queryParams = new URLSearchParams({
+      'whereGroup[0][type]': 'equals',
+      'whereGroup[0][attribute]': 'salesOrderId',
+      'whereGroup[0][value]': salesOrderId
+    });
+
+    console.log('📦 Getting package for split:', salesOrderId);
+    const response = await apiClient.get<{ total: number; list: PackageDetail[] }>(
+      `/Package?${queryParams}`
+    );
+
+    if (response.total === 0 || !response.list[0]) {
+      throw new Error('Balík nenalezen');
+    }
+
+    return response.list[0];
+  },
+
+  /**
+   * Načte položky balíku
+   */
+  async getPackageItems(packageId: string): Promise<any[]> {
+    const queryParams = new URLSearchParams({
+      maxSize: '100',
+      offset: '0'
+    });
+
+    console.log('📋 Getting package items:', packageId);
+    const response = await apiClient.get<{ total: number; list: any[] }>(
+      `/Package/${packageId}/packageItems?${queryParams}`
+    );
+
+    return response.list;
+  },
+
+  /**
+   * Rozdělí balík
+   */
+  async splitPackage(packageId: string, itemsToMove: string[], overrides: any[] = []): Promise<any> {
+    console.log('✂️ Splitting package:', packageId, { itemsToMove, overrides });
+    return apiClient.post(`/Package/${packageId}/split`, {
+      itemsToMove,
+      overrides
+    });
   }
 };
