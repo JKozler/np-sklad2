@@ -120,7 +120,7 @@ export const ordersService = {
   /**
    * Načte seznam objednávek s možností vyhledávání a filtrování
    * @param searchText - Textové vyhledávání
-   * @param primaryFilter - Primární filtr (např. 'starred' pro oblíbené)
+   * @param primaryFilter - Primární filtr (např. 'starred' pro oblíbené, 'errors' pro chybové)
    */
   async getAll(searchText?: string, primaryFilter?: string): Promise<SalesOrdersResponse> {
     const queryParams = new URLSearchParams({
@@ -132,7 +132,14 @@ export const ordersService = {
     });
 
     // Přidat primární filtr pokud existuje
-    if (primaryFilter) {
+    if (primaryFilter === 'errors') {
+      // Speciální filtr pro chybové objednávky
+      queryParams.append('whereGroup[0][type]', 'in');
+      queryParams.append('whereGroup[0][attribute]', 'status');
+      queryParams.append('whereGroup[0][value][]', 'expedition-error');
+      queryParams.append('whereGroup[0][value][]', 'data-error');
+    } else if (primaryFilter) {
+      // Standardní primární filtr (např. starred)
       queryParams.append('whereGroup[0][type]', 'primary');
       queryParams.append('whereGroup[0][value]', primaryFilter);
     }
