@@ -35,6 +35,8 @@ const loadingPackages = ref(false);
 const selectedPackage = ref<PackageDetail | null>(null);
 const packageDetailDialog = ref(false);
 const loadingPackageDetail = ref(false);
+const packageItems = ref<any[]>([]);
+const loadingPackageItems = ref(false);
 
 // Regenerate package
 const regeneratingPackage = ref(false);
@@ -321,13 +323,16 @@ const loadPackages = async () => {
 
 const openPackageDetail = async (packageId: string) => {
   loadingPackageDetail.value = true;
+  loadingPackageItems.value = true;
   packageDetailDialog.value = true;
   try {
     selectedPackage.value = await ordersService.getPackageDetail(packageId);
+    packageItems.value = await ordersService.getPackageItems(packageId);
   } catch (error) {
     console.error('Chyba při načítání detailu balíku:', error);
   } finally {
     loadingPackageDetail.value = false;
+    loadingPackageItems.value = false;
   }
 };
 
@@ -1630,6 +1635,46 @@ onMounted(() => {
             </div>
           </v-col>
         </v-row>
+
+        <!-- Položky balíku -->
+        <v-row class="mt-4">
+          <v-col cols="12">
+            <h4 class="text-subtitle-1 font-weight-bold mb-3">Položky balíku</h4>
+
+            <div v-if="loadingPackageItems" class="pa-4">
+              <v-skeleton-loader type="table-row@3"></v-skeleton-loader>
+            </div>
+
+            <div v-else-if="packageItems.length === 0" class="pa-6 text-center text-medium-emphasis">
+              <v-icon size="48" color="grey-lighten-1" class="mb-2">mdi-package-variant-closed</v-icon>
+              <div>Žádné položky</div>
+            </div>
+
+            <div v-else class="package-items-container">
+              <v-table density="compact" class="package-items-table">
+                <thead>
+                  <tr>
+                    <th class="text-left">Produkt</th>
+                    <th class="text-end">Množství</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="item in packageItems" :key="item.id">
+                    <td>
+                      <div class="font-weight-medium">{{ item.productName }}</div>
+                      <div v-if="item.salesOrderItemName && item.salesOrderItemName !== item.productName" class="text-caption text-medium-emphasis">
+                        {{ item.salesOrderItemName }}
+                      </div>
+                    </td>
+                    <td class="text-end">
+                      <v-chip size="small" variant="outlined">{{ item.quantity }}</v-chip>
+                    </td>
+                  </tr>
+                </tbody>
+              </v-table>
+            </div>
+          </v-col>
+        </v-row>
       </v-card-text>
 
       <v-divider></v-divider>
@@ -1918,5 +1963,40 @@ onMounted(() => {
 
 .border-b:last-child {
   border-bottom: none;
+}
+
+/* Package items scrollable container */
+.package-items-container {
+  max-height: 300px;
+  overflow-y: auto;
+  border: 1px solid rgba(var(--v-border-color), 0.12);
+  border-radius: 8px;
+}
+
+.package-items-table {
+  background-color: transparent;
+}
+
+.package-items-table thead tr th {
+  position: sticky;
+  top: 0;
+  background-color: rgba(var(--v-theme-surface), 1);
+  z-index: 1;
+  font-weight: 600;
+  padding: 12px 16px !important;
+  border-bottom: 2px solid rgba(var(--v-border-color), 0.2);
+}
+
+.package-items-table tbody tr td {
+  padding: 12px 16px !important;
+  border-bottom: 1px solid rgba(var(--v-border-color), 0.12);
+}
+
+.package-items-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.package-items-table tbody tr:hover {
+  background-color: rgba(var(--v-theme-primary), 0.02);
 }
 </style>
