@@ -5,6 +5,7 @@ import vuetify from 'vite-plugin-vuetify';
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  base: '/',
   plugins: [
     vue({
       template: {
@@ -28,7 +29,12 @@ export default defineConfig({
     }
   },
   build: {
-    chunkSizeWarningLimit: 1024 * 1024 // Set the limit to 1 MB
+    chunkSizeWarningLimit: 1024 * 1024, // Set the limit to 1 MB
+    rollupOptions: {
+      output: {
+        manualChunks: undefined
+      }
+    }
   },
   optimizeDeps: {
     exclude: ['vuetify'],
