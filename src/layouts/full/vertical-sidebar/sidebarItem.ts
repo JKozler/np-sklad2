@@ -46,7 +46,7 @@ const sidebarItem: menu[] = [
   {
     title: 'Expedice',
     icon: TruckDeliveryIcon,
-    to: 'https://crm.naturalprotein.cz/?entryPoint=expeditionPortal',
+    to: 'https://smart-int-be.naturalprotein.net/?entryPoint=expeditionPortal',
     type: 'external'
   },
   {
