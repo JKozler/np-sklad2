@@ -157,6 +157,44 @@ const totalItems = computed(() => {
   return items.value.reduce((sum, item) => sum + item.quantity, 0);
 });
 
+// Hierarchická struktura pro zobrazení bundlů
+const hierarchicalItems = computed(() => {
+  const result: any[] = [];
+  const bundleMap = new Map<string, any>();
+
+  // Nejprve najdeme všechny bundle kontejnery
+  items.value.forEach(item => {
+    if (item.type === 'BUNDLE') {
+      const bundleItem = {
+        ...item,
+        isBundle: true,
+        bundleItems: []
+      };
+      bundleMap.set(item.id, bundleItem);
+      result.push(bundleItem);
+    }
+  });
+
+  // Pak přiřadíme položky k bundlům
+  items.value.forEach(item => {
+    if (item.bundleId && bundleMap.has(item.bundleId)) {
+      bundleMap.get(item.bundleId).bundleItems.push({
+        ...item,
+        isBundleItem: true
+      });
+    } else if (item.type !== 'BUNDLE') {
+      // Normální položky které nejsou v bundlu
+      result.push({
+        ...item,
+        isBundle: false,
+        isBundleItem: false
+      });
+    }
+  });
+
+  return result;
+});
+
 const formatPrice = (price: number, currency: string = 'CZK') => {
   return new Intl.NumberFormat('cs-CZ', {
     style: 'currency',
@@ -1166,51 +1204,113 @@ onMounted(() => {
           </v-chip>
         </template>
 
-        <v-data-table
-          :headers="itemHeaders"
-          :items="items"
-          :items-per-page="-1"
-          hide-default-footer
-          class="elevation-0"
-        >
-          <template v-slot:item.name="{ item }">
-            <div>
-              <div class="font-weight-medium">{{ item.name }}</div>
-              <div 
-                v-if="item.productName && item.productName !== item.name" 
-                class="text-caption text-medium-emphasis"
-              >
-                {{ item.productName }}
-              </div>
-            </div>
-          </template>
+        <v-table class="elevation-0 order-items-table">
+          <thead>
+            <tr>
+              <th class="text-left">Produkt</th>
+              <th class="text-end">Množství</th>
+              <th class="text-end">Jedn. cena</th>
+              <th class="text-center">DPH %</th>
+              <th class="text-end">Cena bez DPH</th>
+              <th class="text-end">Cena s DPH</th>
+            </tr>
+          </thead>
+          <tbody>
+            <template v-for="item in hierarchicalItems" :key="item.id">
+              <!-- Bundle řádek -->
+              <tr v-if="item.isBundle" class="bundle-row">
+                <td>
+                  <div class="d-flex align-center">
+                    <v-icon size="small" class="mr-2" color="primary">mdi-package-variant</v-icon>
+                    <div>
+                      <div class="font-weight-bold">{{ item.name }}</div>
+                      <div v-if="item.bundleName" class="text-caption text-medium-emphasis">
+                        {{ item.bundleName }}
+                      </div>
+                    </div>
+                  </div>
+                </td>
+                <td class="text-end">
+                  <span class="font-weight-medium">{{ item.quantity }}</span>
+                </td>
+                <td class="text-end">
+                  {{ item.unitPrice > 0 ? formatPrice(item.unitPrice, order.currency) : '—' }}
+                </td>
+                <td class="text-center">
+                  <v-chip size="x-small" variant="outlined">{{ item.vatRate }}%</v-chip>
+                </td>
+                <td class="text-end">
+                  {{ item.priceWithoutVat > 0 ? formatPrice(item.priceWithoutVat, order.currency) : '—' }}
+                </td>
+                <td class="text-end">
+                  <span class="font-weight-medium">
+                    {{ item.priceWithVat > 0 ? formatPrice(item.priceWithVat, order.currency) : '—' }}
+                  </span>
+                </td>
+              </tr>
 
-          <template v-slot:item.quantity="{ item }">
-            <span class="font-weight-medium">{{ item.quantity }}</span>
-          </template>
+              <!-- Bundle items - vnořené položky -->
+              <tr v-for="bundleItem in item.bundleItems" :key="bundleItem.id" class="bundle-item-row">
+                <td>
+                  <div class="d-flex align-center pl-8">
+                    <v-icon size="x-small" class="mr-2" color="grey">mdi-subdirectory-arrow-right</v-icon>
+                    <div>
+                      <div class="font-weight-medium">{{ bundleItem.name }}</div>
+                      <div
+                        v-if="bundleItem.productName && bundleItem.productName !== bundleItem.name"
+                        class="text-caption text-medium-emphasis"
+                      >
+                        {{ bundleItem.productName }}
+                      </div>
+                    </div>
+                  </div>
+                </td>
+                <td class="text-end">
+                  <span class="font-weight-medium">{{ bundleItem.quantity }}</span>
+                </td>
+                <td class="text-end text-medium-emphasis">—</td>
+                <td class="text-center text-medium-emphasis">—</td>
+                <td class="text-end text-medium-emphasis">—</td>
+                <td class="text-end text-medium-emphasis">—</td>
+              </tr>
 
-          <template v-slot:item.unitPrice="{ item }">
-            {{ item.unitPrice > 0 ? formatPrice(item.unitPrice, order.currency) : '—' }}
-          </template>
-
-          <template v-slot:item.vatRate="{ item }">
-            <v-chip size="x-small" variant="outlined">{{ item.vatRate }}%</v-chip>
-          </template>
-
-          <template v-slot:item.priceWithoutVat="{ item }">
-            {{ item.priceWithoutVat > 0 ? formatPrice(item.priceWithoutVat, order.currency) : '—' }}
-          </template>
-
-          <template v-slot:item.priceWithVat="{ item }">
-            <span class="font-weight-medium">
-              {{ item.priceWithVat > 0 ? formatPrice(item.priceWithVat, order.currency) : '—' }}
-            </span>
-          </template>
-
-          <template v-slot:bottom>
-            <div class="pa-4 border-t">
-              <v-row>
-                <v-col cols="12" class="text-end">
+              <!-- Normální položky (není bundle ani bundle item) -->
+              <tr v-if="!item.isBundle" class="normal-row">
+                <td>
+                  <div>
+                    <div class="font-weight-medium">{{ item.name }}</div>
+                    <div
+                      v-if="item.productName && item.productName !== item.name"
+                      class="text-caption text-medium-emphasis"
+                    >
+                      {{ item.productName }}
+                    </div>
+                  </div>
+                </td>
+                <td class="text-end">
+                  <span class="font-weight-medium">{{ item.quantity }}</span>
+                </td>
+                <td class="text-end">
+                  {{ item.unitPrice > 0 ? formatPrice(item.unitPrice, order.currency) : '—' }}
+                </td>
+                <td class="text-center">
+                  <v-chip size="x-small" variant="outlined">{{ item.vatRate }}%</v-chip>
+                </td>
+                <td class="text-end">
+                  {{ item.priceWithoutVat > 0 ? formatPrice(item.priceWithoutVat, order.currency) : '—' }}
+                </td>
+                <td class="text-end">
+                  <span class="font-weight-medium">
+                    {{ item.priceWithVat > 0 ? formatPrice(item.priceWithVat, order.currency) : '—' }}
+                  </span>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+          <tfoot>
+            <tr class="border-t">
+              <td colspan="6" class="pa-4">
+                <div class="text-end">
                   <div class="d-flex justify-end align-center gap-4">
                     <span class="text-subtitle-1 font-weight-medium">Celková cena bez DPH:</span>
                     <span class="text-h6" v-if="order.priceWithoutVat">
@@ -1223,11 +1323,11 @@ onMounted(() => {
                       {{ formatPrice(order.priceWithVat, order.currency) }}
                     </span>
                   </div>
-                </v-col>
-              </v-row>
-            </div>
-          </template>
-        </v-data-table>
+                </div>
+              </td>
+            </tr>
+          </tfoot>
+        </v-table>
       </UiParentCard>
     </v-col>
 
@@ -1831,5 +1931,46 @@ onMounted(() => {
 }
 .font-weight-medium{
     margin-right: 4px !important;
+}
+
+/* Bundle styling */
+.order-items-table {
+  background-color: transparent;
+}
+
+.order-items-table thead tr th {
+  font-weight: 600;
+  background-color: rgba(var(--v-theme-primary), 0.05);
+  padding: 12px 16px !important;
+}
+
+.order-items-table tbody tr td {
+  padding: 12px 16px !important;
+  border-bottom: 1px solid rgba(var(--v-border-color), 0.12);
+}
+
+.order-items-table tbody tr.bundle-row {
+  background-color: rgba(var(--v-theme-primary), 0.03);
+  font-weight: 600;
+}
+
+.order-items-table tbody tr.bundle-row:hover {
+  background-color: rgba(var(--v-theme-primary), 0.06);
+}
+
+.order-items-table tbody tr.bundle-item-row {
+  background-color: rgba(var(--v-theme-surface), 0.5);
+}
+
+.order-items-table tbody tr.bundle-item-row:hover {
+  background-color: rgba(var(--v-theme-primary), 0.02);
+}
+
+.order-items-table tbody tr.normal-row:hover {
+  background-color: rgba(var(--v-theme-primary), 0.02);
+}
+
+.order-items-table tfoot tr td {
+  padding: 16px !important;
 }
 </style>
