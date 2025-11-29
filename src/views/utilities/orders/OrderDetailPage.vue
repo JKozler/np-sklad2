@@ -1297,17 +1297,17 @@ onMounted(() => {
                     <span class="font-weight-medium">{{ child.quantity }}</span>
                   </td>
                   <td class="text-end">
-                    {{ child.unitPrice > 0 ? formatPrice(child.unitPrice, order.currency) : '—' }}
+                    -
                   </td>
                   <td class="text-center">
                     <v-chip size="x-small" variant="outlined">{{ child.vatRate }}%</v-chip>
                   </td>
                   <td class="text-end">
-                    {{ child.priceWithoutVat > 0 ? formatPrice(child.priceWithoutVat, order.currency) : '—' }}
+                   -
                   </td>
                   <td class="text-end">
                     <span class="font-weight-medium">
-                      {{ child.priceWithVat > 0 ? formatPrice(child.priceWithVat, order.currency) : '—' }}
+                    -
                     </span>
                   </td>
                 </tr>
@@ -1465,7 +1465,7 @@ onMounted(() => {
 
             <div>
               <div class="text-body-2">
-                <span class="font-weight-medium" style="margin-left: 4px;">{{ formatDate(entry.createdAt) }} - {{ entry.createdByName }}</span>
+                <span class="font-weight-medium">{{ formatDate(entry.createdAt) }} - {{ entry.createdByName }}</span>
                 <span class="text-medium-emphasis"> {{ getStreamActionText(entry) }}</span>
               </div>
               <div v-if="entry.post" class="text-caption mt-1 text-medium-emphasis">
@@ -1918,5 +1918,8 @@ onMounted(() => {
 
 .border-b:last-child {
   border-bottom: none;
+}
+.font-weight-medium{
+    margin-right: 4px !important;
 }
 </style>
