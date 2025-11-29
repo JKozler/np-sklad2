@@ -106,7 +106,7 @@ export const productsService = {
     queryParams.append('offset', (params?.offset || 0).toString());
     queryParams.append('orderBy', params?.orderBy || 'createdAt');
     queryParams.append('order', params?.order || 'desc');
-    queryParams.append('attributeSelect', 'abraId,code,name,stockType,productGroupId,productGroupName,uomId,uomName,priceWithoutVat,vatRate,priceWithVat,ean,isStockItem,createdAt');
+    queryParams.append('attributeSelect', 'abraId,code,name,stockType,productGroupId,productGroupName,uomId,uomName,priceWithoutVat,vatRate,priceWithVat,ean,isStockItem,outageFlag,createdAt');
 
     // Pokud jsou v params whereGroup parametry, přidáme je
     if (params) {
