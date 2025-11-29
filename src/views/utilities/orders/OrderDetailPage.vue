@@ -452,7 +452,7 @@ const deleteOrder = async () => {
 const applyDiscount = () => {
   if (!order.value) return;
 
-  const url = `https://www.naturalprotein.cz/admin/cs/eshop.orders.orders/export?orderId=${order.value.id}&voucher=ddLkkfg331deffklkekldCmnqo341omkaL00p&apiKey=asdkjne_asdkjkw23ds`;
+  const url = `https://www.naturalprotein.cz/admin/cs/eshop.orders.orders/export?orderId=${order.value.eshopId}&voucher=ddLkkfg331deffklkekldCmnqo341omkaL00p&apiKey=asdkjne_asdkjkw23ds`;
   window.open(url, '_blank');
 };
 
@@ -1318,15 +1318,10 @@ onMounted(() => {
             dot-color="primary"
             size="x-small"
           >
-            <template v-slot:opposite>
-              <div class="text-caption text-medium-emphasis">
-                {{ formatDate(entry.createdAt) }}
-              </div>
-            </template>
 
             <div>
               <div class="text-body-2">
-                <span class="font-weight-medium">{{ entry.createdByName }}</span>
+                <span class="font-weight-medium" style="margin-left: 4px;">{{ formatDate(entry.createdAt) }} - {{ entry.createdByName }}</span>
                 <span class="text-medium-emphasis"> {{ getStreamActionText(entry) }}</span>
               </div>
               <div v-if="entry.post" class="text-caption mt-1 text-medium-emphasis">
