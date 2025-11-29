@@ -1326,7 +1326,7 @@ onMounted(() => {
 
             <div>
               <div class="text-body-2">
-                <span class="font-weight-medium" style="margin-left: 4px;">{{ formatDate(entry.createdAt) }} - {{ entry.createdByName }}</span>
+                <span class="font-weight-medium">{{ formatDate(entry.createdAt) }} - {{ entry.createdByName }}</span>
                 <span class="text-medium-emphasis"> {{ getStreamActionText(entry) }}</span>
               </div>
               <div v-if="entry.post" class="text-caption mt-1 text-medium-emphasis">
@@ -1828,5 +1828,8 @@ onMounted(() => {
 
 .package-items-table tbody tr:hover {
   background-color: rgba(var(--v-theme-primary), 0.02);
+}
+.font-weight-medium{
+    margin-right: 4px !important;
 }
 </style>
