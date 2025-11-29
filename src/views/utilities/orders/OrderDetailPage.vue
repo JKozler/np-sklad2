@@ -5,7 +5,7 @@ import { useRoute, useRouter } from 'vue-router';
 import BaseBreadcrumb from '@/components/shared/BaseBreadcrumb.vue';
 import UiParentCard from '@/components/shared/UiParentCard.vue';
 import { ordersService } from '@/services/ordersService';
-import type { SalesOrder, SalesOrderItem, OrderStatus, StreamEntry, Package, PackageDetail, PackageStatus } from '@/services/ordersService';
+import type { SalesOrder, SalesOrderItem, OrderStatus, StreamEntry, Package, PackageDetail, PackageStatus, SalesOrderItemType } from '@/services/ordersService';
 
 const route = useRoute();
 const router = useRouter();
@@ -153,6 +153,62 @@ const billingAddress = computed(() => {
 
 const totalItems = computed(() => {
   return items.value.reduce((sum, item) => sum + item.quantity, 0);
+});
+
+// Organizovaná struktura položek s bundly
+interface OrganizedItem {
+  item: SalesOrderItem;
+  children?: SalesOrderItem[];
+  isBundle: boolean;
+  isExpanded?: boolean;
+}
+
+const organizedItems = computed<OrganizedItem[]>(() => {
+  const result: OrganizedItem[] = [];
+  const bundleMap = new Map<string, OrganizedItem>();
+
+  // Nejdřív vytvoříme mapu bundle položek
+  items.value.forEach(item => {
+    if (item.type === 'BUNDLE') {
+      bundleMap.set(item.id, {
+        item,
+        children: [],
+        isBundle: true,
+        isExpanded: true // Defaultně rozbalené
+      });
+    }
+  });
+
+  // Pak přidáme položky buď do bundlů nebo do hlavního pole
+  items.value.forEach(item => {
+    if (item.type === 'BUNDLE') {
+      // Bundle položka - už je v mapě, přidáme ji do výsledku
+      const bundleItem = bundleMap.get(item.id);
+      if (bundleItem) {
+        result.push(bundleItem);
+      }
+    } else if (item.bundleId) {
+      // Položka v bundlu - přidáme ji jako child
+      const bundle = bundleMap.get(item.bundleId);
+      if (bundle && bundle.children) {
+        bundle.children.push(item);
+      } else {
+        // Bundle nebyl nalezen, zobrazíme jako samostatnou položku
+        result.push({
+          item,
+          isBundle: false
+        });
+      }
+    } else {
+      // Normální položka mimo bundle
+      result.push({
+        item,
+        isBundle: false
+      });
+    }
+  });
+
+  return result;
 });
 
 const formatPrice = (price: number, currency: string = 'CZK') => {
@@ -1161,68 +1217,156 @@ onMounted(() => {
           </v-chip>
         </template>
 
-        <v-data-table
-          :headers="itemHeaders"
-          :items="items"
-          :items-per-page="-1"
-          hide-default-footer
-          class="elevation-0"
-        >
-          <template v-slot:item.name="{ item }">
-            <div>
-              <div class="font-weight-medium">{{ item.name }}</div>
-              <div 
-                v-if="item.productName && item.productName !== item.name" 
-                class="text-caption text-medium-emphasis"
-              >
-                {{ item.productName }}
+        <v-table class="order-items-table">
+          <thead>
+            <tr>
+              <th class="text-left">Produkt</th>
+              <th class="text-end">Množství</th>
+              <th class="text-end">Jedn. cena</th>
+              <th class="text-center">DPH %</th>
+              <th class="text-end">Cena bez DPH</th>
+              <th class="text-end">Cena s DPH</th>
+            </tr>
+          </thead>
+          <tbody>
+            <template v-for="organizedItem in organizedItems" :key="organizedItem.item.id">
+              <!-- Bundle položka -->
+              <tr v-if="organizedItem.isBundle" class="bundle-row">
+                <td>
+                  <div class="d-flex align-center">
+                    <v-icon
+                      class="mr-2"
+                      size="small"
+                      :color="organizedItem.isExpanded ? 'primary' : 'grey'"
+                    >
+                      mdi-package-variant
+                    </v-icon>
+                    <div>
+                      <div class="font-weight-bold">
+                        {{ organizedItem.item.name || organizedItem.item.bundleName }}
+                      </div>
+                      <div class="text-caption text-medium-emphasis">
+                        Bundle ({{ organizedItem.children?.length || 0 }} položek)
+                      </div>
+                    </div>
+                  </div>
+                </td>
+                <td class="text-end">
+                  <span class="font-weight-medium">{{ organizedItem.item.quantity }}</span>
+                </td>
+                <td class="text-end">
+                  {{ organizedItem.item.unitPrice > 0 ? formatPrice(organizedItem.item.unitPrice, order.currency) : '—' }}
+                </td>
+                <td class="text-center">
+                  <v-chip size="x-small" variant="outlined">{{ organizedItem.item.vatRate }}%</v-chip>
+                </td>
+                <td class="text-end">
+                  {{ organizedItem.item.priceWithoutVat > 0 ? formatPrice(organizedItem.item.priceWithoutVat, order.currency) : '—' }}
+                </td>
+                <td class="text-end">
+                  <span class="font-weight-medium">
+                    {{ organizedItem.item.priceWithVat > 0 ? formatPrice(organizedItem.item.priceWithVat, order.currency) : '—' }}
+                  </span>
+                </td>
+              </tr>
+
+              <!-- Bundle children (sub-položky) -->
+              <template v-if="organizedItem.isBundle && organizedItem.children">
+                <tr
+                  v-for="child in organizedItem.children"
+                  :key="child.id"
+                  class="bundle-child-row"
+                >
+                  <td>
+                    <div class="d-flex align-center pl-8">
+                      <v-icon class="mr-2" size="x-small" color="grey-lighten-1">
+                        mdi-chevron-right
+                      </v-icon>
+                      <div>
+                        <div class="font-weight-medium">{{ child.name }}</div>
+                        <div
+                          v-if="child.productName && child.productName !== child.name"
+                          class="text-caption text-medium-emphasis"
+                        >
+                          {{ child.productName }}
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+                  <td class="text-end">
+                    <span class="font-weight-medium">{{ child.quantity }}</span>
+                  </td>
+                  <td class="text-end">
+                    {{ child.unitPrice > 0 ? formatPrice(child.unitPrice, order.currency) : '—' }}
+                  </td>
+                  <td class="text-center">
+                    <v-chip size="x-small" variant="outlined">{{ child.vatRate }}%</v-chip>
+                  </td>
+                  <td class="text-end">
+                    {{ child.priceWithoutVat > 0 ? formatPrice(child.priceWithoutVat, order.currency) : '—' }}
+                  </td>
+                  <td class="text-end">
+                    <span class="font-weight-medium">
+                      {{ child.priceWithVat > 0 ? formatPrice(child.priceWithVat, order.currency) : '—' }}
+                    </span>
+                  </td>
+                </tr>
+              </template>
+
+              <!-- Normální položka (ne bundle) -->
+              <tr v-if="!organizedItem.isBundle" class="regular-row">
+                <td>
+                  <div>
+                    <div class="font-weight-medium">{{ organizedItem.item.name }}</div>
+                    <div
+                      v-if="organizedItem.item.productName && organizedItem.item.productName !== organizedItem.item.name"
+                      class="text-caption text-medium-emphasis"
+                    >
+                      {{ organizedItem.item.productName }}
+                    </div>
+                  </div>
+                </td>
+                <td class="text-end">
+                  <span class="font-weight-medium">{{ organizedItem.item.quantity }}</span>
+                </td>
+                <td class="text-end">
+                  {{ organizedItem.item.unitPrice > 0 ? formatPrice(organizedItem.item.unitPrice, order.currency) : '—' }}
+                </td>
+                <td class="text-center">
+                  <v-chip size="x-small" variant="outlined">{{ organizedItem.item.vatRate }}%</v-chip>
+                </td>
+                <td class="text-end">
+                  {{ organizedItem.item.priceWithoutVat > 0 ? formatPrice(organizedItem.item.priceWithoutVat, order.currency) : '—' }}
+                </td>
+                <td class="text-end">
+                  <span class="font-weight-medium">
+                    {{ organizedItem.item.priceWithVat > 0 ? formatPrice(organizedItem.item.priceWithVat, order.currency) : '—' }}
+                  </span>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </v-table>
+
+        <!-- Součty -->
+        <div class="pa-4 border-t">
+          <v-row>
+            <v-col cols="12" class="text-end">
+              <div class="d-flex justify-end align-center gap-4">
+                <span class="text-subtitle-1 font-weight-medium">Celková cena bez DPH:</span>
+                <span class="text-h6" v-if="order.priceWithoutVat">
+                  {{ formatPrice(order.priceWithoutVat, order.currency) }}
+                </span>
               </div>
-            </div>
-          </template>
-
-          <template v-slot:item.quantity="{ item }">
-            <span class="font-weight-medium">{{ item.quantity }}</span>
-          </template>
-
-          <template v-slot:item.unitPrice="{ item }">
-            {{ item.unitPrice > 0 ? formatPrice(item.unitPrice, order.currency) : '—' }}
-          </template>
-
-          <template v-slot:item.vatRate="{ item }">
-            <v-chip size="x-small" variant="outlined">{{ item.vatRate }}%</v-chip>
-          </template>
-
-          <template v-slot:item.priceWithoutVat="{ item }">
-            {{ item.priceWithoutVat > 0 ? formatPrice(item.priceWithoutVat, order.currency) : '—' }}
-          </template>
-
-          <template v-slot:item.priceWithVat="{ item }">
-            <span class="font-weight-medium">
-              {{ item.priceWithVat > 0 ? formatPrice(item.priceWithVat, order.currency) : '—' }}
-            </span>
-          </template>
-
-          <template v-slot:bottom>
-            <div class="pa-4 border-t">
-              <v-row>
-                <v-col cols="12" class="text-end">
-                  <div class="d-flex justify-end align-center gap-4">
-                    <span class="text-subtitle-1 font-weight-medium">Celková cena bez DPH:</span>
-                    <span class="text-h6" v-if="order.priceWithoutVat">
-                      {{ formatPrice(order.priceWithoutVat, order.currency) }}
-                    </span>
-                  </div>
-                  <div class="d-flex justify-end align-center gap-4 mt-2">
-                    <span class="text-subtitle-1 font-weight-medium">Celková cena s DPH:</span>
-                    <span class="text-h5 font-weight-bold primary--text">
-                      {{ formatPrice(order.priceWithVat, order.currency) }}
-                    </span>
-                  </div>
-                </v-col>
-              </v-row>
-            </div>
-          </template>
-        </v-data-table>
+              <div class="d-flex justify-end align-center gap-4 mt-2">
+                <span class="text-subtitle-1 font-weight-medium">Celková cena s DPH:</span>
+                <span class="text-h5 font-weight-bold primary--text">
+                  {{ formatPrice(order.priceWithVat, order.currency) }}
+                </span>
+              </div>
+            </v-col>
+          </v-row>
+        </div>
       </UiParentCard>
     </v-col>
 
@@ -1716,16 +1860,42 @@ onMounted(() => {
   border-bottom: none;
 }
 
-:deep(.v-data-table) {
+/* Order items table styling */
+.order-items-table {
   border-radius: 8px;
 }
 
-:deep(.v-data-table th) {
+.order-items-table thead tr th {
   font-weight: 600;
+  background-color: rgba(var(--v-theme-primary), 0.05);
+  padding: 16px !important;
+}
+
+.order-items-table tbody tr td {
+  padding: 12px 16px !important;
+}
+
+/* Bundle row styling */
+.bundle-row {
+  background-color: rgba(var(--v-theme-primary), 0.08);
+  border-left: 4px solid rgb(var(--v-theme-primary));
+}
+
+.bundle-row:hover {
+  background-color: rgba(var(--v-theme-primary), 0.12);
+}
+
+/* Bundle child row styling */
+.bundle-child-row {
+  background-color: rgba(var(--v-theme-primary), 0.02);
+}
+
+.bundle-child-row:hover {
   background-color: rgba(var(--v-theme-primary), 0.05);
 }
 
-:deep(.v-data-table tbody tr:hover) {
+/* Regular row styling */
+.regular-row:hover {
   background-color: rgba(var(--v-theme-primary), 0.02);
 }
 
