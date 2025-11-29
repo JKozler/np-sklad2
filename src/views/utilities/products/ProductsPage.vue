@@ -144,6 +144,11 @@ const loadProducts = async () => {
       queryParams[`whereGroup[${whereGroupIndex}][attribute]`] = 'isStockItem';
       queryParams[`whereGroup[${whereGroupIndex}][value]`] = '';
       whereGroupIndex++;
+    } else if (activeTab.value === 'chybejici') {
+      queryParams[`whereGroup[${whereGroupIndex}][type]`] = 'isTrue';
+      queryParams[`whereGroup[${whereGroupIndex}][attribute]`] = 'outageFlag';
+      queryParams[`whereGroup[${whereGroupIndex}][value]`] = '';
+      whereGroupIndex++;
     }
     // activeTab.value === 'all' - žádný filtr
 
@@ -314,6 +319,11 @@ onMounted(() => {
           <v-tab value="neskladove">
             <v-icon start color="warning">mdi-package-variant-remove</v-icon>
             Nejsou ve skladu
+          </v-tab>
+
+          <v-tab value="chybejici">
+            <v-icon start color="error">mdi-alert-circle</v-icon>
+            Chybějící
           </v-tab>
         </v-tabs>
       </v-card>
