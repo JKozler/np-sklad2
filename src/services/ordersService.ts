@@ -19,6 +19,11 @@ export type PackageStatus =
   | 'RETURNED'     // Vráceno
   | 'ERROR';       // Chyba
 
+export type SalesOrderItemType =
+  | 'PRODUCT'      // Normální produkt
+  | 'BUNDLE'       // Bundle kontejner
+  | 'NON_PRODUCT'; // Poukazy, COD surcharge, atd.
+
 export interface SalesOrderItem {
   id: string;
   name: string;
@@ -33,6 +38,9 @@ export interface SalesOrderItem {
   productId: string | null;
   productName: string | null;
   eshopId?: string; // Nový atribut
+  bundleId?: string | null; // ID bundle kontejneru
+  bundleName?: string | null; // Název bundlu
+  type?: SalesOrderItemType; // Typ položky
 }
 
 export interface SalesOrder {
@@ -295,18 +303,18 @@ export const ordersService = {
   async getOrderItems(orderId: string): Promise<SalesOrderItem[]> {
     const queryParams = new URLSearchParams({
       primaryFilter: '',
-      maxSize: '100',
+      maxSize: '200',
       offset: '0',
       orderBy: 'createdAt',
       order: 'desc',
-      attributeSelect: 'productId,productName,name,quantity,unitPrice,priceWithoutVat,vatRate,priceWithVat'
+      attributeSelect: 'productId,productName,name,quantity,unitPrice,priceWithoutVat,vatRate,priceWithVat,bundleId,bundleName,type'
     });
 
     console.log('📋 Getting order items:', orderId);
     const response = await apiClient.get<SalesOrderItemsResponse>(
       `/SalesOrder/${orderId}/salesOrderItems?${queryParams}`
     );
-    
+
     return response.list;
   },
 
