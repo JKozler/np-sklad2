@@ -5,7 +5,7 @@ import { useRoute, useRouter } from 'vue-router';
 import BaseBreadcrumb from '@/components/shared/BaseBreadcrumb.vue';
 import UiParentCard from '@/components/shared/UiParentCard.vue';
 import { ordersService } from '@/services/ordersService';
-import type { SalesOrder, SalesOrderItem, OrderStatus, StreamEntry, Package, PackageDetail } from '@/services/ordersService';
+import type { SalesOrder, SalesOrderItem, OrderStatus, StreamEntry, Package, PackageDetail, PackageStatus } from '@/services/ordersService';
 
 const route = useRoute();
 const router = useRouter();
@@ -452,7 +452,7 @@ const deleteOrder = async () => {
 const applyDiscount = () => {
   if (!order.value) return;
 
-  const url = `https://www.naturalprotein.cz/admin/cs/eshop.orders.orders/export?id=${order.value.name}&voucher=ddLkkfg331deffklkekldCmnqo341omkaL00p&apiKey=asdkjne_asdkjkw23ds`;
+  const url = `https://www.naturalprotein.cz/admin/cs/eshop.orders.orders/export?orderId=${order.value.id}&voucher=ddLkkfg331deffklkekldCmnqo341omkaL00p&apiKey=asdkjne_asdkjkw23ds`;
   window.open(url, '_blank');
 };
 
@@ -555,6 +555,97 @@ const closeSplitDialog = () => {
     paymentMethod: 'Keep Original',
     codAmount: 0
   };
+};
+
+// Package status management
+const updatingPackageStatus = ref(false);
+
+const packageStatusLabels: Record<PackageStatus, string> = {
+  'TO_PACK': 'K zabalení',
+  'PACKED': 'Zabaleno',
+  'TO_RETURN': 'K vrácení',
+  'RETURNED': 'Vráceno',
+  'ERROR': 'Chyba'
+};
+
+const packageStatusColors: Record<PackageStatus, string> = {
+  'TO_PACK': 'primary',
+  'PACKED': 'success',
+  'TO_RETURN': 'warning',
+  'RETURNED': 'info',
+  'ERROR': 'error'
+};
+
+const markPackageAsPacked = async () => {
+  if (!selectedPackage.value) return;
+
+  if (!confirm('Opravdu chcete objednávku označit jako zabalenou? Dojde tím k vyskladnění produktů ze skladu.')) {
+    return;
+  }
+
+  updatingPackageStatus.value = true;
+  try {
+    await ordersService.markPackageAsPacked(selectedPackage.value.id);
+    await loadPackages();
+    // Reload package detail if it's open
+    if (packageDetailDialog.value) {
+      await openPackageDetail(selectedPackage.value.id);
+    }
+    alert('Balík byl označen jako zabalený');
+  } catch (error) {
+    console.error('Chyba při označování balíku jako zabalený:', error);
+    alert('Chyba při označování balíku jako zabalený');
+  } finally {
+    updatingPackageStatus.value = false;
+  }
+};
+
+const receiveReturn = async () => {
+  if (!selectedPackage.value) return;
+
+  if (!confirm('Došla vratka zpátky na sklad a obsahuje všechny produkty? Po potvrzení dojde k naskladnění objednávky zpět na sklad.')) {
+    return;
+  }
+
+  updatingPackageStatus.value = true;
+  try {
+    await ordersService.receiveReturn(selectedPackage.value.id);
+    await loadPackages();
+    // Reload package detail if it's open
+    if (packageDetailDialog.value) {
+      await openPackageDetail(selectedPackage.value.id);
+    }
+    alert('Vratka byla úspěšně přijata');
+  } catch (error) {
+    console.error('Chyba při příjímání vratky:', error);
+    alert('Chyba při příjímání vratky');
+  } finally {
+    updatingPackageStatus.value = false;
+  }
+};
+
+const sendToExpedition = async () => {
+  if (!selectedPackage.value) return;
+
+  if (!confirm('Opravdu chcete balík předat do expedice?')) {
+    return;
+  }
+
+  updatingPackageStatus.value = true;
+  try {
+    await ordersService.sendToExpedition(selectedPackage.value.id);
+    await loadPackages();
+    // Reload package detail if it's open
+    if (packageDetailDialog.value) {
+      await openPackageDetail(selectedPackage.value.id);
+    }
+    alert('Balík byl předán do expedice');
+  } catch (error) {
+    console.error('Chyba při předávání balíku do expedice:', error);
+    alert('Chyba při předávání balíku do expedice');
+  } finally {
+    updatingPackageStatus.value = false;
+  }
 };
 
 onMounted(() => {
@@ -763,6 +854,10 @@ onMounted(() => {
                     <td>
                       <v-chip size="small" variant="outlined">{{ order.channel }}</v-chip>
                     </td>
+                  </tr>
+                  <tr v-if="order.eshopId">
+                    <td class="text-medium-emphasis font-weight-medium">Eshop ID:</td>
+                    <td>{{ order.eshopId }}</td>
                   </tr>
                   <tr v-if="order.paymentMethod">
                     <td class="text-medium-emphasis font-weight-medium">Způsob platby:</td>
@@ -1167,6 +1262,14 @@ onMounted(() => {
             <v-list-item-subtitle>
               <div class="d-flex align-center gap-2 mt-1">
                 <v-chip
+                  v-if="pkg.status"
+                  size="x-small"
+                  :color="packageStatusColors[pkg.status]"
+                  variant="tonal"
+                >
+                  {{ packageStatusLabels[pkg.status] }}
+                </v-chip>
+                <v-chip
                   size="x-small"
                   :color="pkg.lastTrackingStatusNormalized === 'CREATED' ? 'default' : 'success'"
                   variant="flat"
@@ -1274,16 +1377,44 @@ onMounted(() => {
                   <td>{{ formatDate(selectedPackage.createdAt) }}</td>
                 </tr>
                 <tr>
-                  <td class="text-medium-emphasis font-weight-medium">Stav:</td>
+                  <td class="text-medium-emphasis font-weight-medium">Stav dopravce:</td>
                   <td>
                     <v-chip size="small" :color="selectedPackage.lastTrackingStatusNormalized === 'CREATED' ? 'default' : 'success'">
                       {{ selectedPackage.lastTrackingStatusNormalized }}
                     </v-chip>
                   </td>
                 </tr>
+                <tr v-if="selectedPackage.status">
+                  <td class="text-medium-emphasis font-weight-medium">Stav balíku:</td>
+                  <td>
+                    <v-chip size="small" :color="packageStatusColors[selectedPackage.status]" variant="tonal">
+                      {{ packageStatusLabels[selectedPackage.status] }}
+                    </v-chip>
+                  </td>
+                </tr>
+                <tr v-if="selectedPackage.errorMessage">
+                  <td class="text-medium-emphasis font-weight-medium">Chybová zpráva:</td>
+                  <td class="text-error">{{ selectedPackage.errorMessage }}</td>
+                </tr>
                 <tr>
                   <td class="text-medium-emphasis font-weight-medium">Počet kusů:</td>
                   <td>{{ selectedPackage.boxCount }}</td>
+                </tr>
+                <tr v-if="selectedPackage.packageIssuedFlag !== undefined">
+                  <td class="text-medium-emphasis font-weight-medium">Výdejka proběhla:</td>
+                  <td>
+                    <v-chip size="x-small" :color="selectedPackage.packageIssuedFlag ? 'success' : 'default'" variant="flat">
+                      {{ selectedPackage.packageIssuedFlag ? 'Ano' : 'Ne' }}
+                    </v-chip>
+                  </td>
+                </tr>
+                <tr v-if="selectedPackage.packageReceivedFlag !== undefined">
+                  <td class="text-medium-emphasis font-weight-medium">Příjemka vratky proběhla:</td>
+                  <td>
+                    <v-chip size="x-small" :color="selectedPackage.packageReceivedFlag ? 'success' : 'default'" variant="flat">
+                      {{ selectedPackage.packageReceivedFlag ? 'Ano' : 'Ne' }}
+                    </v-chip>
+                  </td>
                 </tr>
                 <tr>
                   <td class="text-medium-emphasis font-weight-medium">Dopravce:</td>
@@ -1374,10 +1505,59 @@ onMounted(() => {
         >
           Stáhnout štítek
         </v-btn>
+
+        <!-- Tlačítka pro TO_PACK stav -->
+        <v-btn
+          v-if="selectedPackage?.status === 'TO_PACK'"
+          color="success"
+          size="large"
+          prepend-icon="mdi-package-variant-closed"
+          @click="markPackageAsPacked"
+          :loading="updatingPackageStatus"
+        >
+          Označit jako zabalené
+        </v-btn>
+
+        <!-- Tlačítka pro TO_RETURN stav -->
+        <v-btn
+          v-if="selectedPackage?.status === 'TO_RETURN'"
+          color="warning"
+          size="large"
+          prepend-icon="mdi-package-variant"
+          @click="receiveReturn"
+          :loading="updatingPackageStatus"
+        >
+          Příjmout vratku
+        </v-btn>
+
+        <!-- Tlačítka pro ERROR stav -->
+        <template v-if="selectedPackage?.status === 'ERROR'">
+          <v-btn
+            color="primary"
+            size="large"
+            prepend-icon="mdi-truck"
+            @click="sendToExpedition"
+            :loading="updatingPackageStatus"
+          >
+            Předat do expedice
+          </v-btn>
+          <v-btn
+            color="success"
+            size="large"
+            prepend-icon="mdi-package-variant-closed"
+            @click="markPackageAsPacked"
+            :loading="updatingPackageStatus"
+            class="ml-2"
+          >
+            Označit jako zabalené
+          </v-btn>
+        </template>
+
         <v-spacer></v-spacer>
         <v-btn
           variant="outlined"
           @click="packageDetailDialog = false"
+          :disabled="updatingPackageStatus"
         >
           Zavřít
         </v-btn>
