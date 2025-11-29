@@ -452,7 +452,7 @@ const deleteOrder = async () => {
 const applyDiscount = () => {
   if (!order.value) return;
 
-  const url = `https://www.naturalprotein.cz/admin/cs/eshop.orders.orders/export?orderId=${order.value.id}&voucher=ddLkkfg331deffklkekldCmnqo341omkaL00p&apiKey=asdkjne_asdkjkw23ds`;
+  const url = `https://www.naturalprotein.cz/admin/cs/eshop.orders.orders/export?orderId=${order.value.eshopId}&voucher=ddLkkfg331deffklkekldCmnqo341omkaL00p&apiKey=asdkjne_asdkjkw23ds`;
   window.open(url, '_blank');
 };
 
