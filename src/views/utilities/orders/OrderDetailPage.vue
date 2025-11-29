@@ -212,6 +212,35 @@ const formatDate = (dateString: string) => {
   return `${day}.${month}.${year} ${hours}:${minutes}`;
 };
 
+// Mapování technických názvů polí na české ekvivalenty
+const fieldNameTranslations: Record<string, string> = {
+  'status': 'Stav',
+  'internalNote': 'Interní poznámka',
+  'customerNote': 'Poznámka zákazníka',
+  'assignedUserId': 'Přiřazený uživatel',
+  'shippingAddressFirstName': 'Jméno (dodací adresa)',
+  'shippingAddressLastName': 'Příjmení (dodací adresa)',
+  'shippingAddressStreet': 'Ulice (dodací adresa)',
+  'shippingAddressCity': 'Město (dodací adresa)',
+  'shippingAddressPostalCode': 'PSČ (dodací adresa)',
+  'shippingAddressCountry': 'Země (dodací adresa)',
+  'billingAddressFirstName': 'Jméno (fakturační adresa)',
+  'billingAddressLastName': 'Příjmení (fakturační adresa)',
+  'billingAddressStreet': 'Ulice (fakturační adresa)',
+  'billingAddressCity': 'Město (fakturační adresa)',
+  'billingAddressPostalCode': 'PSČ (fakturační adresa)',
+  'billingAddressCountry': 'Země (fakturační adresa)',
+  'billingAddressCompanyName': 'Název firmy',
+  'email': 'Email',
+  'phoneNumber': 'Telefon',
+  'paymentMethod': 'Způsob platby',
+  'carrierPickupPoint': 'Výdejní místo'
+};
+
+const translateFieldName = (fieldName: string): string => {
+  return fieldNameTranslations[fieldName] || fieldName;
+};
+
 const getCarrierColor = (carrierName: string) => {
   const name = carrierName.toLowerCase();
 
@@ -333,7 +362,8 @@ const getStreamActionText = (entry: StreamEntry): string => {
     return `upravil stav z "${statusLabels[was] || was}" na "${statusLabels[became] || became}"`;
   }
   if (entry.type === 'Update') {
-    return `upravil objednávku (${entry.data.fields?.join(', ')})`;
+    const translatedFields = entry.data.fields?.map(field => translateFieldName(field)) || [];
+    return `upravil objednávku (${translatedFields.join(', ')})`;
   }
   return entry.type.toLowerCase();
 };
