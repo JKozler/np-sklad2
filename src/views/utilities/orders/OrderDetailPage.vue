@@ -1318,16 +1318,13 @@ onMounted(() => {
             dot-color="primary"
             size="x-small"
           >
-            <template v-slot:opposite>
-              <div class="text-caption text-medium-emphasis">
-                {{ formatDate(entry.createdAt) }}
-              </div>
-            </template>
-
             <div>
               <div class="text-body-2">
                 <span style="margin-right: 4px;" class="font-weight-medium">{{ entry.createdByName }}</span>
                 <span class="text-medium-emphasis"> {{ getStreamActionText(entry) }}</span>
+              </div>
+              <div class="text-caption text-medium-emphasis mt-1">
+                {{ formatDate(entry.createdAt) }}
               </div>
               <div v-if="entry.post" class="text-caption mt-1 text-medium-emphasis">
                 {{ entry.post }}
