@@ -33,6 +33,9 @@ export interface Product {
   teamsIds?: string[];
   teamsNames?: Record<string, string>;
   deleted?: boolean;
+  outageFlag?: boolean; // Nový atribut - zda produkt chybí na skladě
+  outageExpectedStockDate?: string; // Nový atribut - očekávané naskladnění
+  outageNote?: string; // Nový atribut - poznámka k nedostupnosti
 }
 
 export interface ProductsResponse {
@@ -89,6 +92,9 @@ export interface UpdateProductData {
   uomId?: string;
   photoId?: string;
   photoName?: string;
+  outageFlag?: boolean;
+  outageExpectedStockDate?: string;
+  outageNote?: string;
 }
 
 export const productsService = {

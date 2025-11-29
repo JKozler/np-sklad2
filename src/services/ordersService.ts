@@ -2,15 +2,22 @@
 import { apiClient } from './apiClient';
 import { wrapWithWildcards } from '@/utils/searchHelpers';
 
-export type OrderStatus = 
-  | 'new' 
-  | 'in-progress' 
-  | 'expedition-error' 
-  | 'data-error' 
-  | 'sent' 
-  | 'return' 
-  | 'delivered' 
+export type OrderStatus =
+  | 'new'
+  | 'in-progress'
+  | 'expedition-error'
+  | 'data-error'
+  | 'sent'
+  | 'return'
+  | 'delivered'
   | 'cancelled';
+
+export type PackageStatus =
+  | 'TO_PACK'      // K zabalení (default)
+  | 'PACKED'       // Zabaleno
+  | 'TO_RETURN'    // K vrácení
+  | 'RETURNED'     // Vráceno
+  | 'ERROR';       // Chyba
 
 export interface SalesOrderItem {
   id: string;
@@ -25,6 +32,7 @@ export interface SalesOrderItem {
   assignedUserId: string | null;
   productId: string | null;
   productName: string | null;
+  eshopId?: string; // Nový atribut
 }
 
 export interface SalesOrder {
@@ -75,6 +83,7 @@ export interface SalesOrder {
   followersIds?: string[];
   followersNames?: Record<string, string>;
   isStarred?: boolean;
+  eshopId?: string; // Nový atribut
 }
 
 export interface SalesOrdersResponse {
@@ -166,11 +175,23 @@ export interface Package {
   lastTrackingStatusNormalized: string;
   createdById: string;
   assignedUserId: string | null;
+  status?: PackageStatus; // Nový atribut - stav balíku
+  errorMessage?: string; // Nový atribut - důvod erroru
+  packageIssuedFlag?: boolean; // Nový atribut - flag jestli proběhla výdejka
+  packageReceivedFlag?: boolean; // Nový atribut - flag jestli proběhla příjemka vratky
 }
 
 export interface PackagesResponse {
   total: number;
   list: Package[];
+}
+
+export interface PackageItem {
+  id: string;
+  salesOrderItemName: string;
+  productName?: string | null;
+  quantity: number;
+  outageFlag?: boolean; // Nový atribut - zda produkt chybí na skladě
 }
 
 export interface PackageDetail {
@@ -215,6 +236,10 @@ export interface PackageDetail {
   labelName: string;
   codAmountConverted: number;
   valueConverted: number;
+  status?: PackageStatus; // Nový atribut - stav balíku
+  errorMessage?: string; // Nový atribut - důvod erroru
+  packageIssuedFlag?: boolean; // Nový atribut - flag jestli proběhla výdejka
+  packageReceivedFlag?: boolean; // Nový atribut - flag jestli proběhla příjemka vratky
 }
 
 export const ordersService = {
@@ -425,5 +450,29 @@ export const ordersService = {
       itemsToMove,
       overrides
     });
+  },
+
+  /**
+   * Označí balík jako zabalený (TO_PACK -> PACKED)
+   */
+  async markPackageAsPacked(packageId: string): Promise<any> {
+    console.log('📦 Marking package as packed:', packageId);
+    return apiClient.post(`/Package/${packageId}/markAsPacked`, {});
+  },
+
+  /**
+   * Příjme vratku (TO_RETURN -> RETURNED)
+   */
+  async receiveReturn(packageId: string): Promise<any> {
+    console.log('📥 Receiving return for package:', packageId);
+    return apiClient.post(`/Package/${packageId}/receiveReturn`, {});
+  },
+
+  /**
+   * Předá balík do expedice (ERROR -> TO_PACK)
+   */
+  async sendToExpedition(packageId: string): Promise<any> {
+    console.log('🚚 Sending package to expedition:', packageId);
+    return apiClient.post(`/Package/${packageId}/sendToExpedition`, {});
   }
 };
