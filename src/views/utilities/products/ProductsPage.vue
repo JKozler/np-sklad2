@@ -27,7 +27,7 @@ const searchText = ref('');
 const totalFromAPI = ref(0);
 
 // **NOVÉ: Aktivní tab pro typ zásob**
-const activeTab = ref<'all' | 'vyrobek' | 'material' | 'neskladove'>('all');
+const activeTab = ref<'all' | 'vyrobek' | 'material' | 'neskladove' | 'chybejici'>('all');
 
 // **UPRAVENÉ: stockType už není v filters, protože se řídí přes taby**
 const filters = ref({
