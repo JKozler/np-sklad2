@@ -27,7 +27,7 @@ const searchText = ref('');
 const totalFromAPI = ref(0);
 
 // **NOVÉ: Aktivní tab pro typ zásob**
-const activeTab = ref<'all' | 'vyrobek' | 'material' | 'neskladove'>('all');
+const activeTab = ref<'all' | 'vyrobek' | 'material' | 'neskladove'| 'chybejici'>('all');
 
 // **UPRAVENÉ: stockType už není v filters, protože se řídí přes taby**
 const filters = ref({
@@ -315,11 +315,11 @@ onMounted(() => {
             <v-icon start color="info">mdi-package-variant-closed</v-icon>
             Materiál
           </v-tab>
-
+<!--
           <v-tab value="neskladove">
             <v-icon start color="warning">mdi-package-variant-remove</v-icon>
             Nejsou ve skladu
-          </v-tab>
+          </v-tab>-->
 
           <v-tab value="chybejici">
             <v-icon start color="error">mdi-alert-circle</v-icon>
