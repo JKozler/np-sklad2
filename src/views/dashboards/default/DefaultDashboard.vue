@@ -12,6 +12,7 @@ import TotalOrder from './components/TotalOrder.vue';
 import TotalIncome from './components/TotalIncome.vue';
 import TotalGrowth from './components/TotalGrowth.vue';
 import PopularStocks from './components/PopularStocks.vue';
+import OrdersReportCard from './components/OrdersReportCard.vue';
 
 const authStore = useAuthStore();
 
@@ -41,6 +42,13 @@ const currentDashboard = computed(() => {
 
   <!-- Default Dashboard -->
   <v-row v-else>
+    <!-- -------------------------------------------------------------------- -->
+    <!-- Orders Report Card -->
+    <!-- -------------------------------------------------------------------- -->
+    <v-col cols="12" md="12">
+      <OrdersReportCard />
+    </v-col>
+
     <!-- -------------------------------------------------------------------- -->
     <!-- Total Earning -->
     <!-- -------------------------------------------------------------------- -->
