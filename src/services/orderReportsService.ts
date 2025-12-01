@@ -47,36 +47,56 @@ export const orderReportsService = {
     dateFrom.setDate(dateFrom.getDate() - daysBack);
     const dateFromStr = dateFrom.toISOString().split('T')[0];
 
-    // Sestavit query parametry
-    const queryParams = new URLSearchParams({
-      maxSize: '1000',
-      offset: '0',
-      orderBy: 'createdAt',
-      order: 'desc',
-      attributeSelect: 'createdAt,priceWithVat,priceWithoutVat,currency,channel,carrierId,carrierName',
-    });
+    console.log('📊 Fetching orders report:', channel, period, `from ${dateFromStr}`);
 
-    // Filtr pro kanál
-    queryParams.append('whereGroup[0][type]', 'equals');
-    queryParams.append('whereGroup[0][attribute]', 'channel');
-    queryParams.append('whereGroup[0][value]', channel);
-
-    // Filtr pro datum
-    queryParams.append('whereGroup[1][type]', 'after');
-    queryParams.append('whereGroup[1][attribute]', 'createdAt');
-    queryParams.append('whereGroup[1][value]', dateFromStr);
-
-    console.log('📊 Fetching orders report:', channel, period, queryParams.toString());
+    // Načíst všechny objednávky s použitím stránkování (maxSize=200)
+    const allOrders: RawOrder[] = [];
+    const maxSize = 200;
+    let offset = 0;
+    let total = 0;
 
     try {
-      const response = await apiClient.get<{ total: number; list: RawOrder[] }>(
-        `/SalesOrder?${queryParams}`
-      );
+      do {
+        // Sestavit query parametry pro aktuální stránku
+        const queryParams = new URLSearchParams({
+          maxSize: maxSize.toString(),
+          offset: offset.toString(),
+          orderBy: 'createdAt',
+          order: 'desc',
+          attributeSelect: 'createdAt,priceWithVat,priceWithoutVat,currency,channel,carrierId,carrierName',
+        });
 
-      console.log('📊 Orders fetched:', response.total);
+        // Filtr pro kanál
+        queryParams.append('whereGroup[0][type]', 'equals');
+        queryParams.append('whereGroup[0][attribute]', 'channel');
+        queryParams.append('whereGroup[0][value]', channel);
+
+        // Filtr pro datum
+        queryParams.append('whereGroup[1][type]', 'after');
+        queryParams.append('whereGroup[1][attribute]', 'createdAt');
+        queryParams.append('whereGroup[1][value]', dateFromStr);
+
+        console.log(`📊 Fetching page: offset=${offset}, maxSize=${maxSize}`);
+
+        const response = await apiClient.get<{ total: number; list: RawOrder[] }>(
+          `/SalesOrder?${queryParams}`
+        );
+
+        total = response.total;
+        allOrders.push(...response.list);
+
+        console.log(`📊 Fetched ${response.list.length} orders (${allOrders.length}/${total})`);
+
+        // Posunout offset pro další stránku
+        offset += maxSize;
+
+        // Pokračovat, dokud máme další data
+      } while (offset < total);
+
+      console.log(`📊 Total orders fetched: ${allOrders.length}`);
 
       // Agregovat data podle periody
-      return this.aggregateOrders(response.list, period);
+      return this.aggregateOrders(allOrders, period);
     } catch (error) {
       console.error('❌ Error fetching orders report:', error);
       throw error;
