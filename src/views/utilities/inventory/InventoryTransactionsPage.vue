@@ -39,8 +39,11 @@ const selectedProduct = ref<string>('');
 const dateFrom = ref<string>('');
 const dateTo = ref<string>('');
 const searchText = ref('');
-const itemsPerPage = ref(20);
-const page_number = ref(0);
+
+// **PAGINACE - serverová**
+const currentOffset = ref(0);
+const itemsPerPage = ref(200); // Max podporované API
+const totalFromAPI = ref(0);
 
 // Debounce timer pro vyhledávání
 let searchTimeout: number | null = null;
@@ -58,29 +61,19 @@ const headers = ref([
   { title: 'Akce', key: 'actions', sortable: false }
 ]);
 
-// **Filtrování pouze podle produktu (FE) - ostatní filtry jsou v API**
-const filteredTransactions = computed(() => {
-  let filtered = [...transactions.value];
-
-  // Filtr podle produktu (jediný FE filtr - ostatní jsou v API)
-  if (selectedProduct.value) {
-    filtered = filtered.filter(t => {
-      // Zkontroluj, jestli transakce obsahuje vybraný produkt v items
-      return t.items?.some(item => item.productId === selectedProduct.value) || false;
-    });
-  }
-
-  return filtered;
-});
-
-const paginatedTransactions = computed(() => {
-  const start = page_number.value * itemsPerPage.value;
-  const end = start + itemsPerPage.value;
-  return filteredTransactions.value.slice(start, end);
-});
-
+// **PAGINACE: Computed properties**
 const totalPages = computed(() => {
-  return Math.ceil(filteredTransactions.value.length / itemsPerPage.value);
+  return Math.ceil(totalFromAPI.value / itemsPerPage.value);
+});
+
+const currentPage = computed(() => {
+  return Math.floor(currentOffset.value / itemsPerPage.value) + 1;
+});
+
+const displayRange = computed(() => {
+  const from = currentOffset.value + 1;
+  const to = Math.min(currentOffset.value + transactions.value.length, totalFromAPI.value);
+  return { from, to };
 });
 
 // **NOVÉ: Statistiky pro jednotlivé taby**
@@ -170,7 +163,10 @@ const loadTransactions = async () => {
 
   try {
     // Sestavení filtrů pro API
-    const filters: any = {};
+    const filters: any = {
+      maxSize: itemsPerPage.value,
+      offset: currentOffset.value
+    };
 
     if (searchText.value.trim()) {
       filters.searchText = searchText.value.trim();
@@ -201,11 +197,12 @@ const loadTransactions = async () => {
 
     const response = await inventoryTransactionService.getAll(filters);
     transactions.value = response.list;
-    console.log('✅ Načteno skladových pohybů:', transactions.value.length);
+    totalFromAPI.value = response.total;
 
-    // **NOVÉ: Načti items pro každou transakci (pro filtrování podle produktu)**
-    if (selectedProduct.value) {
-      await loadItemsForTransactions();
+    console.log('✅ Načteno skladových pohybů:', transactions.value.length, '/', response.total);
+
+    if (response.total > 200) {
+      console.warn('⚠️ POZOR: Celkový počet pohybů (' + response.total + ') překračuje maxSize (200)!');
     }
   } catch (err: any) {
     error.value = err.message || 'Chyba při načítání skladových pohybů';
@@ -215,28 +212,6 @@ const loadTransactions = async () => {
   }
 };
 
-/**
- * Načte items pro všechny transakce
- */
-const loadItemsForTransactions = async () => {
-  try {
-    // Načti items pro každou transakci paralelně
-    const itemsPromises = transactions.value.map(async (transaction) => {
-      try {
-        const items = await inventoryTransactionService.getItems(transaction.id);
-        transaction.items = items;
-      } catch (err) {
-        console.warn(`Nepodařilo se načíst položky pro transakci ${transaction.id}:`, err);
-        transaction.items = [];
-      }
-    });
-
-    await Promise.all(itemsPromises);
-    console.log('✅ Načteny položky pro všechny transakce');
-  } catch (err) {
-    console.error('❌ Chyba při načítání položek transakcí:', err);
-  }
-};
 
 /**
  * Debounced search - čeká 500ms po posledním stisku klávesy
@@ -255,6 +230,7 @@ const debouncedSearch = () => {
  * Watch na změnu searchText
  */
 watch(searchText, () => {
+  currentOffset.value = 0; // Reset na první stránku
   debouncedSearch();
 });
 
@@ -296,39 +272,63 @@ const resetFilters = () => {
   dateFrom.value = '';
   dateTo.value = '';
   searchText.value = '';
-  page_number.value = 0;
+  currentOffset.value = 0;
   loadTransactions();
+};
+
+/**
+ * **NOVÉ: Funkce pro změnu stránky**
+ */
+const goToPage = (page: number) => {
+  currentOffset.value = (page - 1) * itemsPerPage.value;
+  loadTransactions();
+};
+
+const nextPage = () => {
+  if (currentOffset.value + itemsPerPage.value < totalFromAPI.value) {
+    currentOffset.value += itemsPerPage.value;
+    loadTransactions();
+  }
+};
+
+const prevPage = () => {
+  if (currentOffset.value > 0) {
+    currentOffset.value = Math.max(0, currentOffset.value - itemsPerPage.value);
+    loadTransactions();
+  }
 };
 
 // **NOVÉ: Reset stránkování a reload při změně tabu**
 watch(activeTab, () => {
-  page_number.value = 0;
+  currentOffset.value = 0;
   loadTransactions();
 });
 
 // Watchers pro filtry - reload při změně
 watch(selectedType, () => {
-  page_number.value = 0;
+  currentOffset.value = 0;
   loadTransactions();
 });
 
 watch(selectedStatus, () => {
-  page_number.value = 0;
+  currentOffset.value = 0;
   loadTransactions();
 });
 
-watch(selectedProduct, () => {
-  page_number.value = 0;
-  loadTransactions();
-});
+// POZNÁMKA: Filtr podle produktu není podporován s paginací,
+// protože API neumožňuje filtrovat podle produktu v related entitě (items)
+// watch(selectedProduct, () => {
+//   currentOffset.value = 0;
+//   loadTransactions();
+// });
 
 watch(dateFrom, () => {
-  page_number.value = 0;
+  currentOffset.value = 0;
   loadTransactions();
 });
 
 watch(dateTo, () => {
-  page_number.value = 0;
+  currentOffset.value = 0;
   loadTransactions();
 });
 
@@ -550,26 +550,6 @@ onMounted(() => {
           </div>
         </v-alert>
 
-        <!-- Info o filtru podle produktu -->
-        <v-alert
-          v-if="selectedProduct"
-          type="success"
-          variant="tonal"
-          density="compact"
-          class="mb-4"
-          closable
-          @click:close="selectedProduct = ''"
-        >
-          <div class="d-flex align-center">
-            <v-icon start>mdi-package-variant</v-icon>
-            <span>
-              Filtrováno podle produktu:
-              <strong>{{ autocompleteProducts.find(p => p.id === selectedProduct)?.name || selectedProduct }}</strong>
-              <span class="text-medium-emphasis ml-2">(nalezeno {{ filteredTransactions.length }} pohybů)</span>
-            </span>
-          </div>
-        </v-alert>
-
         <!-- Filtry -->
         <v-expansion-panels class="mb-4">
           <v-expansion-panel>
@@ -577,7 +557,7 @@ onMounted(() => {
               <v-icon class="mr-2">mdi-filter</v-icon>
               Pokročilé filtry
               <v-chip
-                v-if="selectedType || selectedStatus || selectedProduct || dateFrom || dateTo"
+                v-if="selectedType || selectedStatus || dateFrom || dateTo"
                 color="primary"
                 size="small"
                 class="ml-2"
@@ -617,46 +597,7 @@ onMounted(() => {
                   ></v-select>
                 </v-col>
 
-                <v-col cols="12" md="3">
-                  <v-autocomplete
-                    v-model="selectedProduct"
-                    v-model:search="productSearchQuery"
-                    :items="autocompleteProducts"
-                    item-title="name"
-                    item-value="id"
-                    label="Produkt / Materiál"
-                    variant="outlined"
-                    density="compact"
-                    :loading="loadingAutocomplete"
-                    placeholder="Začněte psát pro vyhledání..."
-                    no-filter
-                    clearable
-                  >
-                    <template v-slot:item="{ props: itemProps, item }">
-                      <v-list-item v-bind="itemProps">
-                        <template v-slot:prepend>
-                          <v-icon color="primary">{{ getStockTypeIcon(item.raw.stockType) }}</v-icon>
-                        </template>
-                        <v-list-item-title>{{ item.raw.name }}</v-list-item-title>
-                        <v-list-item-subtitle class="text-caption">
-                          Kód: {{ item.raw.code }}
-                        </v-list-item-subtitle>
-                      </v-list-item>
-                    </template>
-
-                    <template v-slot:no-data>
-                      <v-list-item>
-                        <v-list-item-title>
-                          {{ productSearchQuery.length < 2
-                            ? 'Začněte psát pro vyhledání (min. 2 znaky)'
-                            : 'Žádné produkty nenalezeny' }}
-                        </v-list-item-title>
-                      </v-list-item>
-                    </template>
-                  </v-autocomplete>
-                </v-col>
-
-                <v-col cols="12" md="3">
+                <v-col cols="12" md="4">
                   <v-text-field
                     v-model="dateFrom"
                     label="Datum od"
@@ -711,7 +652,7 @@ onMounted(() => {
         <!-- Tabulka -->
         <v-data-table
           :headers="headers"
-          :items="paginatedTransactions"
+          :items="transactions"
           :loading="loading"
           hide-default-footer
           class="elevation-1"
@@ -839,41 +780,32 @@ onMounted(() => {
             </div>
           </template>
 
-          <template v-slot:bottom>
-            <div class="d-flex justify-space-between align-center pa-4">
-              <div class="d-flex align-center gap-2">
-                <span class="text-body-2">Položek na stránku:</span>
-                <v-select
-                  v-model="itemsPerPage"
-                  :items="[10, 20, 50, 100]"
-                  density="compact"
-                  variant="outlined"
-                  hide-details
-                  style="max-width: 100px"
-                ></v-select>
-              </div>
-              
-              <div class="text-body-2">
-                {{ page_number * itemsPerPage + 1 }}-{{ Math.min((page_number + 1) * itemsPerPage, filteredTransactions.length) }} 
-                z {{ filteredTransactions.length }}
-              </div>
-
-              <v-pagination
-                v-model="page_number"
-                :length="totalPages"
-                :total-visible="7"
-                density="comfortable"
-                @update:model-value="(val) => page_number = val - 1"
-              ></v-pagination>
-            </div>
-          </template>
         </v-data-table>
+
+        <!-- **NOVÉ: Paginace** -->
+        <div class="d-flex justify-space-between align-center pa-4 flex-wrap" v-if="totalFromAPI > 0">
+          <div class="text-body-2">
+            Zobrazeno {{ displayRange.from }}-{{ displayRange.to }} z {{ totalFromAPI }} skladových pohybů
+            <span v-if="activeTab !== 'all'" class="text-medium-emphasis ml-2">
+              ({{ activeTab === 'prijem' ? 'Příjem' : 'Výdej' }})
+            </span>
+          </div>
+
+          <v-pagination
+            v-if="totalPages > 1"
+            :model-value="currentPage"
+            :length="totalPages"
+            :total-visible="7"
+            density="comfortable"
+            @update:model-value="goToPage"
+          ></v-pagination>
+        </div>
 
         <!-- Footer s info -->
         <div class="mt-4 text-caption text-medium-emphasis">
           <v-icon size="small" class="mr-1">mdi-information-outline</v-icon>
-          {{ searchText.trim() ? 'Výsledky vyhledávání: ' : 'Zobrazeno skladových pohybů: ' }}
-          <strong>{{ filteredTransactions.length }}</strong>
+          {{ searchText.trim() ? 'Výsledky vyhledávání: ' : 'Celkem skladových pohybů: ' }}
+          <strong>{{ totalFromAPI }}</strong>
           {{ activeTab !== 'all' ? `(${activeTab === 'prijem' ? 'Příjem' : 'Výdej'})` : '' }}
         </div>
       </UiParentCard>
