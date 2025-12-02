@@ -409,83 +409,97 @@ const saveChanges = async () => {
 
   saving.value = true;
   try {
-    // Poslat pouze změněné hodnoty
-    const changedData: any = {};
+    // Rozdělit změny na status a ostatní fieldy
+    const statusChanged = editForm.value.status !== order.value.status;
+    const statusData: any = {};
+    const otherData: any = {};
 
     // Porovnat všechny fieldy a přidat pouze změněné
-    if (editForm.value.status !== order.value.status) {
-      changedData.status = editForm.value.status;
+    if (statusChanged) {
+      statusData.status = editForm.value.status;
     }
+
     if (editForm.value.internalNote !== (order.value.internalNote || '')) {
-      changedData.internalNote = editForm.value.internalNote;
+      otherData.internalNote = editForm.value.internalNote;
     }
     if (editForm.value.customerNote !== (order.value.customerNote || '')) {
-      changedData.customerNote = editForm.value.customerNote;
+      otherData.customerNote = editForm.value.customerNote;
     }
     if (editForm.value.assignedUserId !== order.value.assignedUserId) {
-      changedData.assignedUserId = editForm.value.assignedUserId;
+      otherData.assignedUserId = editForm.value.assignedUserId;
     }
 
     // Shipping address
     if (editForm.value.shippingAddressFirstName !== (order.value.shippingAddressFirstName || '')) {
-      changedData.shippingAddressFirstName = editForm.value.shippingAddressFirstName;
+      otherData.shippingAddressFirstName = editForm.value.shippingAddressFirstName;
     }
     if (editForm.value.shippingAddressLastName !== (order.value.shippingAddressLastName || '')) {
-      changedData.shippingAddressLastName = editForm.value.shippingAddressLastName;
+      otherData.shippingAddressLastName = editForm.value.shippingAddressLastName;
     }
     if (editForm.value.shippingAddressStreet !== (order.value.shippingAddressStreet || '')) {
-      changedData.shippingAddressStreet = editForm.value.shippingAddressStreet;
+      otherData.shippingAddressStreet = editForm.value.shippingAddressStreet;
     }
     if (editForm.value.shippingAddressCity !== (order.value.shippingAddressCity || '')) {
-      changedData.shippingAddressCity = editForm.value.shippingAddressCity;
+      otherData.shippingAddressCity = editForm.value.shippingAddressCity;
     }
     if (editForm.value.shippingAddressPostalCode !== (order.value.shippingAddressPostalCode || '')) {
-      changedData.shippingAddressPostalCode = editForm.value.shippingAddressPostalCode;
+      otherData.shippingAddressPostalCode = editForm.value.shippingAddressPostalCode;
     }
     if (editForm.value.shippingAddressCountry !== (order.value.shippingAddressCountry || '')) {
-      changedData.shippingAddressCountry = editForm.value.shippingAddressCountry;
+      otherData.shippingAddressCountry = editForm.value.shippingAddressCountry;
     }
 
     // Billing address
     if (editForm.value.billingAddressFirstName !== (order.value.billingAddressFirstName || '')) {
-      changedData.billingAddressFirstName = editForm.value.billingAddressFirstName;
+      otherData.billingAddressFirstName = editForm.value.billingAddressFirstName;
     }
     if (editForm.value.billingAddressLastName !== (order.value.billingAddressLastName || '')) {
-      changedData.billingAddressLastName = editForm.value.billingAddressLastName;
+      otherData.billingAddressLastName = editForm.value.billingAddressLastName;
     }
     if (editForm.value.billingAddressStreet !== (order.value.billingAddressStreet || '')) {
-      changedData.billingAddressStreet = editForm.value.billingAddressStreet;
+      otherData.billingAddressStreet = editForm.value.billingAddressStreet;
     }
     if (editForm.value.billingAddressCity !== (order.value.billingAddressCity || '')) {
-      changedData.billingAddressCity = editForm.value.billingAddressCity;
+      otherData.billingAddressCity = editForm.value.billingAddressCity;
     }
     if (editForm.value.billingAddressPostalCode !== (order.value.billingAddressPostalCode || '')) {
-      changedData.billingAddressPostalCode = editForm.value.billingAddressPostalCode;
+      otherData.billingAddressPostalCode = editForm.value.billingAddressPostalCode;
     }
     if (editForm.value.billingAddressCountry !== (order.value.billingAddressCountry || '')) {
-      changedData.billingAddressCountry = editForm.value.billingAddressCountry;
+      otherData.billingAddressCountry = editForm.value.billingAddressCountry;
     }
     if (editForm.value.billingAddressCompanyName !== (order.value.billingAddressCompanyName || '')) {
-      changedData.billingAddressCompanyName = editForm.value.billingAddressCompanyName;
+      otherData.billingAddressCompanyName = editForm.value.billingAddressCompanyName;
     }
 
     // Contact
     if (editForm.value.email !== (order.value.email || '')) {
-      changedData.email = editForm.value.email;
+      otherData.email = editForm.value.email;
     }
     if (editForm.value.phoneNumber !== (order.value.phoneNumber || '')) {
-      changedData.phoneNumber = editForm.value.phoneNumber;
+      otherData.phoneNumber = editForm.value.phoneNumber;
     }
 
     // Other
     if (editForm.value.paymentMethod !== (order.value.paymentMethod || '')) {
-      changedData.paymentMethod = editForm.value.paymentMethod;
+      otherData.paymentMethod = editForm.value.paymentMethod;
     }
     if (editForm.value.carrierPickupPoint !== (order.value.carrierPickupPoint || '')) {
-      changedData.carrierPickupPoint = editForm.value.carrierPickupPoint;
+      otherData.carrierPickupPoint = editForm.value.carrierPickupPoint;
     }
 
-    await ordersService.update(order.value.id, changedData);
+    // Pokud se změnil status, poslat ho jako první request
+    if (statusChanged) {
+      console.log('📤 Ukládám změnu stavu:', statusData);
+      await ordersService.update(order.value.id, statusData);
+    }
+
+    // Pokud se změnily i další fieldy, poslat je jako druhý request
+    if (Object.keys(otherData).length > 0) {
+      console.log('📤 Ukládám ostatní změny:', otherData);
+      await ordersService.update(order.value.id, otherData);
+    }
+
     await loadOrder();
     editMode.value = false;
   } catch (error) {
@@ -1253,7 +1267,16 @@ onMounted(() => {
                   <div class="d-flex align-center">
                     <v-icon size="small" class="mr-2" color="primary">mdi-package-variant</v-icon>
                     <div>
-                      <div class="font-weight-bold">{{ item.name }}</div>
+                      <div class="font-weight-bold">
+                        <router-link
+                          v-if="item.productId"
+                          :to="`/products/${item.productId}`"
+                          class="text-decoration-none product-link"
+                        >
+                          {{ item.name }}
+                        </router-link>
+                        <span v-else>{{ item.name }}</span>
+                      </div>
                       <div v-if="item.bundleName" class="text-caption text-medium-emphasis">
                         {{ item.bundleName }}
                       </div>
@@ -1285,7 +1308,16 @@ onMounted(() => {
                   <div class="d-flex align-center pl-8">
                     <v-icon size="x-small" class="mr-2" color="grey">mdi-subdirectory-arrow-right</v-icon>
                     <div>
-                      <div class="font-weight-medium">{{ bundleItem.name }}</div>
+                      <div class="font-weight-medium">
+                        <router-link
+                          v-if="bundleItem.productId"
+                          :to="`/products/${bundleItem.productId}`"
+                          class="text-decoration-none product-link"
+                        >
+                          {{ bundleItem.name }}
+                        </router-link>
+                        <span v-else>{{ bundleItem.name }}</span>
+                      </div>
                       <div
                         v-if="bundleItem.productName && bundleItem.productName !== bundleItem.name"
                         class="text-caption text-medium-emphasis"
@@ -1308,7 +1340,16 @@ onMounted(() => {
               <tr v-if="!item.isBundle" class="normal-row">
                 <td>
                   <div>
-                    <div class="font-weight-medium">{{ item.name }}</div>
+                    <div class="font-weight-medium">
+                      <router-link
+                        v-if="item.productId"
+                        :to="`/products/${item.productId}`"
+                        class="text-decoration-none product-link"
+                      >
+                        {{ item.name }}
+                      </router-link>
+                      <span v-else>{{ item.name }}</span>
+                    </div>
                     <div
                       v-if="item.productName && item.productName !== item.name"
                       class="text-caption text-medium-emphasis"
@@ -2002,5 +2043,16 @@ onMounted(() => {
 
 .order-items-table tfoot tr td {
   padding: 16px !important;
+}
+
+/* Product link styling */
+.product-link {
+  color: rgb(var(--v-theme-primary));
+  transition: opacity 0.2s;
+}
+
+.product-link:hover {
+  opacity: 0.7;
+  text-decoration: underline !important;
 }
 </style>
