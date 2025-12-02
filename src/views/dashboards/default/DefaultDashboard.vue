@@ -10,6 +10,7 @@ const authStore = useAuthStore();
 
 // Determine which dashboard to show based on user dashboards
 const currentDashboard = computed(() => {
+  authStore.verifySession();
   const userDashboards = authStore.currentUser?.dashboards || [];
 
   console.log('📊 User dashboards:', userDashboards);
