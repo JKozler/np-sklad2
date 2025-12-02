@@ -397,9 +397,9 @@ onMounted(() => {
           <v-card variant="outlined">
             <v-card-text style="padding-top: 0;padding-bottom: 0;">
               <div class="text-subtitle-2 text-medium-emphasis">Zobrazeno pohybů</div>
-              <div class="text-h4 font-weight-bold mt-2">{{ filteredTransactions.length }}</div>
+              <div class="text-h4 font-weight-bold mt-2">{{ transactions.length }}</div>
               <div class="text-caption text-medium-emphasis mt-1">
-                z celkových {{ transactions.length }}
+                z celkových {{ totalFromAPI }}
               </div>
             </v-card-text>
           </v-card>
@@ -409,7 +409,7 @@ onMounted(() => {
             <v-card-text style="padding-top: 0;padding-bottom: 0;">
               <div class="text-subtitle-2 text-medium-emphasis">Dokončeno</div>
               <div class="text-h4 font-weight-bold mt-2 text-success">
-                {{ filteredTransactions.filter(t => t.status === 'completed').length }}
+                {{ transactions.filter(t => t.status === 'completed').length }}
               </div>
             </v-card-text>
           </v-card>
@@ -419,7 +419,7 @@ onMounted(() => {
             <v-card-text style="padding-top: 0;padding-bottom: 0;">
               <div class="text-subtitle-2 text-medium-emphasis">Koncepty</div>
               <div class="text-h4 font-weight-bold mt-2 text-warning">
-                {{ filteredTransactions.filter(t => !t.status || t.status === 'draft').length }}
+                {{ transactions.filter(t => !t.status || t.status === 'draft').length }}
               </div>
             </v-card-text>
           </v-card>
@@ -537,7 +537,7 @@ onMounted(() => {
               <span>
                 Zobrazeny pouze pohyby typu:
                 <strong>{{ activeTab === 'prijem' ? 'Příjem' : 'Výdej' }}</strong>
-                <span class="text-medium-emphasis ml-2">({{ filteredTransactions.length }} pohybů)</span>
+                <span class="text-medium-emphasis ml-2">({{ transactions.length }} pohybů)</span>
               </span>
             </div>
             <v-btn
