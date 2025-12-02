@@ -64,13 +64,21 @@ export const useAuthStore = defineStore({
 
     async verifySession() {
       if (!this.user) return false;
-      
+
       try {
         const isValid = await authService.verifySession();
         if (!isValid) {
           await this.logout();
           return false;
         }
+
+        // Refresh user data from localStorage after verifySession updates it
+        const updatedUser = JSON.parse(localStorage.getItem('user') || 'null');
+        if (updatedUser) {
+          this.user = updatedUser;
+          console.log('✅ User data refreshed, dashboards:', updatedUser.dashboards);
+        }
+
         return true;
       } catch {
         await this.logout();

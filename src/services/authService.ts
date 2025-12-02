@@ -121,13 +121,13 @@ export const authService = {
   async verifySession(): Promise<boolean> {
     const username = localStorage.getItem('authUsername');
     const password = localStorage.getItem('authPassword');
-    
+
     if (!username || !password) return false;
 
     try {
       const authHeader = 'Basic ' + btoa(`${username}:${password}`);
       const base64Credentials = authHeader.replace('Basic ', '');
-      
+
       const response = await fetch(`${API_BASE_URL}/App/user`, {
         method: 'GET',
         headers: {
@@ -138,7 +138,28 @@ export const authService = {
         credentials: 'include'
       });
 
-      return response.ok;
+      if (response.ok) {
+        // Update user data with fresh info from API including dashboards
+        const data: EspoCRMResponse = await response.json();
+        console.log('🔄 Refreshing user data, dashboards:', data.user.dashboards);
+
+        const user: User = {
+          id: data.user.id,
+          email: data.user.emailAddress || data.user.userName,
+          firstName: data.user.firstName,
+          lastName: data.user.lastName,
+          userName: data.user.userName,
+          role: data.user.type === 'admin' ? 'admin' : 'user',
+          token: data.user.token,
+          type: data.user.type,
+          dashboards: data.user.dashboards || []
+        };
+
+        localStorage.setItem('user', JSON.stringify(user));
+        return true;
+      }
+
+      return false;
     } catch {
       return false;
     }
