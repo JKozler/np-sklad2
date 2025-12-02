@@ -43,7 +43,7 @@ const formData = ref<CreateInventoryTransactionData>({
   warehouseFromId: null,
   warehouseToId: null,
   transactionDate: new Date().toISOString().split('T')[0],
-  notes: '',
+  description: '',
   items: []
 });
 
@@ -79,7 +79,7 @@ const newItem = ref<InventoryTransactionItem>({
   productId: '',
   quantity: 1,
   unitPrice: 0,
-  notes: ''
+  description: ''
 });
 
 const selectedType = computed(() => {
@@ -174,7 +174,7 @@ const openAddItemDialog = () => {
     productId: '',
     quantity: 1,
     unitPrice: 0,
-    notes: ''
+    description: ''
   };
   productSearchQuery.value = ''; // Reset search
   showAddItemDialog.value = true;
@@ -200,7 +200,7 @@ const addItemToLocal = () => {
     quantity: newItem.value.quantity,
     unitPrice: newItem.value.unitPrice || 0,
     totalPrice: (newItem.value.quantity || 0) * (newItem.value.unitPrice || 0),
-    notes: newItem.value.notes
+    description: newItem.value.description
   };
 
   localItems.value.push(itemToAdd);
@@ -238,7 +238,7 @@ const createTransaction = async () => {
         productId: item.productId,
         quantity: item.quantity,
         unitPrice: item.unitPrice,
-        notes: item.notes
+        description: item.description
       })) : null
     };
 
@@ -476,7 +476,7 @@ onMounted(() => {
 
                 <v-col cols="12">
                   <v-textarea
-                    v-model="formData.notes"
+                    v-model="formData.description"
                     label="Poznámka"
                     variant="outlined"
                     rows="3"
@@ -717,7 +717,7 @@ onMounted(() => {
 
           <v-col cols="12">
             <v-text-field
-              v-model="newItem.notes"
+              v-model="newItem.description"
               label="Poznámka"
               variant="outlined"
               density="comfortable"

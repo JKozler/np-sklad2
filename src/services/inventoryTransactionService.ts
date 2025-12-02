@@ -11,7 +11,7 @@ export interface InventoryTransactionItem {
   quantity: number;
   price?: number;
   totalPrice?: number;
-  notes?: string;
+  description?: string;
   inventoryTransactionId?: string;
 }
 
@@ -28,7 +28,7 @@ export interface InventoryTransaction {
   warehouseToName?: string | null;
   transactionDate: string;
   status?: string;
-  notes?: string;
+  description?: string;
   totalAmount?: number;
   totalPrice?: number;
   totalPriceCurrency?: string;
@@ -60,7 +60,7 @@ export interface CreateInventoryTransactionData {
   warehouseId?: string | null;
   warehouseToId?: string | null;
   transactionDate: string;
-  notes?: string;
+  description?: string;
   items?: InventoryTransactionItem[] | null;
 }
 
@@ -81,7 +81,7 @@ export interface UpdateInventoryTransactionData {
   warehouseId?: string | null;
   warehouseToId?: string | null;
   transactionDate?: string;
-  notes?: string;
+  description?: string;
   status?: string;
   items?: InventoryTransactionItem[] | null;
 }

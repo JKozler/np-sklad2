@@ -48,7 +48,7 @@ const newItem = ref<InventoryTransactionItem>({
   productId: '',
   quantity: 1,
   unitPrice: 0,
-  notes: ''
+  description: ''
 });
 
 // Dialog pro editaci jednotlivé položky
@@ -58,7 +58,7 @@ const editItemData = ref<InventoryTransactionItem>({
   productId: '',
   quantity: 1,
   unitPrice: 0,
-  notes: ''
+  description: ''
 });
 
 // Editovatelná data hlavičky
@@ -118,7 +118,7 @@ const loadTransaction = async () => {
       warehouseId: transaction.value.warehouseFromId,
       warehouseToId: transaction.value.warehouseToId,
       transactionDate: transaction.value.transactionDate,
-      notes: transaction.value.notes,
+      description: transaction.value.description,
       status: transaction.value.status
     };
 
@@ -151,7 +151,7 @@ const toggleEditMode = () => {
       warehouseFromId: transaction.value.warehouseFromId,
       warehouseToId: transaction.value.warehouseToId,
       transactionDate: transaction.value.transactionDate,
-      notes: transaction.value.notes,
+      description: transaction.value.description,
       status: transaction.value.status
     };
   }
@@ -182,7 +182,7 @@ const openAddItemPanel = () => {
     productId: '',
     quantity: 1,
     unitPrice: 0,
-    notes: ''
+    description: ''
   };
   productSearchQuery.value = ''; // Reset search
   showAddItemPanel.value = true;
@@ -217,7 +217,7 @@ const openEditItemDialog = (item: InventoryTransactionItem) => {
     productId: item.productId,
     quantity: item.quantity,
     unitPrice: item.unitPrice || 0,
-    notes: item.notes || ''
+    description: item.description || ''
   };
   productSearchQueryEdit.value = ''; // Reset search
   showEditItemDialog.value = true;
@@ -241,7 +241,7 @@ const saveEditItem = async () => {
       {
         quantity: editItemData.value.quantity,
         unitPrice: editItemData.value.unitPrice,
-        notes: editItemData.value.notes
+        description: editItemData.value.description
       }
     );
     
@@ -291,6 +291,7 @@ const completeTransaction = async () => {
   }
 
   try {
+    editData.value.status = "Completed";
     await saveChanges();
   } catch (err) {
     console.error('Chyba při dokončování:', err);
@@ -497,14 +498,14 @@ onMounted(() => {
               <v-col cols="12">
                 <v-textarea
                   v-if="editMode"
-                  v-model="editData.notes"
+                  v-model="editData.description"
                   label="Poznámka"
                   variant="outlined"
                   rows="3"
                 ></v-textarea>
                 <div v-else>
                   <div class="text-subtitle-2 text-medium-emphasis">Poznámka</div>
-                  <div class="text-body-1 mt-2">{{ transaction.notes || '—' }}</div>
+                  <div class="text-body-1 mt-2">{{ transaction.description || '—' }}</div>
                 </div>
               </v-col>
             </v-row>
@@ -561,8 +562,8 @@ onMounted(() => {
                 </span>
               </template>
 
-              <template v-slot:item.notes="{ item }">
-                <span class="text-medium-emphasis">{{ item.notes || '—' }}</span>
+              <template v-slot:item.description="{ item }">
+                <span class="text-medium-emphasis">{{ item.description || '—' }}</span>
               </template>
 
               <template v-slot:item.actions="{ item }">
@@ -784,7 +785,7 @@ onMounted(() => {
 
           <v-col cols="12" md="4">
             <v-text-field
-              v-model="newItem.notes"
+              v-model="newItem.description"
               label="Poznámka"
               variant="outlined"
               density="comfortable"
@@ -853,7 +854,7 @@ onMounted(() => {
 
           <v-col cols="12">
             <v-textarea
-              v-model="editItemData.notes"
+              v-model="editItemData.description"
               label="Poznámka"
               variant="outlined"
               rows="3"
