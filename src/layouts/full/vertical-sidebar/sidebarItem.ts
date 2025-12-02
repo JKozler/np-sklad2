@@ -56,13 +56,13 @@ const sidebarItem: menu[] = [
     type: 'external'
   },
   
-  { divider: true },
+  /*{ divider: true },
   { header: 'Statistiky' },
   {
     title: 'Reporty',
     icon: ChartBarIcon,
     to: '/reports'
-  },
+  },*/
   
   { divider: true },
 { header: 'Sklad' },
