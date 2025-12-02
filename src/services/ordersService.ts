@@ -255,11 +255,13 @@ export const ordersService = {
    * Načte seznam objednávek s možností vyhledávání a filtrování
    * @param searchText - Textové vyhledávání
    * @param primaryFilter - Primární filtr (např. 'starred' pro oblíbené, 'errors' pro chybové)
+   * @param maxSize - Maximální počet položek na stránku
+   * @param offset - Offset pro paginaci
    */
-  async getAll(searchText?: string, primaryFilter?: string): Promise<SalesOrdersResponse> {
+  async getAll(searchText?: string, primaryFilter?: string, maxSize: number = 200, offset: number = 0): Promise<SalesOrdersResponse> {
     const queryParams = new URLSearchParams({
-      maxSize: '20',
-      offset: '0',
+      maxSize: maxSize.toString(),
+      offset: offset.toString(),
       orderBy: 'createdAt',
       order: 'desc',
       attributeSelect: 'name,priceWithVat,currency,shippingAddressLastName,shippingAddressFirstName,status,carrierId,carrierName,createdAt,isStarred'

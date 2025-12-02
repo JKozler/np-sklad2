@@ -26,6 +26,10 @@ const error = ref<string | null>(null);
 const searchText = ref('');
 const totalFromAPI = ref(0);
 
+// **PAGINACE**
+const currentOffset = ref(0);
+const itemsPerPage = ref(200); // Max podporované API
+
 // **NOVÉ: Aktivní tab pro typ zásob**
 const activeTab = ref<'all' | 'vyrobek' | 'material' | 'neskladove'| 'chybejici'>('all');
 
@@ -38,6 +42,21 @@ const filters = ref({
 // Debounce timer pro vyhledávání
 let searchTimeout: number | null = null;
 let totals = 0;
+
+// **PAGINACE: Computed properties**
+const totalPages = computed(() => {
+  return Math.ceil(totals / itemsPerPage.value);
+});
+
+const currentPage = computed(() => {
+  return Math.floor(currentOffset.value / itemsPerPage.value) + 1;
+});
+
+const displayRange = computed(() => {
+  const from = currentOffset.value + 1;
+  const to = Math.min(currentOffset.value + products.value.length, totals);
+  return { from, to };
+});
 
 // **NOVÉ: Statistiky pro jednotlivé taby**
 const tabStats = computed(() => {
@@ -113,8 +132,8 @@ const loadProducts = async () => {
   
   try {
     const queryParams: any = {
-      maxSize: 200,
-      offset: 0,
+      maxSize: itemsPerPage.value,
+      offset: currentOffset.value,
       orderBy: 'createdAt',
       order: 'desc'
     };
@@ -210,6 +229,7 @@ const debouncedSearch = () => {
  * Watch na změnu searchText
  */
 watch(searchText, () => {
+  currentOffset.value = 0; // Reset na první stránku
   debouncedSearch();
 });
 
@@ -217,6 +237,7 @@ watch(searchText, () => {
  * **NOVÉ: Watch na změnu aktivního tabu**
  */
 watch(activeTab, () => {
+  currentOffset.value = 0; // Reset na první stránku
   loadProducts();
 });
 
@@ -227,6 +248,7 @@ watch([
   () => filters.value.isStockItem,
   () => filters.value.ean
 ], () => {
+  currentOffset.value = 0; // Reset na první stránku
   debouncedSearch();
 }, { deep: true });
 
@@ -240,6 +262,7 @@ const clearFilters = () => {
   };
   searchText.value = '';
   activeTab.value = 'all';
+  currentOffset.value = 0; // Reset na první stránku
   loadProducts();
 };
 
@@ -260,6 +283,28 @@ const activeFiltersCount = computed(() => {
 const clearSearch = () => {
   searchText.value = '';
   loadProducts();
+};
+
+/**
+ * **NOVÉ: Funkce pro změnu stránky**
+ */
+const goToPage = (page: number) => {
+  currentOffset.value = (page - 1) * itemsPerPage.value;
+  loadProducts();
+};
+
+const nextPage = () => {
+  if (currentOffset.value + itemsPerPage.value < totals) {
+    currentOffset.value += itemsPerPage.value;
+    loadProducts();
+  }
+};
+
+const prevPage = () => {
+  if (currentOffset.value > 0) {
+    currentOffset.value = Math.max(0, currentOffset.value - itemsPerPage.value);
+    loadProducts();
+  }
 };
 
 const viewProduct = (product: Product) => {
@@ -610,7 +655,7 @@ onMounted(() => {
           :items="products"
           :loading="loading"
           class="elevation-1"
-          :items-per-page="10"
+          hide-default-footer
           :hover="true"
         >
           <!-- Loading slot -->
@@ -749,14 +794,30 @@ onMounted(() => {
           </template>
         </v-data-table>
 
+        <!-- **NOVÉ: Paginace** -->
+        <div class="d-flex justify-space-between align-center pa-4 flex-wrap" v-if="totals > 0">
+          <div class="text-body-2">
+            Zobrazeno {{ displayRange.from }}-{{ displayRange.to }} z {{ totals }} produktů
+            <span v-if="activeTab !== 'all'" class="text-medium-emphasis ml-2">
+              ({{ activeTab === 'vyrobek' ? 'Výrobek' : activeTab === 'material' ? 'Materiál' : activeTab === 'chybejici' ? 'Chybějící' : 'Nejsou ve skladu' }})
+            </span>
+          </div>
+
+          <v-pagination
+            v-if="totalPages > 1"
+            :model-value="currentPage"
+            :length="totalPages"
+            :total-visible="7"
+            density="comfortable"
+            @update:model-value="goToPage"
+          ></v-pagination>
+        </div>
+
         <!-- Footer s info -->
         <div class="mt-4 text-caption text-medium-emphasis">
           <v-icon size="small" class="mr-1">mdi-information-outline</v-icon>
           {{ searchText.trim() || activeFiltersCount > 0 ? 'Výsledky filtrování: ' : 'Celkem produktů: ' }}
-          <strong>{{ products.length }}</strong>
-          <span v-if="activeTab !== 'all'" class="ml-2">
-            ({{ activeTab === 'vyrobek' ? 'Výrobek' : activeTab === 'material' ? 'Materiál' : 'Nejsou ve skladu' }})
-          </span>
+          <strong>{{ totals }}</strong>
           <span v-if="activeFiltersCount > 0" class="ml-2">
             ({{ activeFiltersCount }} {{ activeFiltersCount === 1 ? 'filtr' : activeFiltersCount < 5 ? 'filtry' : 'filtrů' }})
           </span>

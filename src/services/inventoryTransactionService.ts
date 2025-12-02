@@ -95,13 +95,15 @@ export interface InventoryTransactionFilters {
   status?: string;
   productId?: string;
   direction?: string;
+  maxSize?: number;
+  offset?: number;
 }
 
 export const inventoryTransactionService = {
   async getAll(filters?: InventoryTransactionFilters): Promise<InventoryTransactionsResponse> {
     const queryParams = new URLSearchParams({
-      maxSize: '200',
-      offset: '0',
+      maxSize: (filters?.maxSize || 200).toString(),
+      offset: (filters?.offset || 0).toString(),
       orderBy: 'createdAt',
       order: 'desc',
       attributeSelect: 'code,transactionDirection,transactionTypeId,transactionTypeName,name,status,totalPriceCurrency,totalPrice,warehouse,transactionDate,createdAt'

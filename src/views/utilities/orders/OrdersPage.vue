@@ -15,8 +15,12 @@ const breadcrumbs = ref([
 const orders = ref<SalesOrder[]>([]);
 const loading = ref(false);
 const searchText = ref('');
-const itemsPerPage = ref(20);
-const currentPage = ref(1);
+
+// **PAGINACE - serverová**
+const currentOffset = ref(0);
+const itemsPerPage = ref(200); // Max podporované API
+const totalFromAPI = ref(0);
+
 const activeTab = ref<string | undefined>(undefined);
 
 const headers = ref([
@@ -57,14 +61,19 @@ const statusLabels: Record<string, string> = {
   'cancelled': 'Zrušeno'
 };
 
-const paginatedOrders = computed(() => {
-  const start = (currentPage.value - 1) * itemsPerPage.value;
-  const end = start + itemsPerPage.value;
-  return orders.value.slice(start, end);
+// **PAGINACE: Computed properties**
+const totalPages = computed(() => {
+  return Math.ceil(totalFromAPI.value / itemsPerPage.value);
 });
 
-const totalPages = computed(() => {
-  return Math.ceil(orders.value.length / itemsPerPage.value);
+const currentPage = computed(() => {
+  return Math.floor(currentOffset.value / itemsPerPage.value) + 1;
+});
+
+const displayRange = computed(() => {
+  const from = currentOffset.value + 1;
+  const to = Math.min(currentOffset.value + orders.value.length, totalFromAPI.value);
+  return { from, to };
 });
 
 const formatPrice = (price: number, currency: string = 'CZK') => {
@@ -115,9 +124,18 @@ const loadOrders = async () => {
   try {
     const response = await ordersService.getAll(
       searchText.value || undefined,
-      activeTab.value || undefined
+      activeTab.value || undefined,
+      itemsPerPage.value,
+      currentOffset.value
     );
     orders.value = response.list;
+    totalFromAPI.value = response.total;
+
+    console.log('✅ Načteno objednávek:', orders.value.length, '/', response.total);
+
+    if (response.total > 200) {
+      console.warn('⚠️ POZOR: Celkový počet objednávek (' + response.total + ') překračuje maxSize (200)!');
+    }
   } catch (error) {
     console.error('Chyba při načítání objednávek:', error);
   } finally {
@@ -156,13 +174,35 @@ const deleteOrder = async (id: string) => {
 };
 
 const handleSearch = () => {
-  currentPage.value = 1;
+  currentOffset.value = 0;
   loadOrders();
+};
+
+/**
+ * **NOVÉ: Funkce pro změnu stránky**
+ */
+const goToPage = (page: number) => {
+  currentOffset.value = (page - 1) * itemsPerPage.value;
+  loadOrders();
+};
+
+const nextPage = () => {
+  if (currentOffset.value + itemsPerPage.value < totalFromAPI.value) {
+    currentOffset.value += itemsPerPage.value;
+    loadOrders();
+  }
+};
+
+const prevPage = () => {
+  if (currentOffset.value > 0) {
+    currentOffset.value = Math.max(0, currentOffset.value - itemsPerPage.value);
+    loadOrders();
+  }
 };
 
 // Watch pro změnu tabu
 watch(activeTab, () => {
-  currentPage.value = 1;
+  currentOffset.value = 0;
   loadOrders();
 });
 
@@ -246,7 +286,7 @@ onMounted(() => {
 
         <v-data-table
           :headers="headers"
-          :items="paginatedOrders"
+          :items="orders"
           :loading="loading"
           hide-default-footer
           class="elevation-1"
@@ -381,17 +421,18 @@ onMounted(() => {
           </template>
 
           <template v-slot:bottom>
-            <div class="d-flex justify-space-between align-center pa-4 flex-wrap">
+            <div class="d-flex justify-space-between align-center pa-4 flex-wrap" v-if="totalFromAPI > 0">
               <div class="text-body-2">
-                Zobrazeno {{ (currentPage - 1) * itemsPerPage + 1 }}-{{ Math.min(currentPage * itemsPerPage, orders.length) }} 
-                z {{ orders.length }} objednávek
+                Zobrazeno {{ displayRange.from }}-{{ displayRange.to }} z {{ totalFromAPI }} objednávek
               </div>
 
               <v-pagination
-                v-model="currentPage"
+                v-if="totalPages > 1"
+                :model-value="currentPage"
                 :length="totalPages"
                 :total-visible="7"
                 density="comfortable"
+                @update:model-value="goToPage"
               ></v-pagination>
             </div>
           </template>
