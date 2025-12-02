@@ -654,6 +654,7 @@ onMounted(() => {
           :headers="headers"
           :items="products"
           :loading="loading"
+          :items-per-page="200"
           class="elevation-1"
           hide-default-footer
           :hover="true"
