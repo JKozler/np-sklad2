@@ -6,14 +6,6 @@ import { useAuthStore } from '@/stores/auth';
 import CustomerSupportDashboard from '../customer-support/CustomerSupportDashboard.vue';
 import WarehouseManagerDashboard from '../warehouse-manager/WarehouseManagerDashboard.vue';
 
-// Default dashboard components
-import TotalEarning from './components/TotalEarning.vue';
-import TotalOrder from './components/TotalOrder.vue';
-import TotalIncome from './components/TotalIncome.vue';
-import TotalGrowth from './components/TotalGrowth.vue';
-import PopularStocks from './components/PopularStocks.vue';
-import OrdersReportCard from './components/OrdersReportCard.vue';
-
 const authStore = useAuthStore();
 
 // Determine which dashboard to show based on user dashboards
@@ -42,44 +34,10 @@ const currentDashboard = computed(() => {
 
   <!-- Default Dashboard -->
   <v-row v-else>
-    <!-- -------------------------------------------------------------------- -->
-    <!-- Total Earning -->
-    <!-- -------------------------------------------------------------------- -->
-    <v-col cols="12" md="12">
-      <TotalEarning />
-    </v-col>
-    <!-- -------------------------------------------------------------------- -->
-    <!-- Total Income -->
-    <!-- -------------------------------------------------------------------- -->
-    <v-col cols="12" md="12">
-      <TotalIncome />
-    </v-col>
-    <!-- -------------------------------------------------------------------- -->
-    <!-- Total Order -->
-    <!-- -------------------------------------------------------------------- 
-    <v-col cols="12" md="4">
-      <TotalOrder />
-    </v-col>-->
-
-    <!-- -------------------------------------------------------------------- -->
-    <!-- Total Growth -->
-    <!--
-    <v-col cols="12" lg="8">
-      <TotalGrowth />
-    </v-col> -->
-
-    <!-- -------------------------------------------------------------------- -->
-    <!-- Popular Stocks -->
-    <!--
-    <v-col cols="12" lg="4">
-      <PopularStocks />
-    </v-col> -->
-
-    <!-- -------------------------------------------------------------------- -->
-    <!-- Orders Report Card -->
-    <!-- -------------------------------------------------------------------- -->
-    <v-col cols="12" md="12">
-      <OrdersReportCard />
-    </v-col>
+    <v-card elevation="0" class="bg-secondary overflow-hidden bubble-shape bubble-secondary-shape">
+    <v-card-text style="height: 1200px;">
+      <iframe style="width: 100%;height: 100%;" src="https://grafana.naturalprotein.cz/modules/grafana/service/public-dashboards/ff3e7a62b357416d8c0f0722f5334d97"></iframe>
+    </v-card-text>
+  </v-card>
   </v-row>
 </template>
