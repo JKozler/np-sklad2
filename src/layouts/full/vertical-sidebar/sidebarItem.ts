@@ -26,6 +26,7 @@ export interface menu {
   disabled?: boolean;
   type?: string;
   subCaption?: string;
+  requiredDashboards?: string[];
 }
 
 const sidebarItem: menu[] = [
@@ -74,7 +75,8 @@ const sidebarItem: menu[] = [
 {
   title: 'Skladové pohyby',
   icon: PackageIcon,
-  to: '/inventory-transactions'
+  to: '/inventory-transactions',
+  requiredDashboards: ['WAREHOUSE_MANAGER']
 },
 {
   title: 'Sklady',

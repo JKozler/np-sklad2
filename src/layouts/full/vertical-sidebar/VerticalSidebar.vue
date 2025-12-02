@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { shallowRef } from 'vue';
+import { computed } from 'vue';
 import { useCustomizerStore } from '../../../stores/customizer';
+import { useAuthStore } from '../../../stores/auth';
 import sidebarItems from './sidebarItem';
 
 import NavGroup from './NavGroup/NavGroup.vue';
@@ -10,7 +11,22 @@ import ExtraBox from './extrabox/ExtraBox.vue';
 import Logo from '../logo/LogoMain.vue';
 
 const customizer = useCustomizerStore();
-const sidebarMenu = shallowRef(sidebarItems);
+const authStore = useAuthStore();
+
+// Filter sidebar items based on user dashboards
+const sidebarMenu = computed(() => {
+  const userDashboards = authStore.currentUser?.dashboards || [];
+
+  return sidebarItems.filter(item => {
+    // Show items without requiredDashboards
+    if (!item.requiredDashboards || item.requiredDashboards.length === 0) {
+      return true;
+    }
+
+    // Check if user has at least one of the required dashboards
+    return item.requiredDashboards.some(dashboard => userDashboards.includes(dashboard));
+  });
+});
 </script>
 
 <template>
