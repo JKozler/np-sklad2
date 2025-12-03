@@ -48,13 +48,15 @@ const sidebarItem: menu[] = [
     title: 'Expedice',
     icon: TruckDeliveryIcon,
     to: 'https://smart-int-be.naturalprotein.net/?entryPoint=expeditionPortal',
-    type: 'external'
+    type: 'external',
+    requiredDashboards: ['WAREHOUSE_MANAGER']
   },
   {
     title: 'Výroba',
     icon: TruckLoadingIcon,
     to: 'https://crm.naturalprotein.cz/?entryPoint=productionPortal',
-    type: 'external'
+    type: 'external',
+    requiredDashboards: ['WAREHOUSE_MANAGER']
   },
   {
     title: 'Balíky',
@@ -92,6 +94,7 @@ const sidebarItem: menu[] = [
   title: 'Systém',
   icon: SettingsIcon,
   to: '/settings',
+  requiredDashboards: ['WAREHOUSE_MANAGER'],
   children: [
     {
       title: 'Synchronizace Abra',
