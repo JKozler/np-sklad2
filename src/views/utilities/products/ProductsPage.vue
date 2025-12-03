@@ -14,7 +14,7 @@ const router = useRouter();
 const { tf, tl, to, isLoaded } = useI18n('Product');
 const { tl: tlGlobal } = useI18n('Global');
 
-const page = ref({ title: 'Produkty z API' });
+const page = ref({ title: 'Produkty' });
 const breadcrumbs = ref([
   { title: 'Sklad', disabled: false, href: '#' },
   { title: 'Produkty', disabled: true, href: '#' }
