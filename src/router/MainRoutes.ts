@@ -33,6 +33,17 @@ const MainRoutes = {
       path: '/orders/:id',
       component: () => import('@/views/utilities/orders/OrderDetailPage.vue')
     },
+    // Výroba
+    {
+      name: 'Balíky',
+      path: '/packages',
+      component: () => import('@/views/utilities/packages/PackagesPage.vue')
+    },
+    {
+      name: 'Detail balíku',
+      path: '/packages/:id',
+      component: () => import('@/views/utilities/packages/PackageDetailPage.vue')
+    },
     {
       name: 'Zákazníci',
       path: '/customers',

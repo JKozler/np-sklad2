@@ -56,6 +56,11 @@ const sidebarItem: menu[] = [
     to: 'https://crm.naturalprotein.cz/?entryPoint=productionPortal',
     type: 'external'
   },
+  {
+    title: 'Balíky',
+    icon: PackageIcon,
+    to: '/packages'
+  },
   
   /*{ divider: true },
   { header: 'Statistiky' },
