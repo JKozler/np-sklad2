@@ -60,6 +60,16 @@ const MainRoutes = {
       component: () => import('@/views/utilities/inventory/InventoryTransactionsPage.vue')
     },
     {
+      name: 'Příjemky',
+      path: '/prijemky',
+      component: () => import('@/views/utilities/inventory/InventoryTransactionsPage.vue')
+    },
+    {
+      name: 'Výdejky',
+      path: '/vydejky',
+      component: () => import('@/views/utilities/inventory/InventoryTransactionsPage.vue')
+    },
+    {
       name: 'Sklady',
       path: '/warehouses',
       component: () => import('@/views/utilities/warehouses/WarehousesPage.vue')
