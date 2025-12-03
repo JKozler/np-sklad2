@@ -83,13 +83,13 @@ const sidebarItem: menu[] = [
 {
   title: 'Příjemky',
   icon: TruckLoadingIcon,
-  to: '/inventory-transactions?direction=prijem',
+  to: '/prijemky',
   requiredDashboards: ['WAREHOUSE_MANAGER']
 },
 {
   title: 'Výdejky',
   icon: TruckDeliveryIcon,
-  to: '/inventory-transactions?direction=vydej',
+  to: '/vydejky',
   requiredDashboards: ['WAREHOUSE_MANAGER']
 },
 {

@@ -318,16 +318,16 @@ watch(dateTo, () => {
   loadTransactions();
 });
 
-// Watch for direction query parameter changes (when clicking Příjemky/Výdejky in sidebar)
-watch(() => route.query.direction, (newDirection) => {
-  if (newDirection === 'prijem') {
+// Watch for route changes (when clicking Příjemky/Výdejky in sidebar)
+watch(() => route.path, (newPath) => {
+  if (newPath === '/prijemky') {
     activeTab.value = 'prijem';
     page.value.title = 'Příjemky';
     breadcrumbs.value = [
       { title: 'Sklad', disabled: false, href: '#' },
       { title: 'Příjemky', disabled: true, href: '#' }
     ];
-  } else if (newDirection === 'vydej') {
+  } else if (newPath === '/vydejky') {
     activeTab.value = 'vydej';
     page.value.title = 'Výdejky';
     breadcrumbs.value = [
