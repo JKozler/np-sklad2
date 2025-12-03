@@ -64,7 +64,7 @@ class PurchaseRequestService {
       });
     }
 
-    const response = await apiClient.get(`${this.baseUrl}?${params.toString()}`);
+    const response = await apiClient.get<PurchaseRequestsResponse>(`${this.baseUrl}?${params.toString()}`);
     return response.data;
   }
 
@@ -72,7 +72,7 @@ class PurchaseRequestService {
    * Načte jednu nákupní žádost podle ID
    */
   async getById(id: string): Promise<PurchaseRequest> {
-    const response = await apiClient.get(`${this.baseUrl}/${id}`);
+    const response = await apiClient.get<PurchaseRequest>(`${this.baseUrl}/${id}`);
     return response.data;
   }
 
@@ -80,7 +80,7 @@ class PurchaseRequestService {
    * Aktualizuje status nákupní žádosti
    */
   async updateStatus(id: string, status: PurchaseRequest['status'], data?: Partial<PurchaseRequest>): Promise<PurchaseRequest> {
-    const response = await apiClient.patch(`${this.baseUrl}/${id}`, {
+    const response = await apiClient.patch<PurchaseRequest>(`${this.baseUrl}/${id}`, {
       status,
       ...data
     });
