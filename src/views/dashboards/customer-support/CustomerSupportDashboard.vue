@@ -21,19 +21,16 @@ onMounted(() => {
         <v-card-text>
           <v-window v-model="activeTab">
             <v-window-item value="0">
-              <v-card elevation="0" class="bg-secondary overflow-hidden bubble-shape bubble-secondary-shape">
+              
                 <v-card-text style="height: 1200px;">
                   <iframe style="width: 100%;height: 100%;" src="https://grafana.naturalprotein.cz/modules/grafana/service/public-dashboards/870563a41cee4b76bee310b74f4446c4"></iframe>
                 </v-card-text>
-              </v-card>
             </v-window-item>
 
             <v-window-item value="1">
-              <v-card elevation="0" class="bg-secondary overflow-hidden bubble-shape bubble-secondary-shape">
                 <v-card-text style="height: 1200px;">
                   <iframe style="width: 100%;height: 100%;" src="https://grafana.naturalprotein.cz/modules/grafana/service/public-dashboards/ff3e7a62b357416d8c0f0722f5334d97"></iframe>
                 </v-card-text>
-              </v-card>
             </v-window-item>
           </v-window>
         </v-card-text>
