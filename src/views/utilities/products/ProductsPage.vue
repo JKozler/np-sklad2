@@ -85,7 +85,7 @@ const headers = computed(() => {
   if (activeTab.value === 'material') {
     // Seznam SUROVIN: jméno / kód / cena za jednotku / měrná jednotka / skladová položka / akce
     return [
-      { title: tf('name'), key: 'name', sortable: true },
+      { title: 'Jméno', key: 'name', sortable: true },
       { title: tf('code'), key: 'code', sortable: true },
       { title: 'Nákladová cena', key: 'costPrice', sortable: true },
       { title: 'Prodejní cena', key: 'priceWithoutVat', sortable: true },
@@ -96,7 +96,7 @@ const headers = computed(() => {
   } else if (activeTab.value === 'vyrobek') {
     // Seznam PRODUKTŮ: jméno / kód / náklad / prodej / měrná jednotka / skladová položka / akce
     return [
-      { title: tf('name'), key: 'name', sortable: true },
+      { title: 'Jméno', key: 'name', sortable: true },
       { title: tf('code'), key: 'code', sortable: true },
       { title: 'Nákladová cena', key: 'costPrice', sortable: true },
       { title: 'Prodejní cena', key: 'priceWithoutVat', sortable: true },
