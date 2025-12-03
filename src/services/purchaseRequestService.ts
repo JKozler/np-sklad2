@@ -65,7 +65,7 @@ class PurchaseRequestService {
     }
 
     const response = await apiClient.get<PurchaseRequestsResponse>(`${this.baseUrl}?${params.toString()}`);
-    return response.data;
+    return response;
   }
 
   /**
@@ -73,7 +73,7 @@ class PurchaseRequestService {
    */
   async getById(id: string): Promise<PurchaseRequest> {
     const response = await apiClient.get<PurchaseRequest>(`${this.baseUrl}/${id}`);
-    return response.data;
+    return response;
   }
 
   /**
@@ -84,7 +84,7 @@ class PurchaseRequestService {
       status,
       ...data
     });
-    return response.data;
+    return response;
   }
 
   /**
