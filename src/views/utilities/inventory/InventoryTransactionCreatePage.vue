@@ -276,7 +276,8 @@ const createTransaction = async () => {
       items: localItems.value.length > 0 ? localItems.value.map(item => ({
         productId: item.productId,
         quantity: item.quantity,
-        unitPrice: item.unitPrice
+        unitPrice: item.unitPrice,
+        uomName: item.uomName
       })) : null
     };
 

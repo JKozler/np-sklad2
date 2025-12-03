@@ -41,6 +41,7 @@ export interface CreateBOMItemData {
   parentBomId: string;
   componentProductId: string;
   quantity: number;
+  uomName?: string;
 }
 
 /**
