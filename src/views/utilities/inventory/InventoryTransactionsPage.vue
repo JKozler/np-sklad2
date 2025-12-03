@@ -443,7 +443,10 @@ onMounted(() => {
               <v-btn
                 color="success"
                 prepend-icon="mdi-plus"
-                @click="router.push('/inventory-transactions/new')"
+                @click="router.push({
+                  path: '/inventory-transactions/new',
+                  query: activeTab.value === 'prijem' ? { direction: 'prijem' } : activeTab.value === 'vydej' ? { direction: 'vydej' } : {}
+                })"
               >
                 Nový skladový pohyb
               </v-btn>
