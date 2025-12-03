@@ -1,7 +1,7 @@
 <!-- src/views/utilities/inventory/InventoryTransactionsPage.vue -->
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 import BaseBreadcrumb from '@/components/shared/BaseBreadcrumb.vue';
 import UiParentCard from '@/components/shared/UiParentCard.vue';
 import { inventoryTransactionService } from '@/services/inventoryTransactionService';
@@ -11,6 +11,7 @@ import type { InventoryTransaction } from '@/services/inventoryTransactionServic
 import type { InventoryTransactionType } from '@/services/inventoryTransactionTypeService';
 
 const router = useRouter();
+const route = useRoute();
 
 const page = ref({ title: 'Skladové pohyby' });
 const breadcrumbs = ref([
@@ -333,6 +334,24 @@ watch(dateTo, () => {
 });
 
 onMounted(() => {
+  // Check if there's a direction query parameter from the sidebar
+  const directionParam = route.query.direction as string;
+  if (directionParam === 'prijem') {
+    activeTab.value = 'prijem';
+    page.value.title = 'Příjemky';
+    breadcrumbs.value = [
+      { title: 'Sklad', disabled: false, href: '#' },
+      { title: 'Příjemky', disabled: true, href: '#' }
+    ];
+  } else if (directionParam === 'vydej') {
+    activeTab.value = 'vydej';
+    page.value.title = 'Výdejky';
+    breadcrumbs.value = [
+      { title: 'Sklad', disabled: false, href: '#' },
+      { title: 'Výdejky', disabled: true, href: '#' }
+    ];
+  }
+
   loadTransactions();
   loadTransactionTypes();
 });

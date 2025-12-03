@@ -392,10 +392,10 @@ onMounted(() => {
 
       <!-- Hlavní informace -->
       <v-row>
-        <v-col cols="12" md="8">
+        <v-col cols="12">
           <UiParentCard title="Základní informace">
             <v-row>
-              <v-col cols="12" md="6">
+              <v-col cols="12" md="4">
                 <v-text-field
                   v-if="editMode"
                   v-model="editData.name"
@@ -409,43 +409,40 @@ onMounted(() => {
                 </div>
               </v-col>
 
-              <v-col cols="12" md="6">
-                <div>
-                  <div class="text-subtitle-2 text-medium-emphasis">Typ pohybu</div>
-                  <v-chip color="primary" class="mt-2">
-                    {{ transaction.transactionTypeName }}
-                  </v-chip>
-                </div>
-              </v-col>
-
-              <v-col cols="12" md="6">
+              <v-col cols="12" md="4">
                 <div>
                   <div class="text-subtitle-2 text-medium-emphasis">Směr pohybu</div>
-                  <v-chip :color="transaction.transactionDirection == 'typPohybu.vydej'?'error':'primary'" class="mt-2">
-                    {{ transaction.transactionDirection == "typPohybu.vydej"?'Výdej':'Přijem' }}
+                  <v-chip :color="transaction.transactionDirection == 'typPohybu.vydej'?'error':'success'" class="mt-2">
+                    <v-icon start size="small">
+                      {{ transaction.transactionDirection == 'typPohybu.vydej' ? 'mdi-arrow-up-circle' : 'mdi-arrow-down-circle' }}
+                    </v-icon>
+                    {{ transaction.transactionDirection == "typPohybu.vydej"?'Výdej':'Příjem' }}
                   </v-chip>
                 </div>
               </v-col>
 
-              <v-col cols="12" md="6" v-if="transaction.warehouseFromName">
+              <v-col cols="12" md="4">
                 <div>
-                  <div class="text-subtitle-2 text-medium-emphasis">Sklad (z)</div>
+                  <div class="text-subtitle-2 text-medium-emphasis">Status</div>
+                  <v-chip
+                    :color="getStatusColor(transaction.status)"
+                    class="mt-2"
+                  >
+                    {{ getStatusLabel(transaction.status) }}
+                  </v-chip>
+                </div>
+              </v-col>
+
+              <v-col cols="12" md="4" v-if="transaction.warehouseFromName">
+                <div>
+                  <div class="text-subtitle-2 text-medium-emphasis">Sklad</div>
                   <div class="text-body-1 font-weight-medium mt-2">
                     {{ transaction.warehouseFromName }}
                   </div>
                 </div>
               </v-col>
 
-              <v-col cols="12" md="6" v-if="transaction.warehouseToName">
-                <div>
-                  <div class="text-subtitle-2 text-medium-emphasis">Sklad (do)</div>
-                  <div class="text-body-1 font-weight-medium mt-2">
-                    {{ transaction.warehouseToName }}
-                  </div>
-                </div>
-              </v-col>
-
-              <v-col cols="12" md="6">
+              <v-col cols="12" md="4">
                 <v-text-field
                   v-if="editMode"
                   v-model="editData.transactionDate"
@@ -462,29 +459,12 @@ onMounted(() => {
                 </div>
               </v-col>
 
-              <v-col cols="12" md="6">
+              <v-col cols="12" md="4">
                 <div>
-                  <div class="text-subtitle-2 text-medium-emphasis">Status</div>
-                  <v-chip 
-                    :color="getStatusColor(transaction.status)"
-                    class="mt-2"
-                  >
-                    {{ getStatusLabel(transaction.status) }}
-                  </v-chip>
-                </div>
-              </v-col>
-
-              <v-col cols="12">
-                <v-textarea
-                  v-if="editMode"
-                  v-model="editData.description"
-                  label="Poznámka"
-                  variant="outlined"
-                  rows="3"
-                ></v-textarea>
-                <div v-else>
-                  <div class="text-subtitle-2 text-medium-emphasis">Poznámka</div>
-                  <div class="text-body-1 mt-2">{{ transaction.description || '—' }}</div>
+                  <div class="text-subtitle-2 text-medium-emphasis">Celková částka</div>
+                  <div class="text-h5 font-weight-bold text-primary mt-2">
+                    {{ formatPrice(transaction.totalAmount || totalItemsAmount) }}
+                  </div>
                 </div>
               </v-col>
             </v-row>
@@ -616,97 +596,96 @@ onMounted(() => {
               </template>
             </v-data-table>
           </UiParentCard>
-        </v-col>
 
-        <!-- Boční panel -->
-        <v-col cols="12" md="4">
-          <v-card variant="outlined">
-            <v-card-text>
-              <div class="text-h6 mb-4">Metadata</div>
-              
-              <div class="mb-4">
-                <div class="text-subtitle-2 text-medium-emphasis">Vytvořeno</div>
-                <div class="text-body-2 mt-1">{{ formatDate(transaction.createdAt) }}</div>
-                <div class="text-caption text-medium-emphasis">{{ transaction.createdByName }}</div>
-              </div>
+          <!-- Metadata a statistiky - přesunuté dolů -->
+          <v-row class="mt-4">
+            <v-col cols="12" md="4">
+              <v-card variant="outlined">
+                <v-card-text>
+                  <div class="text-h6 mb-4">Metadata</div>
 
-              <div class="mb-4" v-if="transaction.modifiedAt">
-                <div class="text-subtitle-2 text-medium-emphasis">Upraveno</div>
-                <div class="text-body-2 mt-1">{{ formatDate(transaction.modifiedAt) }}</div>
-              </div>
+                  <div class="mb-4">
+                    <div class="text-subtitle-2 text-medium-emphasis">Vytvořeno</div>
+                    <div class="text-body-2 mt-1">{{ formatDate(transaction.createdAt) }}</div>
+                    <div class="text-caption text-medium-emphasis">{{ transaction.createdByName }}</div>
+                  </div>
 
-              <div>
-                <div class="text-subtitle-2 text-medium-emphasis">Celková částka</div>
-                <div class="text-h5 font-weight-bold text-primary mt-2">
-                  {{ formatPrice(transaction.totalAmount || totalItemsAmount) }}
-                </div>
-              </div>
-            </v-card-text>
-          </v-card>
+                  <div v-if="transaction.modifiedAt">
+                    <div class="text-subtitle-2 text-medium-emphasis">Upraveno</div>
+                    <div class="text-body-2 mt-1">{{ formatDate(transaction.modifiedAt) }}</div>
+                  </div>
+                </v-card-text>
+              </v-card>
+            </v-col>
 
-          <v-card variant="outlined" class="mt-4">
-            <v-card-text>
-              <div class="text-h6 mb-4">Rychlé akce</div>
-              
-              <v-btn 
-                block 
-                variant="outlined" 
-                class="mb-2" 
-                prepend-icon="mdi-refresh"
-                @click="loadTransaction"
-              >
-                Obnovit data
-              </v-btn>
-              
-              <v-btn 
-                block 
-                variant="outlined" 
-                class="mb-2" 
-                prepend-icon="mdi-printer"
-              >
-                Tisk
-              </v-btn>
-              
-              <v-btn 
-                block 
-                variant="outlined" 
-                prepend-icon="mdi-file-export"
-              >
-                Export
-              </v-btn>
-            </v-card-text>
-          </v-card>
+            <v-col cols="12" md="4">
+              <v-card variant="outlined">
+                <v-card-text>
+                  <div class="text-h6 mb-4">Statistiky</div>
 
-          <v-card variant="outlined" class="mt-4">
-            <v-card-text>
-              <div class="text-h6 mb-4">Statistiky</div>
-              
-              <div class="mb-3">
-                <div class="d-flex justify-space-between">
-                  <span class="text-body-2 text-medium-emphasis">Počet položek:</span>
-                  <span class="font-weight-bold">{{ items.length }}</span>
-                </div>
-              </div>
+                  <div class="mb-3">
+                    <div class="d-flex justify-space-between">
+                      <span class="text-body-2 text-medium-emphasis">Počet položek:</span>
+                      <span class="font-weight-bold">{{ items.length }}</span>
+                    </div>
+                  </div>
 
-              <div class="mb-3">
-                <div class="d-flex justify-space-between">
-                  <span class="text-body-2 text-medium-emphasis">Celkové množství:</span>
-                  <span class="font-weight-bold">
-                    {{ items.reduce((sum, item) => sum + item.quantity, 0) }}
-                  </span>
-                </div>
-              </div>
+                  <div class="mb-3">
+                    <div class="d-flex justify-space-between">
+                      <span class="text-body-2 text-medium-emphasis">Celkové množství:</span>
+                      <span class="font-weight-bold">
+                        {{ items.reduce((sum, item) => sum + item.quantity, 0) }}
+                      </span>
+                    </div>
+                  </div>
 
-              <div>
-                <div class="d-flex justify-space-between">
-                  <span class="text-body-2 text-medium-emphasis">Průměrná cena:</span>
-                  <span class="font-weight-bold">
-                    {{ formatPrice(items.length > 0 ? totalItemsAmount / items.length : 0) }}
-                  </span>
-                </div>
-              </div>
-            </v-card-text>
-          </v-card>
+                  <div>
+                    <div class="d-flex justify-space-between">
+                      <span class="text-body-2 text-medium-emphasis">Průměrná cena:</span>
+                      <span class="font-weight-bold">
+                        {{ formatPrice(items.length > 0 ? totalItemsAmount / items.length : 0) }}
+                      </span>
+                    </div>
+                  </div>
+                </v-card-text>
+              </v-card>
+            </v-col>
+
+            <v-col cols="12" md="4">
+              <v-card variant="outlined">
+                <v-card-text>
+                  <div class="text-h6 mb-4">Rychlé akce</div>
+
+                  <v-btn
+                    block
+                    variant="outlined"
+                    class="mb-2"
+                    prepend-icon="mdi-refresh"
+                    @click="loadTransaction"
+                  >
+                    Obnovit data
+                  </v-btn>
+
+                  <v-btn
+                    block
+                    variant="outlined"
+                    class="mb-2"
+                    prepend-icon="mdi-printer"
+                  >
+                    Tisk
+                  </v-btn>
+
+                  <v-btn
+                    block
+                    variant="outlined"
+                    prepend-icon="mdi-file-export"
+                  >
+                    Export
+                  </v-btn>
+                </v-card-text>
+              </v-card>
+            </v-col>
+          </v-row>
         </v-col>
       </v-row>
     </v-col>

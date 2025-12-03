@@ -7,9 +7,11 @@ import UiParentCard from '@/components/shared/UiParentCard.vue';
 import { inventoryTransactionService } from '@/services/inventoryTransactionService';
 import { inventoryTransactionTypeService } from '@/services/inventoryTransactionTypeService';
 import { warehouseService } from '@/services/warehouseService';
+import { uomService } from '@/services/uomService';
 import { useProductAutocomplete } from '@/composables/useProductAutocomplete';
 import type { CreateInventoryTransactionData, InventoryTransactionItem } from '@/services/inventoryTransactionService';
 import type { InventoryTransactionType } from '@/services/inventoryTransactionTypeService';
+import type { UOM } from '@/services/uomService';
 
 const router = useRouter();
 
@@ -24,8 +26,10 @@ const saving = ref(false);
 const error = ref<string | null>(null);
 const transactionTypes = ref<InventoryTransactionType[]>([]);
 const warehouses = ref<Array<{ id: string; name: string }>>([]);
+const uoms = ref<UOM[]>([]);
 const loadingTypes = ref(false);
 const loadingWarehouses = ref(false);
+const loadingUoms = ref(false);
 
 // **NOVÉ: Autocomplete pro produkty**
 const {
@@ -75,11 +79,12 @@ const transactionDirections = ref([
 ]);
 
 const showAddItemDialog = ref(false);
-const newItem = ref<InventoryTransactionItem>({
+const newItem = ref<InventoryTransactionItem & { uomId?: string }>({
   productId: '',
   quantity: 1,
   unitPrice: 0,
-  description: ''
+  description: '',
+  uomId: ''
 });
 
 const selectedType = computed(() => {
@@ -143,14 +148,28 @@ const loadWarehouses = async () => {
   }
 };
 
+const loadUoms = async () => {
+  loadingUoms.value = true;
+  try {
+    const response = await uomService.getAll();
+    uoms.value = response.list;
+    console.log('✅ Načteny jednotky:', uoms.value.length);
+  } catch (err) {
+    console.error('❌ Chyba při načítání jednotek:', err);
+    error.value = 'Chyba při načítání jednotek';
+  } finally {
+    loadingUoms.value = false;
+  }
+};
+
 const loadDataAndSetDefaults = async () => {
-  await loadTransactionTypes();
-  await loadWarehouses();
-  
+  await Promise.all([loadTransactionTypes(), loadWarehouses(), loadUoms()]);
+
+  // Auto-set default transaction type (locked to "Standardní skladový pohyb")
   if (!formData.value.transactionTypeId) {
     formData.value.transactionTypeId = DEFAULT_TRANSACTION_TYPE_ID;
     console.log('✅ Auto-vybrán defaultní typ pohybu:', formData.value.transactionTypeId);
-    
+
     const defaultType = transactionTypes.value.find(t => t.id === DEFAULT_TRANSACTION_TYPE_ID);
     if (defaultType) {
       console.log('✅ Defaultní typ nalezen:', defaultType.name);
@@ -162,10 +181,15 @@ const loadDataAndSetDefaults = async () => {
       }
     }
   }
-  
-  if (warehouses.value.length > 0 && !formData.value.warehouseFromId) {
+
+  // Auto-set warehouse to "Sklad Surovin" (locked)
+  const skladSurovin = warehouses.value.find(w => w.name === 'Sklad Surovin');
+  if (skladSurovin) {
+    formData.value.warehouseFromId = skladSurovin.id;
+    console.log('✅ Auto-vybrán Sklad Surovin:', skladSurovin.id);
+  } else if (warehouses.value.length > 0 && !formData.value.warehouseFromId) {
     formData.value.warehouseFromId = warehouses.value[0].id;
-    console.log('✅ Auto-vybrán první sklad:', formData.value.warehouseFromId, '-', warehouses.value[0].name);
+    console.warn('⚠️ Sklad Surovin nenalezen, použit první dostupný sklad:', warehouses.value[0].name);
   }
 };
 
@@ -174,7 +198,8 @@ const openAddItemDialog = () => {
     productId: '',
     quantity: 1,
     unitPrice: 0,
-    description: ''
+    description: '',
+    uomId: ''
   };
   productSearchQuery.value = ''; // Reset search
   showAddItemDialog.value = true;
@@ -191,12 +216,19 @@ const addItemToLocal = () => {
     return;
   }
 
+  if (!newItem.value.uomId) {
+    error.value = 'Vyberte jednotku';
+    return;
+  }
+
   const product = autocompleteProducts.value.find(p => p.id === newItem.value.productId);
+  const uom = uoms.value.find(u => u.id === newItem.value.uomId);
 
   const itemToAdd: InventoryTransactionItem = {
     productId: newItem.value.productId,
     productName: product?.name || 'Neznámý produkt',
     stockType: product?.stockType,
+    uomName: uom?.name,
     quantity: newItem.value.quantity,
     unitPrice: newItem.value.unitPrice || 0,
     totalPrice: (newItem.value.quantity || 0) * (newItem.value.unitPrice || 0),
@@ -358,21 +390,8 @@ onMounted(() => {
         <strong>Chyba:</strong> {{ error }}
       </v-alert>
 
-      <!-- Info o předvyplnění -->
-      <v-alert type="info" variant="tonal" class="mb-4">
-        <div class="d-flex align-center">
-          <v-icon class="mr-2">mdi-information</v-icon>
-          <div>
-            <strong>Předvyplněné hodnoty:</strong>
-            <div class="text-caption mt-1">
-              Typ pohybu a sklad byly automaticky předvyplněny defaultními hodnotami. Můžete je změnit.
-            </div>
-          </div>
-        </div>
-      </v-alert>
-
       <v-row>
-        <v-col cols="12" md="8">
+        <v-col cols="12">
           <v-form v-model="formValid">
             <UiParentCard title="Základní informace">
               <v-row>
@@ -384,48 +403,9 @@ onMounted(() => {
                     density="comfortable"
                     prepend-inner-icon="mdi-file-document"
                     :rules="[rules.required]"
-                    hint="Např. 'Příjem zboží od dodavatele', 'Převod do výroby'"
+                    hint="Např. 'Příjem zboží od dodavatele'"
                     persistent-hint
                   ></v-text-field>
-                </v-col>
-
-                <v-col cols="12" md="6">
-                  <v-select
-                    v-model="formData.transactionTypeId"
-                    :items="transactionTypes"
-                    item-title="name"
-                    item-value="id"
-                    label="Typ pohybu *"
-                    variant="outlined"
-                    density="comfortable"
-                    prepend-inner-icon="mdi-swap-horizontal"
-                    :rules="[rules.requiredType]"
-                    :loading="loadingTypes"
-                  >
-                    <template v-slot:item="{ props, item }">
-                      <v-list-item v-bind="props">
-                        <template v-slot:prepend>
-                          <v-icon :color="getTypeColor(item.raw.abraId)">
-                            {{ getTypeIcon(item.raw.abraId) }}
-                          </v-icon>
-                        </template>
-                        <v-list-item-title>{{ item.raw.name }}</v-list-item-title>
-                        <v-list-item-subtitle class="text-caption">
-                          {{ getTypeDescription(item.raw) }}
-                        </v-list-item-subtitle>
-                      </v-list-item>
-                    </template>
-                  </v-select>
-                  <v-chip 
-                    v-if="formData.transactionTypeId === DEFAULT_TRANSACTION_TYPE_ID"
-                    size="x-small"
-                    color="primary"
-                    variant="tonal"
-                    class="mt-1"
-                  >
-                    <v-icon start size="x-small">mdi-star</v-icon>
-                    Defaultní typ
-                  </v-chip>
                 </v-col>
 
                 <v-col cols="12" md="6">
@@ -460,74 +440,6 @@ onMounted(() => {
                       </v-chip>
                     </template>
                   </v-select>
-                </v-col>
-
-                <v-col cols="12" md="6">
-                  <v-text-field
-                    v-model="formData.transactionDate"
-                    label="Datum pohybu *"
-                    type="date"
-                    variant="outlined"
-                    density="comfortable"
-                    prepend-inner-icon="mdi-calendar"
-                    :rules="[rules.required]"
-                  ></v-text-field>
-                </v-col>
-
-                <v-col cols="12">
-                  <v-textarea
-                    v-model="formData.description"
-                    label="Poznámka"
-                    variant="outlined"
-                    rows="3"
-                    prepend-inner-icon="mdi-note-text"
-                  ></v-textarea>
-                </v-col>
-              </v-row>
-            </UiParentCard>
-
-            <UiParentCard title="Skladové informace" class="mt-4">
-              <v-row>
-                <v-col cols="12" md="6" v-if="requiresWarehouseFrom">
-                  <v-select
-                    v-model="formData.warehouseFromId"
-                    :items="[
-                      { title: '-- Vyberte sklad --', value: null },
-                      ...warehouses.map(w => ({ title: w.name, value: w.id }))
-                    ]"
-                    label="Sklad (z) *"
-                    variant="outlined"
-                    density="comfortable"
-                    prepend-inner-icon="mdi-warehouse"
-                    :loading="loadingWarehouses"
-                    :rules="requiresWarehouseFrom ? [rules.required] : []"
-                  ></v-select>
-                  <v-chip 
-                    v-if="warehouses.length > 0 && formData.warehouseFromId === warehouses[0].id"
-                    size="x-small"
-                    color="success"
-                    variant="tonal"
-                    class="mt-1"
-                  >
-                    <v-icon start size="x-small">mdi-star</v-icon>
-                    Defaultní sklad
-                  </v-chip>
-                </v-col>
-
-                <v-col cols="12" md="6" v-if="requiresWarehouseTo">
-                  <v-select
-                    v-model="formData.warehouseToId"
-                    :items="[
-                      { title: '-- Vyberte sklad --', value: null },
-                      ...warehouses.map(w => ({ title: w.name, value: w.id }))
-                    ]"
-                    label="Sklad (do) *"
-                    variant="outlined"
-                    density="comfortable"
-                    prepend-inner-icon="mdi-warehouse"
-                    :loading="loadingWarehouses"
-                    :rules="requiresWarehouseTo ? [rules.required] : []"
-                  ></v-select>
                 </v-col>
               </v-row>
             </UiParentCard>
@@ -564,7 +476,7 @@ onMounted(() => {
                   </template>
                   <v-list-item-title>{{ item.productName }}</v-list-item-title>
                   <v-list-item-subtitle>
-                    Množství: {{ item.quantity }} |
+                    Množství: {{ item.quantity }} {{ item.uomName || '' }} |
                     Cena: {{ formatPrice(item.unitPrice || 0) }} |
                     Celkem: {{ formatPrice((item.quantity || 0) * (item.unitPrice || 0)) }}
                   </v-list-item-subtitle>
@@ -593,47 +505,45 @@ onMounted(() => {
                 </div>
               </div>
             </UiParentCard>
+
+            <!-- Souhrn - přesunutý dolů -->
+            <UiParentCard title="Souhrn" class="mt-4">
+              <v-row>
+                <v-col cols="12" md="4">
+                  <div class="text-center pa-4">
+                    <div class="text-subtitle-2 text-medium-emphasis">Položky</div>
+                    <div class="text-h4 font-weight-bold mt-2">{{ localItems.length }}</div>
+                  </div>
+                </v-col>
+
+                <v-col cols="12" md="4">
+                  <div class="text-center pa-4">
+                    <div class="text-subtitle-2 text-medium-emphasis">Celková částka</div>
+                    <div class="text-h4 font-weight-bold text-primary mt-2">
+                      {{ formatPrice(totalItemsAmount) }}
+                    </div>
+                  </div>
+                </v-col>
+
+                <v-col cols="12" md="4">
+                  <div class="text-center pa-4">
+                    <div class="text-subtitle-2 text-medium-emphasis">Datum</div>
+                    <div class="text-h6 font-weight-medium mt-2">Dnešní den</div>
+                  </div>
+                </v-col>
+              </v-row>
+
+              <v-divider class="my-2"></v-divider>
+
+              <v-row>
+                <v-col cols="12" class="text-center">
+                  <div class="text-caption text-medium-emphasis">
+                    Typ: Standardní skladový pohyb | Sklad: Sklad Surovin | Směr: {{ formData.transactionDirection === 'typPohybu.prijem' ? 'Příjem' : 'Výdej' }}
+                  </div>
+                </v-col>
+              </v-row>
+            </UiParentCard>
           </v-form>
-        </v-col>
-
-        <!-- Boční panel -->
-        <v-col cols="12" md="4">
-          <v-card variant="outlined">
-            <v-card-text>
-              <div class="text-h6 mb-4">📊 Souhrn</div>
-              
-              <div class="mb-3">
-                <div class="text-subtitle-2 text-medium-emphasis">Položky</div>
-                <div class="text-h5 font-weight-bold">{{ localItems.length }}</div>
-              </div>
-
-              <div class="mb-3">
-                <div class="text-subtitle-2 text-medium-emphasis">Celková částka</div>
-                <div class="text-h5 font-weight-bold text-primary">
-                  {{ formatPrice(totalItemsAmount) }}
-                </div>
-              </div>
-
-              <v-divider class="my-3"></v-divider>
-
-              <div class="text-subtitle-2 mb-2">⚙️ Předvyplněné hodnoty:</div>
-              <ul class="text-body-2 text-medium-emphasis">
-                <li>Typ pohybu: Defaultní</li>
-                <li>Sklad: První dostupný</li>
-                <li>Směr: Příjem</li>
-                <li>Datum: Dnešní</li>
-              </ul>
-
-              <v-divider class="my-3"></v-divider>
-
-              <div class="text-subtitle-2 mb-2">✨ Autocomplete vyhledávání:</div>
-              <ul class="text-body-2 text-medium-emphasis">
-                <li>Dynamické vyhledávání produktů</li>
-                <li>Min. 2 znaky pro vyhledání</li>
-                <li>Max. 50 výsledků</li>
-              </ul>
-            </v-card-text>
-          </v-card>
         </v-col>
       </v-row>
     </v-col>
@@ -691,7 +601,7 @@ onMounted(() => {
             </v-autocomplete>
           </v-col>
 
-          <v-col cols="12" md="6">
+          <v-col cols="12" md="4">
             <v-text-field
               v-model.number="newItem.quantity"
               label="Množství *"
@@ -703,7 +613,21 @@ onMounted(() => {
             ></v-text-field>
           </v-col>
 
-          <v-col cols="12" md="6">
+          <v-col cols="12" md="4">
+            <v-select
+              v-model="newItem.uomId"
+              :items="uoms"
+              item-title="name"
+              item-value="id"
+              label="Jednotka *"
+              variant="outlined"
+              density="comfortable"
+              :loading="loadingUoms"
+              prepend-inner-icon="mdi-ruler"
+            ></v-select>
+          </v-col>
+
+          <v-col cols="12" md="4">
             <v-text-field
               v-model.number="newItem.unitPrice"
               label="Cena/ks"
@@ -712,15 +636,6 @@ onMounted(() => {
               density="comfortable"
               suffix="Kč"
               step="0.01"
-            ></v-text-field>
-          </v-col>
-
-          <v-col cols="12">
-            <v-text-field
-              v-model="newItem.description"
-              label="Poznámka"
-              variant="outlined"
-              density="comfortable"
             ></v-text-field>
           </v-col>
         </v-row>
