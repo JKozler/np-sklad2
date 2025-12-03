@@ -83,7 +83,6 @@ const newItem = ref<InventoryTransactionItem & { uomId?: string }>({
   productId: '',
   quantity: 1,
   unitPrice: 0,
-  description: '',
   uomId: ''
 });
 
@@ -191,6 +190,16 @@ const loadDataAndSetDefaults = async () => {
     formData.value.warehouseFromId = warehouses.value[0].id;
     console.warn('⚠️ Sklad Surovin nenalezen, použit první dostupný sklad:', warehouses.value[0].name);
   }
+
+  // Pre-fill transaction direction based on query parameter
+  const direction = router.currentRoute.value.query.direction as string;
+  if (direction === 'vydej') {
+    formData.value.transactionDirection = 'typPohybu.vydej';
+    console.log('✅ Předvyplněn směr: Výdej');
+  } else if (direction === 'prijem') {
+    formData.value.transactionDirection = 'typPohybu.prijem';
+    console.log('✅ Předvyplněn směr: Příjem');
+  }
 };
 
 const openAddItemDialog = () => {
@@ -198,7 +207,6 @@ const openAddItemDialog = () => {
     productId: '',
     quantity: 1,
     unitPrice: 0,
-    description: '',
     uomId: ''
   };
   productSearchQuery.value = ''; // Reset search
@@ -231,8 +239,7 @@ const addItemToLocal = () => {
     uomName: uom?.name,
     quantity: newItem.value.quantity,
     unitPrice: newItem.value.unitPrice || 0,
-    totalPrice: (newItem.value.quantity || 0) * (newItem.value.unitPrice || 0),
-    description: newItem.value.description
+    totalPrice: (newItem.value.quantity || 0) * (newItem.value.unitPrice || 0)
   };
 
   localItems.value.push(itemToAdd);
@@ -269,8 +276,7 @@ const createTransaction = async () => {
       items: localItems.value.length > 0 ? localItems.value.map(item => ({
         productId: item.productId,
         quantity: item.quantity,
-        unitPrice: item.unitPrice,
-        description: item.description
+        unitPrice: item.unitPrice
       })) : null
     };
 
@@ -440,6 +446,19 @@ onMounted(() => {
                       </v-chip>
                     </template>
                   </v-select>
+                </v-col>
+
+                <v-col cols="12">
+                  <v-textarea
+                    v-model="formData.description"
+                    label="Poznámka"
+                    variant="outlined"
+                    density="comfortable"
+                    prepend-inner-icon="mdi-note-text"
+                    rows="3"
+                    hint="Poznámka ke skladovému pohybu"
+                    persistent-hint
+                  ></v-textarea>
                 </v-col>
               </v-row>
             </UiParentCard>

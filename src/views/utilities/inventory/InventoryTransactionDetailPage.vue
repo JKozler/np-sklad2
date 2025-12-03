@@ -47,8 +47,7 @@ const showAddItemPanel = ref(false);
 const newItem = ref<InventoryTransactionItem>({
   productId: '',
   quantity: 1,
-  unitPrice: 0,
-  description: ''
+  unitPrice: 0
 });
 
 // Dialog pro editaci jednotlivé položky
@@ -57,8 +56,7 @@ const editingItem = ref<InventoryTransactionItem | null>(null);
 const editItemData = ref<InventoryTransactionItem>({
   productId: '',
   quantity: 1,
-  unitPrice: 0,
-  description: ''
+  unitPrice: 0
 });
 
 // Editovatelná data hlavičky
@@ -70,7 +68,6 @@ const itemsHeaders = ref([
   { title: 'Jednotka', key: 'uomName', sortable: false },
   { title: 'Cena/ks', key: 'unitPrice', sortable: true },
   { title: 'Celkem', key: 'totalPrice', sortable: true },
-  { title: 'Poznámka', key: 'description', sortable: false },
   { title: 'Akce', key: 'actions', sortable: false }
 ]);
 
@@ -182,8 +179,7 @@ const openAddItemPanel = () => {
   newItem.value = {
     productId: '',
     quantity: 1,
-    unitPrice: 0,
-    description: ''
+    unitPrice: 0
   };
   productSearchQuery.value = ''; // Reset search
   showAddItemPanel.value = true;
@@ -217,8 +213,7 @@ const openEditItemDialog = (item: InventoryTransactionItem) => {
   editItemData.value = {
     productId: item.productId,
     quantity: item.quantity,
-    unitPrice: item.unitPrice || 0,
-    description: item.description || ''
+    unitPrice: item.unitPrice || 0
   };
   productSearchQueryEdit.value = ''; // Reset search
   showEditItemDialog.value = true;
@@ -241,8 +236,7 @@ const saveEditItem = async () => {
       editingItem.value.id,
       {
         quantity: editItemData.value.quantity,
-        unitPrice: editItemData.value.unitPrice,
-        description: editItemData.value.description
+        unitPrice: editItemData.value.unitPrice
       }
     );
     
@@ -467,6 +461,24 @@ onMounted(() => {
                   </div>
                 </div>
               </v-col>
+
+              <v-col cols="12">
+                <v-textarea
+                  v-if="editMode"
+                  v-model="editData.description"
+                  label="Poznámka"
+                  variant="outlined"
+                  density="comfortable"
+                  rows="3"
+                  prepend-inner-icon="mdi-note-text"
+                ></v-textarea>
+                <div v-else>
+                  <div class="text-subtitle-2 text-medium-emphasis">Poznámka</div>
+                  <div class="text-body-1 mt-2">
+                    {{ transaction.description || '—' }}
+                  </div>
+                </div>
+              </v-col>
             </v-row>
           </UiParentCard>
 
@@ -545,10 +557,6 @@ onMounted(() => {
                   <v-icon start size="small">mdi-currency-usd</v-icon>
                   {{ formatPrice(item.totalPrice) }}
                 </v-chip>
-              </template>
-
-              <template v-slot:item.description="{ item }">
-                <span class="text-medium-emphasis text-caption">{{ item.description || '—' }}</span>
               </template>
 
               <template v-slot:item.actions="{ item }">
@@ -766,15 +774,6 @@ onMounted(() => {
               step="0.01"
             ></v-text-field>
           </v-col>
-
-          <v-col cols="12" md="4">
-            <v-text-field
-              v-model="newItem.description"
-              label="Poznámka"
-              variant="outlined"
-              density="comfortable"
-            ></v-text-field>
-          </v-col>
         </v-row>
       </v-card-text>
       <v-card-actions class="justify-end">
@@ -834,16 +833,6 @@ onMounted(() => {
               prepend-inner-icon="mdi-currency-usd"
               step="0.01"
             ></v-text-field>
-          </v-col>
-
-          <v-col cols="12">
-            <v-textarea
-              v-model="editItemData.description"
-              label="Poznámka"
-              variant="outlined"
-              rows="3"
-              prepend-inner-icon="mdi-note-text"
-            ></v-textarea>
           </v-col>
 
           <!-- Výpočet celkové ceny -->
