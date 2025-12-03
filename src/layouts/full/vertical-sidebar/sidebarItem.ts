@@ -9,7 +9,8 @@ import {
   BrandProducthuntIcon,
   BuildingWarehouseIcon,
   TruckDeliveryIcon,
-  TruckLoadingIcon
+  TruckLoadingIcon,
+  ClipboardListIcon
 } from 'vue-tabler-icons';
 
 export interface menu {
@@ -83,6 +84,12 @@ const sidebarItem: menu[] = [
   title: 'Skladové pohyby',
   icon: PackageIcon,
   to: '/inventory-transactions',
+  requiredDashboards: ['WAREHOUSE_MANAGER']
+},
+{
+  title: 'Nákupní žádosti',
+  icon: ClipboardListIcon,
+  to: '/purchase-requests',
   requiredDashboards: ['WAREHOUSE_MANAGER']
 },
 {

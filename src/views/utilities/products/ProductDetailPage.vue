@@ -1249,6 +1249,46 @@ onMounted(() => {
 
         <!-- Boční panel -->
         <v-col cols="12" md="4">
+          <!-- **NOVÉ: Přehled zásob - NAHOŘE** -->
+          <v-card variant="outlined" class="mb-4" v-if="inventoryCards.length > 0">
+            <v-card-text class="pa-4">
+              <div class="text-h6 mb-4 d-flex align-center">
+                <v-icon class="mr-2" color="primary">mdi-warehouse</v-icon>
+                Přehled zásob
+              </div>
+
+              <div class="mb-4 pa-3 rounded" style="background: #e8f5e9;">
+                <div class="text-subtitle-2 text-medium-emphasis mb-1">Celkový stav na skladě</div>
+                <div class="text-h4 font-weight-bold text-success">
+                  {{ totalStockQuantity }} {{ product?.uomName || 'ks' }}
+                </div>
+              </div>
+
+              <div class="mb-4 pa-3 rounded" style="background: #e3f2fd;">
+                <div class="text-subtitle-2 text-medium-emphasis mb-1">Celková hodnota zásob</div>
+                <div class="text-h4 font-weight-bold text-primary">
+                  {{ formatPrice(totalStockValue) }}
+                </div>
+              </div>
+
+              <v-divider class="my-3"></v-divider>
+
+              <div class="mb-3">
+                <div class="text-subtitle-2 text-medium-emphasis">Skladů celkem</div>
+                <div class="text-h6 font-weight-bold mt-1">
+                  {{ inventoryCards.length }}
+                </div>
+              </div>
+
+              <div>
+                <div class="text-subtitle-2 text-medium-emphasis">Průměrná nákupní cena</div>
+                <div class="text-h6 font-weight-bold mt-1">
+                  {{ formatPrice(averageCostPrice) }}
+                </div>
+              </div>
+            </v-card-text>
+          </v-card>
+
           <!-- **NOVÉ: Fotka produktu** -->
           <v-card variant="outlined" class="mb-4">
             <v-img
@@ -1352,38 +1392,6 @@ onMounted(() => {
                 >
                   {{ product.deleted ? 'Smazáno' : 'Aktivní' }}
                 </v-chip>
-              </div>
-            </v-card-text>
-          </v-card>
-
-          <!-- Přehled skladových karet -->
-          <v-card variant="outlined" class="mt-4" v-if="inventoryCards.length > 0">
-            <v-card-text>
-              <div class="text-h6 mb-4">Přehled zásob</div>
-
-              <div class="mb-4">
-                <div class="text-subtitle-2 text-medium-emphasis">Skladů celkem</div>
-                <div class="text-h5 font-weight-bold text-primary mt-1">
-                  {{ inventoryCards.length }}
-                </div>
-              </div>
-
-              <v-divider class="my-3"></v-divider>
-
-              <div class="mb-4">
-                <div class="text-subtitle-2 text-medium-emphasis">Celkový stav</div>
-                <div class="text-h5 font-weight-bold text-success mt-1">
-                  {{ totalStockQuantity }} ks
-                </div>
-              </div>
-
-              <v-divider class="my-3"></v-divider>
-
-              <div>
-                <div class="text-subtitle-2 text-medium-emphasis">Celková hodnota</div>
-                <div class="text-h5 font-weight-bold mt-1">
-                  {{ formatPrice(totalStockValue) }}
-                </div>
               </div>
             </v-card-text>
           </v-card>

@@ -67,9 +67,10 @@ const editData = ref<UpdateInventoryTransactionData>({});
 const itemsHeaders = ref([
   { title: 'Produkt', key: 'productName', sortable: true },
   { title: 'Množství', key: 'quantity', sortable: true },
+  { title: 'Jednotka', key: 'uomName', sortable: false },
   { title: 'Cena/ks', key: 'unitPrice', sortable: true },
   { title: 'Celkem', key: 'totalPrice', sortable: true },
-  { title: 'Poznámka', key: 'notes', sortable: false },
+  { title: 'Poznámka', key: 'description', sortable: false },
   { title: 'Akce', key: 'actions', sortable: false }
 ]);
 
@@ -285,19 +286,6 @@ const deleteTransaction = async () => {
   }
 };
 
-const completeTransaction = async () => {
-  if (!confirm('Opravdu chcete dokončit tento skladový pohyb? Po dokončení nebude možné provádět změny.')) {
-    return;
-  }
-
-  try {
-    editData.value.status = "Completed";
-    await saveChanges();
-  } catch (err) {
-    console.error('Chyba při dokončování:', err);
-  }
-};
-
 const navigateToProduct = (productId: string) => {
   router.push(`/products/${productId}`);
 };
@@ -351,15 +339,6 @@ onMounted(() => {
         </v-btn>
         
         <div class="d-flex gap-2">
-          <v-btn
-            v-if="transaction.status !== 'completed' && !editMode"
-            color="success"
-            prepend-icon="mdi-check"
-            @click="completeTransaction"
-          >
-            Dokončit pohyb
-          </v-btn>
-
           <v-btn
             v-if="transaction.status !== 'completed' && !editMode"
             color="primary"
@@ -549,21 +528,47 @@ onMounted(() => {
               </template>
 
               <template v-slot:item.quantity="{ item }">
-                <span class="font-weight-bold">{{ item.quantity }}</span>
+                <v-chip
+                  size="small"
+                  :color="item.quantity > 0 ? 'success' : 'error'"
+                  variant="tonal"
+                >
+                  <v-icon start size="small">mdi-package-variant</v-icon>
+                  {{ item.quantity }}
+                </v-chip>
+              </template>
+
+              <template v-slot:item.uomName="{ item }">
+                <v-chip
+                  v-if="item.uomName"
+                  size="small"
+                  color="secondary"
+                  variant="flat"
+                >
+                  {{ item.uomName }}
+                </v-chip>
+                <span v-else class="text-medium-emphasis">—</span>
               </template>
 
               <template v-slot:item.unitPrice="{ item }">
-                {{ formatPrice(item.unitPrice) }}
-              </template>
-
-              <template v-slot:item.totalPrice="{ item }">
-                <span class="font-weight-bold text-primary">
-                  {{ formatPrice(item.totalPrice) }}
+                <span class="font-weight-medium">
+                  {{ formatPrice(item.unitPrice) }}
                 </span>
               </template>
 
+              <template v-slot:item.totalPrice="{ item }">
+                <v-chip
+                  size="small"
+                  color="primary"
+                  variant="tonal"
+                >
+                  <v-icon start size="small">mdi-currency-usd</v-icon>
+                  {{ formatPrice(item.totalPrice) }}
+                </v-chip>
+              </template>
+
               <template v-slot:item.description="{ item }">
-                <span class="text-medium-emphasis">{{ item.description || '—' }}</span>
+                <span class="text-medium-emphasis text-caption">{{ item.description || '—' }}</span>
               </template>
 
               <template v-slot:item.actions="{ item }">
