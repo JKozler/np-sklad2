@@ -445,7 +445,7 @@ onMounted(() => {
                 prepend-icon="mdi-plus"
                 @click="router.push({
                   path: '/inventory-transactions/new',
-                  query: activeTab.value === 'prijem' ? { direction: 'prijem' } : activeTab.value === 'vydej' ? { direction: 'vydej' } : {}
+                  query: activeTab === 'prijem' ? { direction: 'prijem' } : activeTab === 'vydej' ? { direction: 'vydej' } : {}
                 })"
               >
                 Nový skladový pohyb
