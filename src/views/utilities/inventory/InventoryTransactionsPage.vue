@@ -77,15 +77,6 @@ const displayRange = computed(() => {
   return { from, to };
 });
 
-// **NOVÉ: Statistiky pro jednotlivé taby**
-const tabStats = computed(() => {
-  const all = transactions.value.length;
-  const prijem = transactions.value.filter(t => t.transactionDirection === 'typPohybu.prijem').length;
-  const vydej = transactions.value.filter(t => t.transactionDirection === 'typPohybu.vydej').length;
-  
-  return { all, prijem, vydej };
-});
-
 const formatDate = (dateString: string) => {
   return new Date(dateString).toLocaleDateString('cs-CZ');
 };
@@ -299,12 +290,6 @@ const prevPage = () => {
   }
 };
 
-// **NOVÉ: Reset stránkování a reload při změně tabu**
-watch(activeTab, () => {
-  currentOffset.value = 0;
-  loadTransactions();
-});
-
 // Watchers pro filtry - reload při změně
 watch(selectedType, () => {
   currentOffset.value = 0;
@@ -333,26 +318,35 @@ watch(dateTo, () => {
   loadTransactions();
 });
 
-onMounted(() => {
-  // Check if there's a direction query parameter from the sidebar
-  const directionParam = route.query.direction as string;
-  if (directionParam === 'prijem') {
+// Watch for direction query parameter changes (when clicking Příjemky/Výdejky in sidebar)
+watch(() => route.query.direction, (newDirection) => {
+  if (newDirection === 'prijem') {
     activeTab.value = 'prijem';
     page.value.title = 'Příjemky';
     breadcrumbs.value = [
       { title: 'Sklad', disabled: false, href: '#' },
       { title: 'Příjemky', disabled: true, href: '#' }
     ];
-  } else if (directionParam === 'vydej') {
+  } else if (newDirection === 'vydej') {
     activeTab.value = 'vydej';
     page.value.title = 'Výdejky';
     breadcrumbs.value = [
       { title: 'Sklad', disabled: false, href: '#' },
       { title: 'Výdejky', disabled: true, href: '#' }
     ];
+  } else {
+    activeTab.value = 'all';
+    page.value.title = 'Skladové pohyby';
+    breadcrumbs.value = [
+      { title: 'Sklad', disabled: false, href: '#' },
+      { title: 'Skladové pohyby', disabled: true, href: '#' }
+    ];
   }
-
+  currentOffset.value = 0;
   loadTransactions();
+}, { immediate: true });
+
+onMounted(() => {
   loadTransactionTypes();
 });
 </script>
@@ -362,54 +356,6 @@ onMounted(() => {
   
   <v-row>
     <v-col cols="12">
-      <!-- **NOVÉ: Taby pro směr pohybu** -->
-      <v-card variant="outlined" class="mb-4">
-        <v-tabs
-          v-model="activeTab"
-          color="primary"
-          align-tabs="start"
-        >
-          <v-tab value="all">
-            <v-icon start>mdi-swap-horizontal</v-icon>
-            Vše
-            <v-chip 
-              size="small" 
-              class="ml-2"
-              color="primary"
-              variant="tonal"
-            >
-              {{ tabStats.all }}
-            </v-chip>
-          </v-tab>
-          
-          <v-tab value="prijem">
-            <v-icon start color="success">mdi-arrow-down-circle</v-icon>
-            Příjem
-            <v-chip 
-              size="small" 
-              class="ml-2"
-              color="success"
-              variant="tonal"
-            >
-              {{ tabStats.prijem }}
-            </v-chip>
-          </v-tab>
-          
-          <v-tab value="vydej">
-            <v-icon start color="error">mdi-arrow-up-circle</v-icon>
-            Výdej
-            <v-chip 
-              size="small" 
-              class="ml-2"
-              color="error"
-              variant="tonal"
-            >
-              {{ tabStats.vydej }}
-            </v-chip>
-          </v-tab>
-        </v-tabs>
-      </v-card>
-
       <!-- Statistiky -->
       <v-row class="mb-4">
         <v-col cols="12" sm="6" md="3">
@@ -440,19 +386,6 @@ onMounted(() => {
               <div class="text-h4 font-weight-bold mt-2 text-warning">
                 {{ transactions.filter(t => !t.status || t.status === 'draft').length }}
               </div>
-            </v-card-text>
-          </v-card>
-        </v-col>
-        <v-col cols="12" sm="6" md="3">
-          <v-card variant="outlined">
-            <v-card-text style="padding-top: 0;padding-bottom: 0;">
-              <div class="text-subtitle-2 text-medium-emphasis">Aktivní směr</div>
-              <v-chip 
-                class="mt-2"
-                :color="activeTab === 'all' ? 'primary' : activeTab === 'prijem' ? 'success' : 'error'"
-              >
-                {{ activeTab === 'all' ? 'Vše' : activeTab === 'prijem' ? 'Příjem' : 'Výdej' }}
-              </v-chip>
             </v-card-text>
           </v-card>
         </v-col>
@@ -537,7 +470,7 @@ onMounted(() => {
           </div>
         </v-alert>
 
-        <!-- Info o aktivním tabu -->
+        <!-- Info o aktivním filtru směru -->
         <v-alert
           v-if="activeTab !== 'all'"
           type="info"
@@ -545,27 +478,18 @@ onMounted(() => {
           density="compact"
           class="mb-4"
         >
-          <div class="d-flex align-center justify-space-between">
-            <div class="d-flex align-center">
-              <v-icon
-                start
-                :color="activeTab === 'prijem' ? 'success' : 'error'"
-              >
-                {{ activeTab === 'prijem' ? 'mdi-arrow-down-circle' : 'mdi-arrow-up-circle' }}
-              </v-icon>
-              <span>
-                Zobrazeny pouze pohyby typu:
-                <strong>{{ activeTab === 'prijem' ? 'Příjem' : 'Výdej' }}</strong>
-                <span class="text-medium-emphasis ml-2">({{ transactions.length }} pohybů)</span>
-              </span>
-            </div>
-            <v-btn
-              size="small"
-              variant="text"
-              @click="activeTab = 'all'"
+          <div class="d-flex align-center">
+            <v-icon
+              start
+              :color="activeTab === 'prijem' ? 'success' : 'error'"
             >
-              Zobrazit vše
-            </v-btn>
+              {{ activeTab === 'prijem' ? 'mdi-arrow-down-circle' : 'mdi-arrow-up-circle' }}
+            </v-icon>
+            <span>
+              Zobrazeny pouze pohyby typu:
+              <strong>{{ activeTab === 'prijem' ? 'Příjem' : 'Výdej' }}</strong>
+              <span class="text-medium-emphasis ml-2">({{ transactions.length }} pohybů)</span>
+            </span>
           </div>
         </v-alert>
 
