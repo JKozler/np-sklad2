@@ -81,9 +81,15 @@ const sidebarItem: menu[] = [
   to: '/products'
 },
 {
-  title: 'Skladové pohyby',
-  icon: PackageIcon,
-  to: '/inventory-transactions',
+  title: 'Příjemky',
+  icon: TruckLoadingIcon,
+  to: '/inventory-transactions?direction=prijem',
+  requiredDashboards: ['WAREHOUSE_MANAGER']
+},
+{
+  title: 'Výdejky',
+  icon: TruckDeliveryIcon,
+  to: '/inventory-transactions?direction=vydej',
   requiredDashboards: ['WAREHOUSE_MANAGER']
 },
 {
