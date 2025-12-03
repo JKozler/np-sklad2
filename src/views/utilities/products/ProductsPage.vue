@@ -80,17 +80,44 @@ const stats = computed(() => {
   };
 });
 
-const headers = computed(() => [
-  { title: tf('abraId'), key: 'abraId', sortable: true },
-  { title: tf('code'), key: 'code', sortable: true },
-  { title: tf('name'), key: 'name', sortable: true },
-  { title: tf('ean'), key: 'ean', sortable: false },
-  { title: tf('stockType'), key: 'stockType', sortable: true },
-  { title: tf('isStockItem'), key: 'isStockItem', sortable: true },
-  { title: tf('costPrice'), key: 'costPrice', sortable: true },
-  { title: tf('priceWithoutVat'), key: 'priceWithoutVat', sortable: true },
-  { title: tlGlobal('Actions'), key: 'actions', sortable: false }
-]);
+const headers = computed(() => {
+  // **UPRAVENÉ: Dynamické sloupce podle aktivního tabu**
+  if (activeTab.value === 'material') {
+    // Seznam SUROVIN: jméno / kód / cena za jednotku / měrná jednotka / skladová položka / akce
+    return [
+      { title: tf('name'), key: 'name', sortable: true },
+      { title: tf('code'), key: 'code', sortable: true },
+      { title: 'Nákladová cena', key: 'costPrice', sortable: true },
+      { title: 'Prodejní cena', key: 'priceWithoutVat', sortable: true },
+      { title: 'Měrná jednotka', key: 'uomName', sortable: false },
+      { title: tf('isStockItem'), key: 'isStockItem', sortable: true },
+      { title: tlGlobal('Actions'), key: 'actions', sortable: false }
+    ];
+  } else if (activeTab.value === 'vyrobek') {
+    // Seznam PRODUKTŮ: jméno / kód / náklad / prodej / měrná jednotka / skladová položka / akce
+    return [
+      { title: tf('name'), key: 'name', sortable: true },
+      { title: tf('code'), key: 'code', sortable: true },
+      { title: 'Nákladová cena', key: 'costPrice', sortable: true },
+      { title: 'Prodejní cena', key: 'priceWithoutVat', sortable: true },
+      { title: 'Měrná jednotka', key: 'uomName', sortable: false },
+      { title: tf('isStockItem'), key: 'isStockItem', sortable: true },
+      { title: tlGlobal('Actions'), key: 'actions', sortable: false }
+    ];
+  } else {
+    // Výchozí sloupce pro tab "Vše" a "Chybějící"
+    return [
+      { title: tf('name'), key: 'name', sortable: true },
+      { title: tf('code'), key: 'code', sortable: true },
+      { title: tf('stockType'), key: 'stockType', sortable: true },
+      { title: 'Nákladová cena', key: 'costPrice', sortable: true },
+      { title: 'Prodejní cena', key: 'priceWithoutVat', sortable: true },
+      { title: 'Měrná jednotka', key: 'uomName', sortable: false },
+      { title: tf('isStockItem'), key: 'isStockItem', sortable: true },
+      { title: tlGlobal('Actions'), key: 'actions', sortable: false }
+    ];
+  }
+});
 
 const getStockTypeLabel = (stockType: string) => {
   if (!stockType) return '—';
@@ -742,6 +769,19 @@ onMounted(() => {
             <span class="font-weight-medium">
               {{ formatPrice(item.priceWithoutVat) }}
             </span>
+          </template>
+
+          <!-- **NOVÉ: Měrná jednotka** -->
+          <template v-slot:item.uomName="{ item }">
+            <v-chip
+              v-if="item.uomName"
+              size="small"
+              color="secondary"
+              variant="tonal"
+            >
+              {{ item.uomName }}
+            </v-chip>
+            <span v-else class="text-medium-emphasis">—</span>
           </template>
 
           <!-- Actions -->
