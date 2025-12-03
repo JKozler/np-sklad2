@@ -6,10 +6,12 @@ import BaseBreadcrumb from '@/components/shared/BaseBreadcrumb.vue';
 import UiParentCard from '@/components/shared/UiParentCard.vue';
 import BOMTreeNode from '@/components/bom/BOMTreeNode.vue';
 import { bomService } from '@/services/bomService';
+import { uomService } from '@/services/uomService';
 import { useProductAutocomplete } from '@/composables/useProductAutocomplete';
 import { productsService } from '@/services/productsService';
 import type { BOMNode, CreateBOMItemData } from '@/services/bomService';
 import type { Product } from '@/services/productsService';
+import type { UOM } from '@/services/uomService';
 
 const route = useRoute();
 const router = useRouter();
@@ -30,6 +32,8 @@ const loading = ref(false);
 const saving = ref(false);
 const error = ref<string | null>(null);
 const successMessage = ref<string | null>(null);
+const uoms = ref<UOM[]>([]);
+const loadingUoms = ref(false);
 
 // Dialog pro přidání komponenty
 const showAddDialog = ref(false);
@@ -42,11 +46,12 @@ const showEditDialog = ref(false);
 const editingNode = ref<BOMNode | null>(null);
 
 // Formulářová data
-const newComponentData = ref<CreateBOMItemData>({
+const newComponentData = ref<CreateBOMItemData & { uomId?: string }>({
   assemblyProductId: productId,
   parentBomId: '',
   componentProductId: '',
-  quantity: 1
+  quantity: 1,
+  uomId: ''
 });
 
 const editComponentData = ref({
@@ -101,10 +106,11 @@ const openAddDialog = async (node: BOMNode) => {
     assemblyProductId: productId,
     parentBomId: node.id,
     componentProductId: '',
-    quantity: 1
+    quantity: 1,
+    uomId: ''
   };
   showAddDialog.value = true;
-  
+
   // Resetuj search query
   productSearchQuery.value = '';
 };
@@ -158,6 +164,22 @@ const loadProducts = async () => {
 };
 
 /**
+ * Načte jednotky (UOM)
+ */
+const loadUoms = async () => {
+  loadingUoms.value = true;
+  try {
+    const response = await uomService.getAll();
+    uoms.value = response.list;
+    console.log('✅ Načteny jednotky:', uoms.value.length);
+  } catch (err) {
+    console.error('❌ Chyba při načítání jednotek:', err);
+  } finally {
+    loadingUoms.value = false;
+  }
+};
+
+/**
  * Vytvoří hlavní BOM
  */
 const createMainBOM = async () => {
@@ -202,15 +224,27 @@ const addComponent = async () => {
     return;
   }
 
+  if (!newComponentData.value.uomId) {
+    error.value = 'Vyberte jednotku';
+    return;
+  }
+
   saving.value = true;
   error.value = null;
 
   try {
-    await bomService.createBOMItem(newComponentData.value);
+    // Najdi uom pro získání uomName
+    const uom = uoms.value.find(u => u.id === newComponentData.value.uomId);
+    const dataWithUomName = {
+      ...newComponentData.value,
+      uomName: uom?.name
+    };
+
+    await bomService.createBOMItem(dataWithUomName);
     successMessage.value = 'Komponenta byla přidána';
     showAddDialog.value = false;
     await loadData();
-    
+
     setTimeout(() => {
       successMessage.value = null;
     }, 3000);
@@ -323,6 +357,7 @@ const deleteMainBOM = async () => {
 
 onMounted(() => {
   loadData();
+  loadUoms();
 });
 </script>
 
@@ -572,7 +607,7 @@ onMounted(() => {
               </v-autocomplete>
             </v-col>
 
-            <v-col cols="12">
+            <v-col cols="12" md="6">
               <v-text-field
                 v-model.number="newComponentData.quantity"
                 label="Množství *"
@@ -584,6 +619,20 @@ onMounted(() => {
                 hint="Kolik kusů této komponenty je potřeba"
                 persistent-hint
               ></v-text-field>
+            </v-col>
+
+            <v-col cols="12" md="6">
+              <v-select
+                v-model="newComponentData.uomId"
+                :items="uoms"
+                item-title="name"
+                item-value="id"
+                label="Jednotka *"
+                variant="outlined"
+                density="comfortable"
+                :loading="loadingUoms"
+                prepend-inner-icon="mdi-ruler"
+              ></v-select>
             </v-col>
           </v-row>
         </v-form>

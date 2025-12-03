@@ -5,8 +5,10 @@ import { useRoute, useRouter } from 'vue-router';
 import BaseBreadcrumb from '@/components/shared/BaseBreadcrumb.vue';
 import UiParentCard from '@/components/shared/UiParentCard.vue';
 import { inventoryTransactionService } from '@/services/inventoryTransactionService';
+import { uomService } from '@/services/uomService';
 import { useProductAutocomplete } from '@/composables/useProductAutocomplete';
 import type { InventoryTransaction, InventoryTransactionItem, UpdateInventoryTransactionData } from '@/services/inventoryTransactionService';
+import type { UOM } from '@/services/uomService';
 
 const route = useRoute();
 const router = useRouter();
@@ -27,6 +29,8 @@ const loadingItems = ref(false);
 const saving = ref(false);
 const error = ref<string | null>(null);
 const editMode = ref(false);
+const uoms = ref<UOM[]>([]);
+const loadingUoms = ref(false);
 
 // **NOVÉ: Autocomplete pro přidání položky**
 const {
@@ -44,10 +48,11 @@ const {
 
 // Bottom panel pro přidávání items
 const showAddItemPanel = ref(false);
-const newItem = ref<InventoryTransactionItem>({
+const newItem = ref<InventoryTransactionItem & { uomId?: string }>({
   productId: '',
   quantity: 1,
-  unitPrice: 0
+  unitPrice: 0,
+  uomId: ''
 });
 
 // Dialog pro editaci jednotlivé položky
@@ -141,6 +146,19 @@ const loadItems = async () => {
   }
 };
 
+const loadUoms = async () => {
+  loadingUoms.value = true;
+  try {
+    const response = await uomService.getAll();
+    uoms.value = response.list;
+    console.log('✅ Načteny jednotky:', uoms.value.length);
+  } catch (err) {
+    console.error('❌ Chyba při načítání jednotek:', err);
+  } finally {
+    loadingUoms.value = false;
+  }
+};
+
 const toggleEditMode = () => {
   if (editMode.value && transaction.value) {
     editData.value = {
@@ -179,7 +197,8 @@ const openAddItemPanel = () => {
   newItem.value = {
     productId: '',
     quantity: 1,
-    unitPrice: 0
+    unitPrice: 0,
+    uomId: ''
   };
   productSearchQuery.value = ''; // Reset search
   showAddItemPanel.value = true;
@@ -191,12 +210,19 @@ const addItem = async () => {
     return;
   }
 
+  if (!newItem.value.uomId) {
+    error.value = 'Vyberte jednotku';
+    return;
+  }
+
   try {
-    // Najdi produkt pro získání stockType
+    // Najdi produkt pro získání stockType a uom pro získání uomName
     const product = autocompleteProducts.value.find(p => p.id === newItem.value.productId);
+    const uom = uoms.value.find(u => u.id === newItem.value.uomId);
     const itemWithStockType = {
       ...newItem.value,
-      stockType: product?.stockType
+      stockType: product?.stockType,
+      uomName: uom?.name
     };
 
     await inventoryTransactionService.addItem(transactionId, itemWithStockType);
@@ -294,6 +320,7 @@ const getStockTypeIcon = (stockType: string | undefined) => {
 
 onMounted(() => {
   loadTransaction();
+  loadUoms();
 });
 </script>
 
@@ -761,6 +788,20 @@ onMounted(() => {
               min="0.001"
               step="0.001"
             ></v-text-field>
+          </v-col>
+
+          <v-col cols="12" md="2">
+            <v-select
+              v-model="newItem.uomId"
+              :items="uoms"
+              item-title="name"
+              item-value="id"
+              label="Jednotka *"
+              variant="outlined"
+              density="comfortable"
+              :loading="loadingUoms"
+              prepend-inner-icon="mdi-ruler"
+            ></v-select>
           </v-col>
 
           <v-col cols="12" md="2">
