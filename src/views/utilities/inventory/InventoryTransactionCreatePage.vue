@@ -636,6 +636,9 @@ onMounted(() => {
               density="comfortable"
               suffix="Kč"
               step="0.01"
+              :disabled="formData.transactionDirection === 'typPohybu.vydej'"
+              :hint="formData.transactionDirection === 'typPohybu.vydej' ? 'Cena se doplní automaticky z posledního nákupu' : ''"
+              persistent-hint
             ></v-text-field>
           </v-col>
         </v-row>
