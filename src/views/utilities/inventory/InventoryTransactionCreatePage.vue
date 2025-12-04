@@ -8,6 +8,7 @@ import { inventoryTransactionService } from '@/services/inventoryTransactionServ
 import { inventoryTransactionTypeService } from '@/services/inventoryTransactionTypeService';
 import { warehouseService } from '@/services/warehouseService';
 import { uomService } from '@/services/uomService';
+import { settingsService } from '@/services/settingsService';
 import { useProductAutocomplete } from '@/composables/useProductAutocomplete';
 import { useSupplierAutocomplete } from '@/composables/useSupplierAutocomplete';
 import type { CreateInventoryTransactionData, InventoryTransactionItem } from '@/services/inventoryTransactionService';
@@ -46,14 +47,18 @@ const {
   searchQuery: supplierSearchQuery
 } = useSupplierAutocomplete();
 
-const DEFAULT_TRANSACTION_TYPE_ID = '690d2882b7b77c02f';
+// **NOVÉ: Smart settings z API**
+const smartSettings = ref<{
+  defaultInventoryTransactionType: string;
+  defaultMaterialsWarehouseId: string;
+  defaultProductWarehouseId: string;
+} | null>(null);
 
 const formData = ref<CreateInventoryTransactionData>({
   name: '',
   transactionTypeId: '',
   transactionDirection: 'typPohybu.prijem',
-  warehouseFromId: null,
-  warehouseToId: null,
+  warehouseId: null, // **UPRAVENO: Jedno pole místo warehouseFrom a warehouseTo**
   transactionDate: new Date().toISOString().split('T')[0],
   description: '',
   items: []
@@ -134,6 +139,12 @@ const totalItemsAmount = computed(() => {
   }, 0);
 });
 
+const selectedWarehouseName = computed(() => {
+  if (!formData.value.warehouseId) return 'Žádný (přidejte položky)';
+  const warehouse = warehouses.value.find(w => w.id === formData.value.warehouseId);
+  return warehouse?.name || 'Neznámý sklad';
+});
+
 const formatPrice = (price: number) => {
   return new Intl.NumberFormat('cs-CZ', {
     style: 'currency',
@@ -184,18 +195,27 @@ const loadUoms = async () => {
 };
 
 const loadDataAndSetDefaults = async () => {
+  // **NOVÉ: Načtení smart settings**
+  try {
+    smartSettings.value = await settingsService.getSmartSettings();
+    console.log('✅ Smart settings načteny:', smartSettings.value);
+  } catch (err) {
+    console.error('❌ Chyba při načítání smart settings:', err);
+    error.value = 'Chyba při načítání nastavení systému';
+  }
+
   await Promise.all([loadTransactionTypes(), loadWarehouses(), loadUoms()]);
 
-  // Auto-set default transaction type (locked to "Standardní skladový pohyb")
-  if (!formData.value.transactionTypeId) {
-    formData.value.transactionTypeId = DEFAULT_TRANSACTION_TYPE_ID;
-    console.log('✅ Auto-vybrán defaultní typ pohybu:', formData.value.transactionTypeId);
+  // **UPRAVENO: Auto-set default transaction type ze settings**
+  if (!formData.value.transactionTypeId && smartSettings.value) {
+    formData.value.transactionTypeId = smartSettings.value.defaultInventoryTransactionType;
+    console.log('✅ Auto-vybrán defaultní typ pohybu ze settings:', formData.value.transactionTypeId);
 
-    const defaultType = transactionTypes.value.find(t => t.id === DEFAULT_TRANSACTION_TYPE_ID);
+    const defaultType = transactionTypes.value.find(t => t.id === smartSettings.value!.defaultInventoryTransactionType);
     if (defaultType) {
       console.log('✅ Defaultní typ nalezen:', defaultType.name);
     } else {
-      console.warn('⚠️ Defaultní typ s ID', DEFAULT_TRANSACTION_TYPE_ID, 'nebyl nalezen');
+      console.warn('⚠️ Defaultní typ s ID', smartSettings.value.defaultInventoryTransactionType, 'nebyl nalezen');
       if (transactionTypes.value.length > 0) {
         formData.value.transactionTypeId = transactionTypes.value[0].id;
         console.log('✅ Použit fallback - první dostupný typ:', transactionTypes.value[0].name);
@@ -203,15 +223,7 @@ const loadDataAndSetDefaults = async () => {
     }
   }
 
-  // Auto-set warehouse to "Sklad Surovin" (locked)
-  const skladSurovin = warehouses.value.find(w => w.name === 'Sklad Surovin');
-  if (skladSurovin) {
-    formData.value.warehouseFromId = skladSurovin.id;
-    console.log('✅ Auto-vybrán Sklad Surovin:', skladSurovin.id);
-  } else if (warehouses.value.length > 0 && !formData.value.warehouseFromId) {
-    formData.value.warehouseFromId = warehouses.value[0].id;
-    console.warn('⚠️ Sklad Surovin nenalezen, použit první dostupný sklad:', warehouses.value[0].name);
-  }
+  // **ODEBRÁNO: Automatické nastavení skladu - nyní se nastaví podle typu produktu**
 
   // Pre-fill transaction direction based on query parameter
   const direction = router.currentRoute.value.query.direction as string;
@@ -254,6 +266,17 @@ const addItemToLocal = () => {
   const product = autocompleteProducts.value.find(p => p.id === newItem.value.productId);
   const uom = uoms.value.find(u => u.id === newItem.value.uomId);
 
+  // **NOVÉ: Validace - nelze míchat materiály a produkty**
+  if (localItems.value.length > 0) {
+    const firstItemStockType = localItems.value[0].stockType;
+    if (product?.stockType !== firstItemStockType) {
+      const firstItemType = firstItemStockType === 'typZasoby.vyrobek' ? 'produkty' : 'materiály';
+      const currentItemType = product?.stockType === 'typZasoby.vyrobek' ? 'produkty' : 'materiály';
+      error.value = `Nelze míchať ${firstItemType} a ${currentItemType} v jedné transakci. Všechny položky musí být buď materiály nebo produkty.`;
+      return;
+    }
+  }
+
   const itemToAdd: InventoryTransactionItem = {
     productId: newItem.value.productId,
     productName: product?.name || 'Neznámý produkt',
@@ -265,12 +288,30 @@ const addItemToLocal = () => {
   };
 
   localItems.value.push(itemToAdd);
+
+  // **NOVÉ: Automatické nastavení skladu podle typu prvního produktu**
+  if (localItems.value.length === 1 && smartSettings.value) {
+    const isMaterial = product?.stockType !== 'typZasoby.vyrobek';
+    formData.value.warehouseId = isMaterial
+      ? smartSettings.value.defaultMaterialsWarehouseId
+      : smartSettings.value.defaultProductWarehouseId;
+
+    const warehouseName = warehouses.value.find(w => w.id === formData.value.warehouseId)?.name || 'Neznámý';
+    console.log(`✅ Automaticky nastaven sklad: ${warehouseName} (${isMaterial ? 'materiály' : 'produkty'})`);
+  }
+
   showAddItemDialog.value = false;
   error.value = null;
 };
 
 const removeItemFromLocal = (index: number) => {
   localItems.value.splice(index, 1);
+
+  // **NOVÉ: Reset skladu když už nejsou žádné položky**
+  if (localItems.value.length === 0) {
+    formData.value.warehouseId = null;
+    console.log('✅ Sklad resetován - žádné položky');
+  }
 };
 
 const createTransaction = async () => {
@@ -279,13 +320,13 @@ const createTransaction = async () => {
     return;
   }
 
-  if (requiresWarehouseFrom.value && !formData.value.warehouseFromId) {
-    error.value = 'Pro tento typ pohybu je nutné vybrat sklad (z)';
+  if (!formData.value.warehouseId) {
+    error.value = 'Je nutné vybrat sklad (přidejte alespoň jednu položku)';
     return;
   }
 
-  if (requiresWarehouseTo.value && !formData.value.warehouseToId) {
-    error.value = 'Pro tento typ pohybu je nutné vybrat sklad (do)';
+  if (localItems.value.length === 0) {
+    error.value = 'Přidejte alespoň jednu položku do transakce';
     return;
   }
 
@@ -293,8 +334,11 @@ const createTransaction = async () => {
   error.value = null;
 
   try {
+    // **UPRAVENO: Mapování warehouseId na warehouseFromId/warehouseToId podle směru**
     const dataToSend: CreateInventoryTransactionData = {
       ...formData.value,
+      warehouseFromId: formData.value.transactionDirection === 'typPohybu.vydej' ? formData.value.warehouseId : null,
+      warehouseToId: formData.value.transactionDirection === 'typPohybu.prijem' ? formData.value.warehouseId : null,
       items: localItems.value.length > 0 ? localItems.value.map(item => ({
         productId: item.productId,
         quantity: item.quantity,
@@ -302,6 +346,9 @@ const createTransaction = async () => {
         uomName: item.uomName
       })) : null
     };
+
+    // Odstraníme warehouseId z dataToSend, protože API ho neočekává
+    delete (dataToSend as any).warehouseId;
 
     console.log('📤 Odesílám data s items:', dataToSend);
     const created = await inventoryTransactionService.create(dataToSend);
@@ -611,7 +658,7 @@ onMounted(() => {
               <v-row>
                 <v-col cols="12" class="text-center">
                   <div class="text-caption text-medium-emphasis">
-                    Typ: Standardní skladový pohyb | Sklad: Sklad Surovin | Směr: {{ formData.transactionDirection === 'typPohybu.prijem' ? 'Příjem' : 'Výdej' }}
+                    Typ: Standardní skladový pohyb | Sklad: {{ selectedWarehouseName }} | Směr: {{ formData.transactionDirection === 'typPohybu.prijem' ? 'Příjem' : 'Výdej' }}
                   </div>
                 </v-col>
               </v-row>
