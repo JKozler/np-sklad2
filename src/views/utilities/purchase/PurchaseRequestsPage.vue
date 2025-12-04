@@ -5,7 +5,8 @@ import { useRouter } from 'vue-router';
 import BaseBreadcrumb from '@/components/shared/BaseBreadcrumb.vue';
 import UiParentCard from '@/components/shared/UiParentCard.vue';
 import { purchaseRequestService } from '@/services/purchaseRequestService';
-import type { PurchaseRequest } from '@/services/purchaseRequestService';
+import type { PurchaseRequest, CreatePurchaseRequestData } from '@/services/purchaseRequestService';
+import { useProductAutocomplete } from '@/composables/useProductAutocomplete';
 
 const router = useRouter();
 
@@ -23,6 +24,35 @@ const activeTab = ref<'all' | 'new' | 'ignored' | 'purchased' | 'done'>('new');
 const currentOffset = ref(0);
 const itemsPerPage = ref(100);
 const totalFromAPI = ref(0);
+
+// Dialog pro vytvoření/editaci
+const showDialog = ref(false);
+const editingRequest = ref<PurchaseRequest | null>(null);
+const saving = ref(false);
+
+// Autocomplete pro produkty
+const {
+  products: autocompleteProducts,
+  loading: loadingAutocomplete,
+  searchQuery: productSearchQuery
+} = useProductAutocomplete();
+
+// Formulářová data
+const formData = ref<CreatePurchaseRequestData>({
+  status: 'New',
+  productName: '',
+  productId: '',
+  expectedDate: '',
+  orderedQuantity: 1,
+  ignoredUntil: '',
+  ignoredReason: '',
+  description: '',
+  descriptionSmall: '',
+  assignedUserName: null,
+  assignedUserId: null,
+  teamsIds: [],
+  teamsNames: {}
+});
 
 const headers = ref([
   { title: 'Název', key: 'name', sortable: true },
@@ -154,6 +184,103 @@ const unignoreRequest = async (request: PurchaseRequest) => {
   } catch (err: any) {
     error.value = err.message || 'Chyba při vrácení žádosti';
     console.error('Chyba:', err);
+  }
+};
+
+const openCreateDialog = () => {
+  editingRequest.value = null;
+  formData.value = {
+    status: 'New',
+    productName: '',
+    productId: '',
+    expectedDate: '',
+    orderedQuantity: 1,
+    ignoredUntil: '',
+    ignoredReason: '',
+    description: '',
+    descriptionSmall: '',
+    assignedUserName: null,
+    assignedUserId: null,
+    teamsIds: [],
+    teamsNames: {}
+  };
+  productSearchQuery.value = '';
+  showDialog.value = true;
+};
+
+const openEditDialog = (request: PurchaseRequest) => {
+  editingRequest.value = request;
+  formData.value = {
+    status: request.status,
+    productName: request.productName || '',
+    productId: request.productId || '',
+    expectedDate: request.expectedDate || '',
+    orderedQuantity: request.orderedQuantity || 1,
+    ignoredUntil: request.ignoredUntil || '',
+    ignoredReason: request.ignoredReason || '',
+    description: request.description || '',
+    descriptionSmall: request.descriptionSmall || '',
+    assignedUserName: null,
+    assignedUserId: null,
+    teamsIds: [],
+    teamsNames: {}
+  };
+  showDialog.value = true;
+};
+
+const saveRequest = async () => {
+  if (!formData.value.productId) {
+    error.value = 'Vyberte prosím produkt';
+    return;
+  }
+
+  // Najdi produkt v autocomplete, abychom získali jeho název
+  const selectedProduct = autocompleteProducts.value.find(p => p.id === formData.value.productId);
+  if (selectedProduct) {
+    formData.value.productName = selectedProduct.name;
+  }
+
+  saving.value = true;
+  error.value = null;
+
+  try {
+    if (editingRequest.value) {
+      await purchaseRequestService.update(editingRequest.value.id, {
+        status: formData.value.status,
+        productName: formData.value.productName,
+        productId: formData.value.productId,
+        expectedDate: formData.value.expectedDate,
+        orderedQuantity: formData.value.orderedQuantity,
+        ignoredUntil: formData.value.ignoredUntil,
+        ignoredReason: formData.value.ignoredReason,
+        description: formData.value.description,
+        descriptionSmall: formData.value.descriptionSmall
+      });
+    } else {
+      await purchaseRequestService.create(formData.value);
+    }
+
+    showDialog.value = false;
+    await loadRequests();
+  } catch (err: any) {
+    error.value = err.message || 'Chyba při ukládání nákupní žádosti';
+    console.error('Chyba při ukládání:', err);
+  } finally {
+    saving.value = false;
+  }
+};
+
+const deleteRequest = async (request: PurchaseRequest) => {
+  if (!confirm(`Opravdu chcete smazat nákupní žádost "${request.name}"?`)) {
+    return;
+  }
+
+  try {
+    await purchaseRequestService.delete(request.id);
+    await loadRequests();
+  } catch (err: any) {
+    error.value = err.message || 'Chyba při mazání nákupní žádosti';
+    console.error('Chyba při mazání:', err);
   }
 };
 
@@ -294,14 +421,23 @@ onMounted(() => {
             Zobrazeny žádosti: <strong>{{ activeTab === 'new' ? 'Nové' : activeTab === 'purchased' ? 'Objednáno' : activeTab === 'done' ? 'Hotovo' : activeTab === 'ignored' ? 'Ignorováno' : 'Vše' }}</strong>
           </div>
 
-          <v-btn
-            color="primary"
-            prepend-icon="mdi-refresh"
-            @click="loadRequests"
-            :loading="loading"
-          >
-            Obnovit
-          </v-btn>
+          <div class="d-flex gap-2">
+            <v-btn
+              color="primary"
+              prepend-icon="mdi-refresh"
+              @click="loadRequests"
+              :loading="loading"
+            >
+              Obnovit
+            </v-btn>
+            <v-btn
+              color="success"
+              prepend-icon="mdi-plus"
+              @click="openCreateDialog"
+            >
+              Nová žádost
+            </v-btn>
+          </div>
         </div>
 
         <!-- Chybová hláška -->
@@ -366,6 +502,36 @@ onMounted(() => {
 
           <template v-slot:item.actions="{ item }">
             <div class="d-flex gap-1">
+              <v-tooltip text="Upravit" location="top">
+                <template v-slot:activator="{ props }">
+                  <v-btn
+                    v-bind="props"
+                    icon
+                    size="small"
+                    variant="text"
+                    color="primary"
+                    @click="openEditDialog(item)"
+                  >
+                    <v-icon>mdi-pencil</v-icon>
+                  </v-btn>
+                </template>
+              </v-tooltip>
+
+              <v-tooltip text="Smazat" location="top">
+                <template v-slot:activator="{ props }">
+                  <v-btn
+                    v-bind="props"
+                    icon
+                    size="small"
+                    variant="text"
+                    color="error"
+                    @click="deleteRequest(item)"
+                  >
+                    <v-icon>mdi-delete</v-icon>
+                  </v-btn>
+                </template>
+              </v-tooltip>
+
               <v-tooltip v-if="item.status === 'New'" text="Označit jako objednáno" location="top">
                 <template v-slot:activator="{ props }">
                   <v-btn
@@ -451,11 +617,174 @@ onMounted(() => {
       </UiParentCard>
     </v-col>
   </v-row>
+
+  <!-- Dialog pro vytvoření/úpravu nákupní žádosti -->
+  <v-dialog v-model="showDialog" max-width="800">
+    <v-card>
+      <v-card-title class="d-flex justify-space-between align-center">
+        <span>{{ editingRequest ? 'Upravit nákupní žádost' : 'Nová nákupní žádost' }}</span>
+        <v-btn icon variant="text" @click="showDialog = false">
+          <v-icon>mdi-close</v-icon>
+        </v-btn>
+      </v-card-title>
+      <v-divider></v-divider>
+      <v-card-text class="pt-4">
+        <v-form>
+          <v-row>
+            <v-col cols="12">
+              <v-autocomplete
+                v-model="formData.productId"
+                v-model:search="productSearchQuery"
+                :items="autocompleteProducts"
+                item-title="name"
+                item-value="id"
+                label="Produkt *"
+                variant="outlined"
+                density="comfortable"
+                :loading="loadingAutocomplete"
+                placeholder="Začněte psát pro vyhledání..."
+                no-filter
+                clearable
+                prepend-inner-icon="mdi-package-variant"
+              >
+                <template v-slot:item="{ props: itemProps, item }">
+                  <v-list-item v-bind="itemProps">
+                    <template v-slot:prepend>
+                      <v-icon color="primary">mdi-package-variant</v-icon>
+                    </template>
+                    <v-list-item-title>{{ item.raw.name }}</v-list-item-title>
+                    <v-list-item-subtitle class="text-caption">
+                      Kód: {{ item.raw.code }}
+                    </v-list-item-subtitle>
+                  </v-list-item>
+                </template>
+
+                <template v-slot:no-data>
+                  <v-list-item>
+                    <v-list-item-title>
+                      {{ productSearchQuery.length < 2
+                        ? 'Začněte psát pro vyhledání produktů (min. 2 znaky)'
+                        : 'Žádné produkty nenalezeny' }}
+                    </v-list-item-title>
+                  </v-list-item>
+                </template>
+              </v-autocomplete>
+            </v-col>
+
+            <v-col cols="12" md="6">
+              <v-select
+                v-model="formData.status"
+                :items="[
+                  { title: 'Nový', value: 'New' },
+                  { title: 'Ignorováno', value: 'Ignored' },
+                  { title: 'Objednáno', value: 'Purchased' },
+                  { title: 'Hotovo', value: 'Done' }
+                ]"
+                label="Status *"
+                variant="outlined"
+                density="comfortable"
+                prepend-inner-icon="mdi-flag"
+              ></v-select>
+            </v-col>
+
+            <v-col cols="12" md="6">
+              <v-text-field
+                v-model.number="formData.orderedQuantity"
+                label="Objednané množství"
+                type="number"
+                variant="outlined"
+                density="comfortable"
+                min="1"
+                prepend-inner-icon="mdi-numeric"
+              ></v-text-field>
+            </v-col>
+
+            <v-col cols="12" md="6">
+              <v-text-field
+                v-model="formData.expectedDate"
+                label="Očekávané datum dodání"
+                type="date"
+                variant="outlined"
+                density="comfortable"
+                prepend-inner-icon="mdi-calendar"
+              ></v-text-field>
+            </v-col>
+
+            <v-col cols="12" md="6">
+              <v-text-field
+                v-model="formData.ignoredUntil"
+                label="Ignorováno do"
+                type="date"
+                variant="outlined"
+                density="comfortable"
+                prepend-inner-icon="mdi-calendar-clock"
+              ></v-text-field>
+            </v-col>
+
+            <v-col cols="12">
+              <v-text-field
+                v-model="formData.ignoredReason"
+                label="Důvod ignorování"
+                variant="outlined"
+                density="comfortable"
+                prepend-inner-icon="mdi-comment-text"
+              ></v-text-field>
+            </v-col>
+
+            <v-col cols="12">
+              <v-textarea
+                v-model="formData.description"
+                label="Popis"
+                variant="outlined"
+                density="comfortable"
+                rows="3"
+                prepend-inner-icon="mdi-text"
+              ></v-textarea>
+            </v-col>
+
+            <v-col cols="12">
+              <v-textarea
+                v-model="formData.descriptionSmall"
+                label="Krátký popis (HTML)"
+                variant="outlined"
+                density="comfortable"
+                rows="2"
+                prepend-inner-icon="mdi-code-tags"
+                hint="Můžete použít HTML značky, např. <p>Text</p>"
+                persistent-hint
+              ></v-textarea>
+            </v-col>
+          </v-row>
+        </v-form>
+      </v-card-text>
+      <v-divider></v-divider>
+      <v-card-actions>
+        <v-spacer></v-spacer>
+        <v-btn
+          variant="outlined"
+          @click="showDialog = false"
+        >
+          Zrušit
+        </v-btn>
+        <v-btn
+          color="primary"
+          @click="saveRequest"
+          :loading="saving"
+        >
+          {{ editingRequest ? 'Uložit' : 'Vytvořit' }}
+        </v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
 </template>
 
 <style scoped>
 .gap-1 {
   gap: 4px;
+}
+
+.gap-2 {
+  gap: 8px;
 }
 
 :deep(.v-data-table) {
