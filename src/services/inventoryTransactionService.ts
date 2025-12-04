@@ -24,6 +24,7 @@ export interface InventoryTransaction {
   transactionTypeName?: string;
   transactionDirection?: string;
   warehouseFromId?: string | null;
+  warehouseId?: string | null;
   warehouseFromName?: string | null;
   warehouseToId?: string | null;
   warehouseToName?: string | null;
@@ -107,7 +108,7 @@ export const inventoryTransactionService = {
       offset: (filters?.offset || 0).toString(),
       orderBy: 'createdAt',
       order: 'desc',
-      attributeSelect: 'code,transactionDirection,transactionTypeId,transactionTypeName,name,status,totalPriceCurrency,totalPrice,warehouse,transactionDate,createdAt'
+      attributeSelect: 'code,transactionDirection,transactionTypeId,transactionTypeName,name,status,totalPriceCurrency,totalPrice,warehouseId,transactionDate,createdAt'
     });
 
     let whereGroupIndex = 0;

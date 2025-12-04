@@ -157,10 +157,8 @@ const loadWarehouseNames = async () => {
   const warehouseIds = new Set<string>();
 
   transactions.value.forEach(transaction => {
-    if (transaction.transactionDirection === 'typPohybu.prijem' && transaction.warehouseToId) {
-      warehouseIds.add(transaction.warehouseToId);
-    } else if (transaction.transactionDirection === 'typPohybu.vydej' && transaction.warehouseFromId) {
-      warehouseIds.add(transaction.warehouseFromId);
+    if (transaction.warehouseId) {
+      warehouseIds.add(transaction.warehouseId);
     }
   });
 
@@ -195,13 +193,7 @@ const loadWarehouseNames = async () => {
  * Pro výdej: zobrazí zdrojový sklad (z warehouseFromId)
  */
 const getWarehouseName = (transaction: InventoryTransaction) => {
-  let warehouseId: string | null | undefined;
-
-  if (transaction.transactionDirection === 'typPohybu.prijem') {
-    warehouseId = transaction.warehouseToId;
-  } else if (transaction.transactionDirection === 'typPohybu.vydej') {
-    warehouseId = transaction.warehouseFromId;
-  }
+  let warehouseId = transaction.warehouseId;
 
   if (!warehouseId) return '—';
 
