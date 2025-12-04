@@ -36,6 +36,9 @@ export interface Product {
   outageFlag?: boolean; // Nový atribut - zda produkt chybí na skladě
   outageExpectedStockDate?: string; // Nový atribut - očekávané naskladnění
   outageNote?: string; // Nový atribut - poznámka k nedostupnosti
+  accountsIds?: string[]; // Nový atribut - pole ID dodavatelů
+  accountsNames?: Record<string, string>; // Nový atribut - mapování ID na jména dodavatelů
+  accountsColumns?: Record<string, { supplierSku: string | null; costPrice: number | null }>; // Nový atribut - data dodavatelů
 }
 
 export interface ProductsResponse {
@@ -95,6 +98,9 @@ export interface UpdateProductData {
   outageFlag?: boolean;
   outageExpectedStockDate?: string;
   outageNote?: string;
+  accountsIds?: string[];
+  accountsNames?: Record<string, string>;
+  accountsColumns?: Record<string, { supplierSku: string | null; costPrice: number | null }>;
 }
 
 export const productsService = {
