@@ -30,6 +30,24 @@ const showDialog = ref(false);
 const editingRequest = ref<PurchaseRequest | null>(null);
 const saving = ref(false);
 
+// Dialogy pro akce
+const showIgnoreDialog = ref(false);
+const ignoreReason = ref('');
+const ignoreTargetRequest = ref<PurchaseRequest | null>(null);
+
+const showPurchasedDialog = ref(false);
+const purchasedExpectedDate = ref('');
+const purchasedTargetRequest = ref<PurchaseRequest | null>(null);
+
+const showDoneDialog = ref(false);
+const doneTargetRequest = ref<PurchaseRequest | null>(null);
+
+const showUnignoreDialog = ref(false);
+const unignoreTargetRequest = ref<PurchaseRequest | null>(null);
+
+const showDeleteDialog = ref(false);
+const deleteTargetRequest = ref<PurchaseRequest | null>(null);
+
 // Autocomplete pro produkty
 const {
   products: autocompleteProducts,
@@ -134,54 +152,80 @@ const loadRequests = async () => {
   }
 };
 
-const markAsIgnored = async (request: PurchaseRequest) => {
-  const reason = prompt('Důvod ignorování (nepovinné):');
-  if (reason === null) return; // Cancelled
+const openIgnoreDialog = (request: PurchaseRequest) => {
+  ignoreTargetRequest.value = request;
+  ignoreReason.value = '';
+  showIgnoreDialog.value = true;
+};
+
+const markAsIgnored = async () => {
+  if (!ignoreTargetRequest.value) return;
 
   try {
-    await purchaseRequestService.ignore(request.id, reason || undefined);
+    await purchaseRequestService.ignore(
+      ignoreTargetRequest.value.id,
+      ignoreReason.value || undefined
+    );
     await loadRequests();
+    showIgnoreDialog.value = false;
   } catch (err: any) {
     error.value = err.message || 'Chyba při označování jako ignorováno';
     console.error('Chyba:', err);
   }
 };
 
-const markAsPurchased = async (request: PurchaseRequest) => {
-  const expectedDate = prompt('Očekávané datum dodání (RRRR-MM-DD):');
-  if (expectedDate === null) return; // Cancelled
+const openPurchasedDialog = (request: PurchaseRequest) => {
+  purchasedTargetRequest.value = request;
+  purchasedExpectedDate.value = '';
+  showPurchasedDialog.value = true;
+};
+
+const markAsPurchased = async () => {
+  if (!purchasedTargetRequest.value) return;
 
   try {
-    await purchaseRequestService.markAsPurchased(request.id, expectedDate || undefined);
+    await purchaseRequestService.markAsPurchased(
+      purchasedTargetRequest.value.id,
+      purchasedExpectedDate.value || undefined
+    );
     await loadRequests();
+    showPurchasedDialog.value = false;
   } catch (err: any) {
     error.value = err.message || 'Chyba při označování jako objednáno';
     console.error('Chyba:', err);
   }
 };
 
-const markAsDone = async (request: PurchaseRequest) => {
-  if (!confirm(`Opravdu chcete označit "${request.name}" jako hotovo?`)) {
-    return;
-  }
+const openDoneDialog = (request: PurchaseRequest) => {
+  doneTargetRequest.value = request;
+  showDoneDialog.value = true;
+};
+
+const markAsDone = async () => {
+  if (!doneTargetRequest.value) return;
 
   try {
-    await purchaseRequestService.markAsDone(request.id);
+    await purchaseRequestService.markAsDone(doneTargetRequest.value.id);
     await loadRequests();
+    showDoneDialog.value = false;
   } catch (err: any) {
     error.value = err.message || 'Chyba při označování jako hotovo';
     console.error('Chyba:', err);
   }
 };
 
-const unignoreRequest = async (request: PurchaseRequest) => {
-  if (!confirm(`Opravdu chcete vrátit "${request.name}" zpět do nových?`)) {
-    return;
-  }
+const openUnignoreDialog = (request: PurchaseRequest) => {
+  unignoreTargetRequest.value = request;
+  showUnignoreDialog.value = true;
+};
+
+const unignoreRequest = async () => {
+  if (!unignoreTargetRequest.value) return;
 
   try {
-    await purchaseRequestService.unignore(request.id);
+    await purchaseRequestService.unignore(unignoreTargetRequest.value.id);
     await loadRequests();
+    showUnignoreDialog.value = false;
   } catch (err: any) {
     error.value = err.message || 'Chyba při vrácení žádosti';
     console.error('Chyba:', err);
@@ -274,14 +318,18 @@ const saveRequest = async () => {
   }
 };
 
-const deleteRequest = async (request: PurchaseRequest) => {
-  if (!confirm(`Opravdu chcete smazat nákupní žádost "${request.name}"?`)) {
-    return;
-  }
+const openDeleteDialog = (request: PurchaseRequest) => {
+  deleteTargetRequest.value = request;
+  showDeleteDialog.value = true;
+};
+
+const deleteRequest = async () => {
+  if (!deleteTargetRequest.value) return;
 
   try {
-    await purchaseRequestService.delete(request.id);
+    await purchaseRequestService.delete(deleteTargetRequest.value.id);
     await loadRequests();
+    showDeleteDialog.value = false;
   } catch (err: any) {
     error.value = err.message || 'Chyba při mazání nákupní žádosti';
     console.error('Chyba při mazání:', err);
@@ -529,7 +577,7 @@ onMounted(() => {
                     size="small"
                     variant="text"
                     color="error"
-                    @click="deleteRequest(item)"
+                    @click="openDeleteDialog(item)"
                   >
                     <v-icon>mdi-delete</v-icon>
                   </v-btn>
@@ -544,7 +592,7 @@ onMounted(() => {
                     size="small"
                     variant="text"
                     color="info"
-                    @click="markAsPurchased(item)"
+                    @click="openPurchasedDialog(item)"
                   >
                     <v-icon>mdi-cart</v-icon>
                   </v-btn>
@@ -559,7 +607,7 @@ onMounted(() => {
                     size="small"
                     variant="text"
                     color="default"
-                    @click="markAsIgnored(item)"
+                    @click="openIgnoreDialog(item)"
                   >
                     <v-icon>mdi-eye-off</v-icon>
                   </v-btn>
@@ -574,7 +622,7 @@ onMounted(() => {
                     size="small"
                     variant="text"
                     color="success"
-                    @click="markAsDone(item)"
+                    @click="openDoneDialog(item)"
                   >
                     <v-icon>mdi-check</v-icon>
                   </v-btn>
@@ -589,7 +637,7 @@ onMounted(() => {
                     size="small"
                     variant="text"
                     color="warning"
-                    @click="unignoreRequest(item)"
+                    @click="openUnignoreDialog(item)"
                   >
                     <v-icon>mdi-restore</v-icon>
                   </v-btn>
@@ -787,6 +835,206 @@ onMounted(() => {
           :loading="saving"
         >
           {{ editingRequest ? 'Uložit' : 'Vytvořit' }}
+        </v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
+
+  <!-- Dialog pro ignorování -->
+  <v-dialog v-model="showIgnoreDialog" max-width="500">
+    <v-card>
+      <v-card-title class="d-flex justify-space-between align-center">
+        <span>Ignorovat žádost</span>
+        <v-btn icon variant="text" @click="showIgnoreDialog = false">
+          <v-icon>mdi-close</v-icon>
+        </v-btn>
+      </v-card-title>
+      <v-divider></v-divider>
+      <v-card-text class="pt-4">
+        <p class="mb-4">
+          Opravdu chcete ignorovat žádost
+          <strong>"{{ ignoreTargetRequest?.name }}"</strong>?
+        </p>
+        <v-textarea
+          v-model="ignoreReason"
+          label="Důvod ignorování (nepovinné)"
+          variant="outlined"
+          density="comfortable"
+          rows="3"
+          prepend-inner-icon="mdi-comment-text"
+          placeholder="Např. není potřeba, máme na skladě..."
+        ></v-textarea>
+      </v-card-text>
+      <v-divider></v-divider>
+      <v-card-actions>
+        <v-spacer></v-spacer>
+        <v-btn
+          variant="outlined"
+          @click="showIgnoreDialog = false"
+        >
+          Ne, zrušit
+        </v-btn>
+        <v-btn
+          color="warning"
+          @click="markAsIgnored"
+        >
+          Ano, ignorovat
+        </v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
+
+  <!-- Dialog pro označení jako objednáno -->
+  <v-dialog v-model="showPurchasedDialog" max-width="500">
+    <v-card>
+      <v-card-title class="d-flex justify-space-between align-center">
+        <span>Označit jako objednáno</span>
+        <v-btn icon variant="text" @click="showPurchasedDialog = false">
+          <v-icon>mdi-close</v-icon>
+        </v-btn>
+      </v-card-title>
+      <v-divider></v-divider>
+      <v-card-text class="pt-4">
+        <p class="mb-4">
+          Označit žádost
+          <strong>"{{ purchasedTargetRequest?.name }}"</strong>
+          jako objednáno?
+        </p>
+        <v-text-field
+          v-model="purchasedExpectedDate"
+          label="Očekávané datum dodání (nepovinné)"
+          type="date"
+          variant="outlined"
+          density="comfortable"
+          prepend-inner-icon="mdi-calendar"
+          hint="Vyberte datum, kdy očekáváte dodání"
+          persistent-hint
+        ></v-text-field>
+      </v-card-text>
+      <v-divider></v-divider>
+      <v-card-actions>
+        <v-spacer></v-spacer>
+        <v-btn
+          variant="outlined"
+          @click="showPurchasedDialog = false"
+        >
+          Ne, zrušit
+        </v-btn>
+        <v-btn
+          color="info"
+          @click="markAsPurchased"
+        >
+          Ano, označit
+        </v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
+
+  <!-- Dialog pro označení jako hotovo -->
+  <v-dialog v-model="showDoneDialog" max-width="500">
+    <v-card>
+      <v-card-title class="d-flex justify-space-between align-center">
+        <span>Označit jako hotovo</span>
+        <v-btn icon variant="text" @click="showDoneDialog = false">
+          <v-icon>mdi-close</v-icon>
+        </v-btn>
+      </v-card-title>
+      <v-divider></v-divider>
+      <v-card-text class="pt-4">
+        <p>
+          Opravdu chcete označit žádost
+          <strong>"{{ doneTargetRequest?.name }}"</strong>
+          jako hotovo?
+        </p>
+      </v-card-text>
+      <v-divider></v-divider>
+      <v-card-actions>
+        <v-spacer></v-spacer>
+        <v-btn
+          variant="outlined"
+          @click="showDoneDialog = false"
+        >
+          Ne, zrušit
+        </v-btn>
+        <v-btn
+          color="success"
+          @click="markAsDone"
+        >
+          Ano, označit jako hotovo
+        </v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
+
+  <!-- Dialog pro vrácení do nových -->
+  <v-dialog v-model="showUnignoreDialog" max-width="500">
+    <v-card>
+      <v-card-title class="d-flex justify-space-between align-center">
+        <span>Vrátit do nových</span>
+        <v-btn icon variant="text" @click="showUnignoreDialog = false">
+          <v-icon>mdi-close</v-icon>
+        </v-btn>
+      </v-card-title>
+      <v-divider></v-divider>
+      <v-card-text class="pt-4">
+        <p>
+          Opravdu chcete vrátit žádost
+          <strong>"{{ unignoreTargetRequest?.name }}"</strong>
+          zpět do nových?
+        </p>
+      </v-card-text>
+      <v-divider></v-divider>
+      <v-card-actions>
+        <v-spacer></v-spacer>
+        <v-btn
+          variant="outlined"
+          @click="showUnignoreDialog = false"
+        >
+          Ne, zrušit
+        </v-btn>
+        <v-btn
+          color="warning"
+          @click="unignoreRequest"
+        >
+          Ano, vrátit
+        </v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
+
+  <!-- Dialog pro smazání -->
+  <v-dialog v-model="showDeleteDialog" max-width="500">
+    <v-card>
+      <v-card-title class="d-flex justify-space-between align-center text-error">
+        <span>Smazat žádost</span>
+        <v-btn icon variant="text" @click="showDeleteDialog = false">
+          <v-icon>mdi-close</v-icon>
+        </v-btn>
+      </v-card-title>
+      <v-divider></v-divider>
+      <v-card-text class="pt-4">
+        <v-alert type="warning" variant="tonal" class="mb-4">
+          <strong>Varování:</strong> Tato akce je nevratná!
+        </v-alert>
+        <p>
+          Opravdu chcete smazat nákupní žádost
+          <strong>"{{ deleteTargetRequest?.name }}"</strong>?
+        </p>
+      </v-card-text>
+      <v-divider></v-divider>
+      <v-card-actions>
+        <v-spacer></v-spacer>
+        <v-btn
+          variant="outlined"
+          @click="showDeleteDialog = false"
+        >
+          Ne, zrušit
+        </v-btn>
+        <v-btn
+          color="error"
+          @click="deleteRequest"
+        >
+          Ano, smazat
         </v-btn>
       </v-card-actions>
     </v-card>
