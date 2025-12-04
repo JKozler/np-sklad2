@@ -288,9 +288,21 @@ const editData = ref<UpdateProductData>({});
 
 const isModified = computed(() => {
   if (!product.value || !editMode.value) return false;
-  return Object.keys(editData.value).some(key => {
+
+  // Kontrola změn v základních datech
+  const basicDataChanged = Object.keys(editData.value).some(key => {
     return editData.value[key as keyof UpdateProductData] !== product.value![key as keyof Product];
   });
+
+  // Kontrola změn v dodavatelích
+  const suppliersChanged = JSON.stringify(selectedSupplierIds.value.sort()) !==
+    JSON.stringify((product.value.accountsIds || []).sort());
+
+  // Kontrola změn v supplier data (SKU, ceny)
+  const supplierDataChanged = JSON.stringify(supplierData.value) !==
+    JSON.stringify(product.value.accountsColumns || {});
+
+  return basicDataChanged || suppliersChanged || supplierDataChanged;
 });
 
 const formatPrice = (price: number | null | undefined) => {

@@ -67,6 +67,7 @@ const deleteTargetRequest = ref<PurchaseRequest | null>(null);
 // Kanban view
 const viewMode = ref<'kanban' | 'table'>('kanban');
 const draggedItem = ref<PurchaseRequest | null>(null);
+const updatingItemId = ref<string | null>(null); // Pro zobrazení loadingu na kartě
 
 // Autocomplete pro produkty
 const {
@@ -507,14 +508,36 @@ const handleDrop = async (event: DragEvent, targetStatus: PurchaseRequest['statu
     return;
   }
 
+  const itemToUpdate = draggedItem.value;
+  const originalStatus = itemToUpdate.status;
+  const itemId = itemToUpdate.id;
+
+  // **OPTIMISTICKÉ UI: Okamžitě aktualizovat local state**
+  const itemIndex = requests.value.findIndex(r => r.id === itemId);
+  if (itemIndex !== -1) {
+    requests.value[itemIndex].status = targetStatus;
+  }
+
+  // Nastavit loading na kartě
+  updatingItemId.value = itemId;
+  draggedItem.value = null;
+
+  // **API call na pozadí**
   try {
-    await purchaseRequestService.updateStatus(draggedItem.value.id, targetStatus);
+    await purchaseRequestService.updateStatus(itemId, targetStatus);
+    // Po úspěchu reload pro synchronizaci s API
     await loadRequests();
-    draggedItem.value = null;
   } catch (err: any) {
     error.value = err.message || 'Chyba při změně statusu';
     console.error('Chyba při drag & drop:', err);
-    draggedItem.value = null;
+
+    // **ROLLBACK: Vrátit původní stav při chybě**
+    const rollbackIndex = requests.value.findIndex(r => r.id === itemId);
+    if (rollbackIndex !== -1) {
+      requests.value[rollbackIndex].status = originalStatus;
+    }
+  } finally {
+    updatingItemId.value = null;
   }
 };
 
@@ -660,10 +683,18 @@ onMounted(() => {
                   v-for="item in getRequestsByStatus('New')"
                   :key="item.id"
                   class="kanban-card"
+                  :class="{ 'kanban-card-loading': updatingItemId === item.id }"
                   draggable="true"
                   @dragstart="handleDragStart($event, item)"
                   @dragend="handleDragEnd"
                 >
+                  <div v-if="updatingItemId === item.id" class="kanban-card-overlay">
+                    <v-progress-circular
+                      indeterminate
+                      color="primary"
+                      size="32"
+                    ></v-progress-circular>
+                  </div>
                   <div class="kanban-card-title">{{ item.name }}</div>
                   <div
                     v-if="item.productId && item.productName"
@@ -716,10 +747,18 @@ onMounted(() => {
                   v-for="item in getRequestsByStatus('Purchased')"
                   :key="item.id"
                   class="kanban-card"
+                  :class="{ 'kanban-card-loading': updatingItemId === item.id }"
                   draggable="true"
                   @dragstart="handleDragStart($event, item)"
                   @dragend="handleDragEnd"
                 >
+                  <div v-if="updatingItemId === item.id" class="kanban-card-overlay">
+                    <v-progress-circular
+                      indeterminate
+                      color="primary"
+                      size="32"
+                    ></v-progress-circular>
+                  </div>
                   <div class="kanban-card-title">{{ item.name }}</div>
                   <div
                     v-if="item.productId && item.productName"
@@ -772,10 +811,18 @@ onMounted(() => {
                   v-for="item in getRequestsByStatus('Done')"
                   :key="item.id"
                   class="kanban-card"
+                  :class="{ 'kanban-card-loading': updatingItemId === item.id }"
                   draggable="true"
                   @dragstart="handleDragStart($event, item)"
                   @dragend="handleDragEnd"
                 >
+                  <div v-if="updatingItemId === item.id" class="kanban-card-overlay">
+                    <v-progress-circular
+                      indeterminate
+                      color="primary"
+                      size="32"
+                    ></v-progress-circular>
+                  </div>
                   <div class="kanban-card-title">{{ item.name }}</div>
                   <div
                     v-if="item.productId && item.productName"
@@ -828,10 +875,18 @@ onMounted(() => {
                   v-for="item in getRequestsByStatus('Ignored')"
                   :key="item.id"
                   class="kanban-card"
+                  :class="{ 'kanban-card-loading': updatingItemId === item.id }"
                   draggable="true"
                   @dragstart="handleDragStart($event, item)"
                   @dragend="handleDragEnd"
                 >
+                  <div v-if="updatingItemId === item.id" class="kanban-card-overlay">
+                    <v-progress-circular
+                      indeterminate
+                      color="primary"
+                      size="32"
+                    ></v-progress-circular>
+                  </div>
                   <div class="kanban-card-title">{{ item.name }}</div>
                   <div
                     v-if="item.productId && item.productName"
@@ -1560,6 +1615,26 @@ onMounted(() => {
   cursor: grab;
   transition: all 0.2s;
   border-left: 4px solid transparent;
+  position: relative;
+}
+
+.kanban-card-loading {
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.kanban-card-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  z-index: 10;
 }
 
 .kanban-card:hover {

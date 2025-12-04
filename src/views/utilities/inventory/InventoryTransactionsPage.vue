@@ -54,8 +54,7 @@ const headers = ref([
   { title: 'Kód', key: 'code', sortable: true },
   { title: 'Typ pohybu', key: 'transactionTypeName', sortable: true },
   { title: 'Směr', key: 'transactionDirection', sortable: false },
-  { title: 'Sklad (z)', key: 'warehouseFromName', sortable: false },
-  { title: 'Sklad (do)', key: 'warehouseToName', sortable: false },
+  { title: 'Sklad', key: 'warehouseName', sortable: false }, // **UPRAVENO: Jen jeden sloupec**
   { title: 'Datum', key: 'transactionDate', sortable: true },
   { title: 'Celková částka', key: 'totalPrice', sortable: true },
   { title: 'Status', key: 'status', sortable: true },
@@ -144,6 +143,20 @@ const getStockTypeIcon = (stockType: string | undefined) => {
   }
   // Default for typZasoby.material and others
   return 'mdi-package-variant';   // Material/package icon
+};
+
+/**
+ * **NOVÉ: Vrací název skladu podle směru pohybu**
+ * Pro příjem: zobrazí cílový sklad (warehouseToName)
+ * Pro výdej: zobrazí zdrojový sklad (warehouseFromName)
+ */
+const getWarehouseName = (transaction: InventoryTransaction) => {
+  if (transaction.transactionDirection === 'typPohybu.prijem') {
+    return transaction.warehouseToName || '—';
+  } else if (transaction.transactionDirection === 'typPohybu.vydej') {
+    return transaction.warehouseFromName || '—';
+  }
+  return '—';
 };
 
 /**
@@ -649,12 +662,8 @@ onMounted(() => {
             </v-chip>
           </template>
 
-          <template v-slot:item.warehouseFromName="{ item }">
-            <span class="text-medium-emphasis">{{ item.warehouseFromName || '—' }}</span>
-          </template>
-
-          <template v-slot:item.warehouseToName="{ item }">
-            <span class="text-medium-emphasis">{{ item.warehouseToName || '—' }}</span>
+          <template v-slot:item.warehouseName="{ item }">
+            <span class="font-weight-medium">{{ getWarehouseName(item) }}</span>
           </template>
 
           <template v-slot:item.transactionDate="{ item }">
