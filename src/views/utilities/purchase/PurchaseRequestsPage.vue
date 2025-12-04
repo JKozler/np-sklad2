@@ -172,37 +172,49 @@ const loadRequests = async () => {
   try {
     const filters: any = {};
 
-    // V Kanban módu načti všechny, jinak filtruj podle tabu
-    if (viewMode.value === 'table') {
-      // Filtr podle aktivního tabu
-      if (activeTab.value === 'new') {
-        filters.status = 'New';
-      } else if (activeTab.value === 'ignored') {
-        filters.status = 'Ignored';
-      } else if (activeTab.value === 'purchased') {
-        filters.status = 'Purchased';
-      } else if (activeTab.value === 'done') {
-        filters.status = 'Done';
-      }
-    }
-
     // Přidej search filtr pokud je zadán
     if (searchQuery.value) {
       filters.search = searchQuery.value;
     }
 
-    const response = await purchaseRequestService.getAll(filters, {
-      maxSize: viewMode.value === 'kanban' ? 500 : itemsPerPage.value,
-      offset: currentOffset.value
+    // První načtení pro zjištění celkového počtu
+    const firstResponse = await purchaseRequestService.getAll(filters, {
+      maxSize: 200,
+      offset: 0
     });
 
-    requests.value = response.list;
-    totalFromAPI.value = response.total;
+    let allRequests = [...firstResponse.list];
+    totalFromAPI.value = firstResponse.total;
+
+    // Pokud je výsledků více než 200, načti zbytek s offsetem
+    if (firstResponse.total > 200) {
+      const totalPages = Math.ceil(firstResponse.total / 200);
+      const promises = [];
+
+      for (let page = 1; page < totalPages; page++) {
+        promises.push(
+          purchaseRequestService.getAll(filters, {
+            maxSize: 200,
+            offset: page * 200
+          })
+        );
+      }
+
+      // Načti všechny stránky paralelně
+      const responses = await Promise.all(promises);
+      responses.forEach(response => {
+        allRequests = [...allRequests, ...response.list];
+      });
+
+      console.log('✅ Načteno více stránek:', totalPages, 'celkem žádostí:', allRequests.length);
+    }
+
+    requests.value = allRequests;
 
     // Načti počty pro všechny taby
     await loadStatusCounts();
 
-    console.log('✅ Načteno nákupních žádostí:', requests.value.length, '/', response.total);
+    console.log('✅ Načteno nákupních žádostí:', requests.value.length, '/', totalFromAPI.value);
   } catch (err: any) {
     error.value = err.message || 'Chyba při načítání nákupních žádostí';
     console.error('❌ Chyba při načítání:', err);
@@ -458,11 +470,6 @@ const deleteRequest = async () => {
   }
 };
 
-watch(activeTab, () => {
-  currentOffset.value = 0;
-  loadRequests();
-});
-
 watch(searchQuery, () => {
   currentOffset.value = 0;
   loadRequests();
@@ -525,79 +532,6 @@ onMounted(() => {
 
   <v-row>
     <v-col cols="12">
-      <!-- Taby -->
-      <v-card variant="outlined" class="mb-4">
-        <v-tabs
-          v-model="activeTab"
-          color="primary"
-          align-tabs="start"
-        >
-          <v-tab value="new">
-            <v-icon start color="warning">mdi-alert-circle</v-icon>
-            Nové
-            <v-chip
-              size="small"
-              class="ml-2"
-              color="warning"
-              variant="tonal"
-            >
-              {{ tabStats.new }}
-            </v-chip>
-          </v-tab>
-
-          <v-tab value="purchased">
-            <v-icon start color="info">mdi-cart</v-icon>
-            Objednáno
-            <v-chip
-              size="small"
-              class="ml-2"
-              color="info"
-              variant="tonal"
-            >
-              {{ tabStats.purchased }}
-            </v-chip>
-          </v-tab>
-
-          <v-tab value="done">
-            <v-icon start color="success">mdi-check-circle</v-icon>
-            Hotovo
-            <v-chip
-              size="small"
-              class="ml-2"
-              color="success"
-              variant="tonal"
-            >
-              {{ tabStats.done }}
-            </v-chip>
-          </v-tab>
-
-          <v-tab value="ignored">
-            <v-icon start>mdi-eye-off</v-icon>
-            Ignorováno
-            <v-chip
-              size="small"
-              class="ml-2"
-              variant="tonal"
-            >
-              {{ tabStats.ignored }}
-            </v-chip>
-          </v-tab>
-
-          <v-tab value="all">
-            <v-icon start>mdi-format-list-bulleted</v-icon>
-            Vše
-            <v-chip
-              size="small"
-              class="ml-2"
-              color="primary"
-              variant="tonal"
-            >
-              {{ tabStats.all }}
-            </v-chip>
-          </v-tab>
-        </v-tabs>
-      </v-card>
-
       <!-- Statistiky -->
       <v-row class="mb-4">
         <v-col cols="12" sm="6" md="3">
@@ -645,7 +579,7 @@ onMounted(() => {
         <div class="mb-4">
           <div class="d-flex justify-space-between align-center mb-3">
             <div class="text-subtitle-2">
-              Zobrazeny žádosti: <strong>{{ activeTab === 'new' ? 'Nové' : activeTab === 'purchased' ? 'Objednáno' : activeTab === 'done' ? 'Hotovo' : activeTab === 'ignored' ? 'Ignorováno' : 'Vše' }}</strong>
+              Celkem žádostí: <strong>{{ totalFromAPI }}</strong>
             </div>
 
             <div class="d-flex gap-2 align-center">
@@ -1077,11 +1011,7 @@ onMounted(() => {
               <v-icon size="64" color="grey-lighten-1">mdi-clipboard-list</v-icon>
               <div class="text-h6 mt-4">Žádné nákupní žádosti</div>
               <div class="text-caption text-medium-emphasis">
-                {{ activeTab === 'new' ? 'V kategorii "Nové" nejsou žádné žádosti.' :
-                   activeTab === 'purchased' ? 'V kategorii "Objednáno" nejsou žádné žádosti.' :
-                   activeTab === 'done' ? 'V kategorii "Hotovo" nejsou žádné žádosti.' :
-                   activeTab === 'ignored' ? 'V kategorii "Ignorováno" nejsou žádné žádosti.' :
-                   'Nejsou žádné nákupní žádosti.' }}
+                Nejsou žádné nákupní žádosti.
               </div>
             </div>
           </template>
