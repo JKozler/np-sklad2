@@ -25,6 +25,7 @@ const activeTab = ref<'all' | 'new' | 'ignored' | 'purchased' | 'done'>('new');
 const currentOffset = ref(0);
 const itemsPerPage = ref(100);
 const totalFromAPI = ref(0);
+const searchQuery = ref('');
 
 // Statistiky podle statusu
 const statusCounts = ref({
@@ -134,13 +135,16 @@ const formatDate = (dateString: string | null | undefined) => {
 
 const loadStatusCounts = async () => {
   try {
+    // Připrav search filtr pokud je zadán
+    const searchFilter = searchQuery.value ? { search: searchQuery.value } : {};
+
     // Načti počty pro všechny statusy paralelně
     const [newResp, ignoredResp, purchasedResp, doneResp, allResp] = await Promise.all([
-      purchaseRequestService.getAll({ status: 'New' }, { maxSize: 1, offset: 0 }),
-      purchaseRequestService.getAll({ status: 'Ignored' }, { maxSize: 1, offset: 0 }),
-      purchaseRequestService.getAll({ status: 'Purchased' }, { maxSize: 1, offset: 0 }),
-      purchaseRequestService.getAll({ status: 'Done' }, { maxSize: 1, offset: 0 }),
-      purchaseRequestService.getAll({}, { maxSize: 1, offset: 0 })
+      purchaseRequestService.getAll({ status: 'New', ...searchFilter }, { maxSize: 1, offset: 0 }),
+      purchaseRequestService.getAll({ status: 'Ignored', ...searchFilter }, { maxSize: 1, offset: 0 }),
+      purchaseRequestService.getAll({ status: 'Purchased', ...searchFilter }, { maxSize: 1, offset: 0 }),
+      purchaseRequestService.getAll({ status: 'Done', ...searchFilter }, { maxSize: 1, offset: 0 }),
+      purchaseRequestService.getAll(searchFilter, { maxSize: 1, offset: 0 })
     ]);
 
     statusCounts.value = {
@@ -173,6 +177,11 @@ const loadRequests = async () => {
       filters.status = 'Purchased';
     } else if (activeTab.value === 'done') {
       filters.status = 'Done';
+    }
+
+    // Přidej search filtr pokud je zadán
+    if (searchQuery.value) {
+      filters.search = searchQuery.value;
     }
 
     const response = await purchaseRequestService.getAll(filters, {
@@ -447,6 +456,11 @@ watch(activeTab, () => {
   loadRequests();
 });
 
+watch(searchQuery, () => {
+  currentOffset.value = 0;
+  loadRequests();
+});
+
 onMounted(() => {
   loadRequests();
 });
@@ -574,28 +588,43 @@ onMounted(() => {
 
       <UiParentCard title="Seznam nákupních žádostí">
         <!-- Toolbar -->
-        <div class="mb-4 d-flex justify-space-between align-center">
-          <div class="text-subtitle-2">
-            Zobrazeny žádosti: <strong>{{ activeTab === 'new' ? 'Nové' : activeTab === 'purchased' ? 'Objednáno' : activeTab === 'done' ? 'Hotovo' : activeTab === 'ignored' ? 'Ignorováno' : 'Vše' }}</strong>
+        <div class="mb-4">
+          <div class="d-flex justify-space-between align-center mb-3">
+            <div class="text-subtitle-2">
+              Zobrazeny žádosti: <strong>{{ activeTab === 'new' ? 'Nové' : activeTab === 'purchased' ? 'Objednáno' : activeTab === 'done' ? 'Hotovo' : activeTab === 'ignored' ? 'Ignorováno' : 'Vše' }}</strong>
+            </div>
+
+            <div class="d-flex gap-2">
+              <v-btn
+                color="primary"
+                prepend-icon="mdi-refresh"
+                @click="loadRequests"
+                :loading="loading"
+              >
+                Obnovit
+              </v-btn>
+              <v-btn
+                color="success"
+                prepend-icon="mdi-plus"
+                @click="openCreateDialog"
+              >
+                Nová žádost
+              </v-btn>
+            </div>
           </div>
 
-          <div class="d-flex gap-2">
-            <v-btn
-              color="primary"
-              prepend-icon="mdi-refresh"
-              @click="loadRequests"
-              :loading="loading"
-            >
-              Obnovit
-            </v-btn>
-            <v-btn
-              color="success"
-              prepend-icon="mdi-plus"
-              @click="openCreateDialog"
-            >
-              Nová žádost
-            </v-btn>
-          </div>
+          <!-- Search field -->
+          <v-text-field
+            v-model="searchQuery"
+            label="Vyhledat podle názvu"
+            variant="outlined"
+            density="comfortable"
+            prepend-inner-icon="mdi-magnify"
+            clearable
+            placeholder="Zadejte název pro vyhledání..."
+            hide-details
+            class="search-field"
+          ></v-text-field>
         </div>
 
         <!-- Chybová hláška -->
