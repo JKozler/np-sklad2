@@ -106,6 +106,7 @@ const transactionDirections = ref([
 ]);
 
 const showAddItemDialog = ref(false);
+const dialogError = ref<string | null>(null); // **NOVÉ: Lokální chyba pro dialog**
 const newItem = ref<InventoryTransactionItem & { uomId?: string }>({
   productId: '',
   quantity: 1,
@@ -244,22 +245,25 @@ const openAddItemDialog = () => {
     uomId: ''
   };
   productSearchQuery.value = ''; // Reset search
+  dialogError.value = null; // **NOVÉ: Reset lokální chyby**
   showAddItemDialog.value = true;
 };
 
 const addItemToLocal = () => {
+  dialogError.value = null; // **NOVÉ: Reset lokální chyby před validací**
+
   if (!newItem.value.productId) {
-    error.value = 'Vyberte produkt';
+    dialogError.value = 'Vyberte produkt';
     return;
   }
 
   if (!newItem.value.quantity || newItem.value.quantity <= 0) {
-    error.value = 'Zadejte platné množství';
+    dialogError.value = 'Zadejte platné množství';
     return;
   }
 
   if (!newItem.value.uomId) {
-    error.value = 'Vyberte jednotku';
+    dialogError.value = 'Vyberte jednotku';
     return;
   }
 
@@ -272,7 +276,7 @@ const addItemToLocal = () => {
     if (product?.stockType !== firstItemStockType) {
       const firstItemType = firstItemStockType === 'typZasoby.vyrobek' ? 'produkty' : 'materiály';
       const currentItemType = product?.stockType === 'typZasoby.vyrobek' ? 'produkty' : 'materiály';
-      error.value = `Nelze míchať ${firstItemType} a ${currentItemType} v jedné transakci. Všechny položky musí být buď materiály nebo produkty.`;
+      dialogError.value = `Nelze míchat ${firstItemType} a ${currentItemType} v jedné transakci. Všechny položky musí být buď materiály nebo produkty.`;
       return;
     }
   }
@@ -301,7 +305,7 @@ const addItemToLocal = () => {
   }
 
   showAddItemDialog.value = false;
-  error.value = null;
+  dialogError.value = null; // **UPRAVENO: Clear lokální chybu místo globální**
 };
 
 const removeItemFromLocal = (index: number) => {
@@ -680,6 +684,18 @@ onMounted(() => {
       </v-card-title>
       <v-divider></v-divider>
       <v-card-text>
+        <!-- **NOVÉ: Chybová hláška v dialogu** -->
+        <v-alert
+          v-if="dialogError"
+          type="error"
+          variant="tonal"
+          class="mb-4"
+          closable
+          @click:close="dialogError = null"
+        >
+          <strong>Chyba:</strong> {{ dialogError }}
+        </v-alert>
+
         <v-row>
           <v-col cols="12">
             <!-- **AUTOCOMPLETE místo statického selectu** -->
