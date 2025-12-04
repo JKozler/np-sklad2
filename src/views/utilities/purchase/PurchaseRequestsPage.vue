@@ -17,6 +17,7 @@ const breadcrumbs = ref([
 ]);
 
 const requests = ref<PurchaseRequest[]>([]);
+const allRequests = ref<PurchaseRequest[]>([]); // Pro počítání statistik
 const loading = ref(false);
 const error = ref<string | null>(null);
 const activeTab = ref<'all' | 'new' | 'ignored' | 'purchased' | 'done'>('new');
@@ -25,10 +26,24 @@ const currentOffset = ref(0);
 const itemsPerPage = ref(100);
 const totalFromAPI = ref(0);
 
+// Statistiky podle statusu
+const statusCounts = ref({
+  new: 0,
+  ignored: 0,
+  purchased: 0,
+  done: 0,
+  all: 0
+});
+
 // Dialog pro vytvoření/editaci
 const showDialog = ref(false);
 const editingRequest = ref<PurchaseRequest | null>(null);
 const saving = ref(false);
+
+// Validační chyby
+const validationErrors = ref<Record<string, string>>({});
+const showValidationDialog = ref(false);
+const validationMessage = ref('');
 
 // Dialogy pro akce
 const showIgnoreDialog = ref(false);
@@ -84,11 +99,11 @@ const headers = ref([
 
 const tabStats = computed(() => {
   return {
-    all: requests.value.length,
-    new: requests.value.filter(r => r.status === 'New').length,
-    ignored: requests.value.filter(r => r.status === 'Ignored').length,
-    purchased: requests.value.filter(r => r.status === 'Purchased').length,
-    done: requests.value.filter(r => r.status === 'Done').length
+    all: statusCounts.value.all,
+    new: statusCounts.value.new,
+    ignored: statusCounts.value.ignored,
+    purchased: statusCounts.value.purchased,
+    done: statusCounts.value.done
   };
 });
 
@@ -117,6 +132,31 @@ const formatDate = (dateString: string | null | undefined) => {
   return new Date(dateString).toLocaleDateString('cs-CZ');
 };
 
+const loadStatusCounts = async () => {
+  try {
+    // Načti počty pro všechny statusy paralelně
+    const [newResp, ignoredResp, purchasedResp, doneResp, allResp] = await Promise.all([
+      purchaseRequestService.getAll({ status: 'New' }, { maxSize: 1, offset: 0 }),
+      purchaseRequestService.getAll({ status: 'Ignored' }, { maxSize: 1, offset: 0 }),
+      purchaseRequestService.getAll({ status: 'Purchased' }, { maxSize: 1, offset: 0 }),
+      purchaseRequestService.getAll({ status: 'Done' }, { maxSize: 1, offset: 0 }),
+      purchaseRequestService.getAll({}, { maxSize: 1, offset: 0 })
+    ]);
+
+    statusCounts.value = {
+      new: newResp.total,
+      ignored: ignoredResp.total,
+      purchased: purchasedResp.total,
+      done: doneResp.total,
+      all: allResp.total
+    };
+
+    console.log('✅ Načteny počty statusů:', statusCounts.value);
+  } catch (err: any) {
+    console.error('❌ Chyba při načítání počtů:', err);
+  }
+};
+
 const loadRequests = async () => {
   loading.value = true;
   error.value = null;
@@ -142,6 +182,9 @@ const loadRequests = async () => {
 
     requests.value = response.list;
     totalFromAPI.value = response.total;
+
+    // Načti počty pro všechny taby
+    await loadStatusCounts();
 
     console.log('✅ Načteno nákupních žádostí:', requests.value.length, '/', response.total);
   } catch (err: any) {
@@ -251,6 +294,8 @@ const openCreateDialog = () => {
     teamsNames: {}
   };
   productSearchQuery.value = '';
+  validationErrors.value = {};
+  error.value = null;
   showDialog.value = true;
 };
 
@@ -272,7 +317,49 @@ const openEditDialog = (request: PurchaseRequest) => {
     teamsIds: [],
     teamsNames: {}
   };
+  validationErrors.value = {};
+  error.value = null;
   showDialog.value = true;
+};
+
+const getFieldLabel = (fieldName: string): string => {
+  const labels: Record<string, string> = {
+    'name': 'Název žádosti',
+    'productId': 'Produkt',
+    'productName': 'Produkt',
+    'status': 'Status',
+    'expectedDate': 'Očekávané datum dodání',
+    'orderedQuantity': 'Objednané množství',
+    'ignoredUntil': 'Ignorováno do',
+    'ignoredReason': 'Důvod ignorování',
+    'description': 'Popis',
+    'descriptionSmall': 'Krátký popis'
+  };
+  return labels[fieldName] || fieldName;
+};
+
+const getValidationErrorMessage = (field: string, type: string): string => {
+  if (type === 'valid' || type === 'required') {
+    return `Pole "${getFieldLabel(field)}" není správně vyplněno`;
+  }
+  return `Chyba validace u pole "${getFieldLabel(field)}"`;
+};
+
+const parseValidationError = (errorText: string): { field: string; type: string; message: string } | null => {
+  try {
+    const errorData = JSON.parse(errorText);
+    if (errorData.messageTranslation?.label === 'validationFailure' && errorData.messageTranslation?.data) {
+      const { field, type } = errorData.messageTranslation.data;
+      return {
+        field,
+        type,
+        message: getValidationErrorMessage(field, type)
+      };
+    }
+  } catch (e) {
+    console.error('Failed to parse error:', e);
+  }
+  return null;
 };
 
 const saveRequest = async () => {
@@ -289,6 +376,7 @@ const saveRequest = async () => {
 
   saving.value = true;
   error.value = null;
+  validationErrors.value = {};
 
   try {
     if (editingRequest.value) {
@@ -311,8 +399,26 @@ const saveRequest = async () => {
     showDialog.value = false;
     await loadRequests();
   } catch (err: any) {
-    error.value = err.message || 'Chyba při ukládání nákupní žádosti';
     console.error('Chyba při ukládání:', err);
+
+    // Zkus parsovat validační chybu
+    const errorMessage = err.message || '';
+    const errorMatch = errorMessage.match(/API Error: \d+ - (.+)/);
+    const errorBody = errorMatch ? errorMatch[1] : errorMessage;
+
+    const validationError = parseValidationError(errorBody);
+
+    if (validationError) {
+      // Zobraz validační chybu v dialogu
+      validationErrors.value[validationError.field] = validationError.message;
+      validationMessage.value = validationError.message;
+      showValidationDialog.value = true;
+
+      // Nastav také error pro zobrazení v alertu
+      error.value = validationError.message;
+    } else {
+      error.value = errorMessage || 'Chyba při ukládání nákupní žádosti';
+    }
   } finally {
     saving.value = false;
   }
@@ -691,6 +797,8 @@ onMounted(() => {
                 density="comfortable"
                 prepend-inner-icon="mdi-file-document"
                 placeholder="Např. 'Objednávka surovin'"
+                :error="!!validationErrors['name']"
+                :error-messages="validationErrors['name']"
               ></v-text-field>
             </v-col>
 
@@ -709,6 +817,8 @@ onMounted(() => {
                 no-filter
                 clearable
                 prepend-inner-icon="mdi-package-variant"
+                :error="!!validationErrors['productId'] || !!validationErrors['productName']"
+                :error-messages="validationErrors['productId'] || validationErrors['productName']"
               >
                 <template v-slot:item="{ props: itemProps, item }">
                   <v-list-item v-bind="itemProps">
@@ -770,6 +880,8 @@ onMounted(() => {
                 variant="outlined"
                 density="comfortable"
                 prepend-inner-icon="mdi-calendar"
+                :error="!!validationErrors['expectedDate']"
+                :error-messages="validationErrors['expectedDate']"
               ></v-text-field>
             </v-col>
 
@@ -781,6 +893,8 @@ onMounted(() => {
                 variant="outlined"
                 density="comfortable"
                 prepend-inner-icon="mdi-calendar-clock"
+                :error="!!validationErrors['ignoredUntil']"
+                :error-messages="validationErrors['ignoredUntil']"
               ></v-text-field>
             </v-col>
 
@@ -1035,6 +1149,38 @@ onMounted(() => {
           @click="deleteRequest"
         >
           Ano, smazat
+        </v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
+
+  <!-- Dialog pro validační chyby -->
+  <v-dialog v-model="showValidationDialog" max-width="500">
+    <v-card>
+      <v-card-title class="d-flex justify-space-between align-center text-error">
+        <span>Chyba validace</span>
+        <v-btn icon variant="text" @click="showValidationDialog = false">
+          <v-icon>mdi-close</v-icon>
+        </v-btn>
+      </v-card-title>
+      <v-divider></v-divider>
+      <v-card-text class="pt-4">
+        <v-alert type="error" variant="tonal" class="mb-4">
+          <strong>Validační chyba:</strong>
+        </v-alert>
+        <p>{{ validationMessage }}</p>
+        <p class="text-caption text-medium-emphasis mt-2">
+          Zkontrolujte prosím označené pole ve formuláři a opravte chybu.
+        </p>
+      </v-card-text>
+      <v-divider></v-divider>
+      <v-card-actions>
+        <v-spacer></v-spacer>
+        <v-btn
+          color="primary"
+          @click="showValidationDialog = false"
+        >
+          Rozumím
         </v-btn>
       </v-card-actions>
     </v-card>
