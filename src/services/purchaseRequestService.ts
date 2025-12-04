@@ -10,8 +10,40 @@ export interface PurchaseRequest {
   ignoredUntil?: string | null;
   ignoredReason?: string | null;
   descriptionSmall?: string;
+  description?: string;
+  productId?: string;
+  productName?: string;
+  orderedQuantity?: number;
   createdById: string;
   assignedUserId?: string | null;
+}
+
+export interface CreatePurchaseRequestData {
+  status: 'New' | 'Ignored' | 'Purchased' | 'Done';
+  productName: string;
+  productId: string;
+  expectedDate?: string;
+  orderedQuantity?: number;
+  ignoredUntil?: string;
+  ignoredReason?: string;
+  description?: string;
+  descriptionSmall?: string;
+  assignedUserName?: null;
+  assignedUserId?: null;
+  teamsIds?: string[];
+  teamsNames?: Record<string, any>;
+}
+
+export interface UpdatePurchaseRequestData {
+  status?: 'New' | 'Ignored' | 'Purchased' | 'Done';
+  productName?: string;
+  productId?: string;
+  expectedDate?: string;
+  orderedQuantity?: number;
+  ignoredUntil?: string;
+  ignoredReason?: string;
+  description?: string;
+  descriptionSmall?: string;
 }
 
 export interface PurchaseRequestsResponse {
@@ -121,6 +153,32 @@ class PurchaseRequestService {
       ignoredReason: null,
       ignoredUntil: null
     });
+  }
+
+  /**
+   * Vytvoří novou nákupní žádost
+   */
+  async create(data: CreatePurchaseRequestData): Promise<PurchaseRequest> {
+    console.log('➕ Creating purchase request:', data);
+    const response = await apiClient.post<PurchaseRequest>(this.baseUrl, data);
+    return response;
+  }
+
+  /**
+   * Aktualizuje nákupní žádost
+   */
+  async update(id: string, data: UpdatePurchaseRequestData): Promise<PurchaseRequest> {
+    console.log('✏️ Updating purchase request:', id, data);
+    const response = await apiClient.put<PurchaseRequest>(`${this.baseUrl}/${id}`, data);
+    return response;
+  }
+
+  /**
+   * Smaže nákupní žádost
+   */
+  async delete(id: string): Promise<void> {
+    console.log('🗑️ Deleting purchase request:', id);
+    await apiClient.delete(`${this.baseUrl}/${id}`);
   }
 }
 
