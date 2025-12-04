@@ -65,6 +65,12 @@ const sidebarItem: menu[] = [
     icon: PackageIcon,
     to: '/packages'
   },
+  {
+    title: 'Dodavatelé',
+    icon: PackageIcon,
+    to: '/suppliers',
+    requiredDashboards: ['WAREHOUSE_MANAGER']
+  },
   
   /*{ divider: true },
   { header: 'Statistiky' },
