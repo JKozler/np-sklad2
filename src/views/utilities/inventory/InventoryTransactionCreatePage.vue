@@ -341,8 +341,7 @@ const createTransaction = async () => {
     // **UPRAVENO: Mapování warehouseId na warehouseFromId/warehouseToId podle směru**
     const dataToSend: CreateInventoryTransactionData = {
       ...formData.value,
-      warehouseFromId: formData.value.transactionDirection === 'typPohybu.vydej' ? formData.value.warehouseId : null,
-      warehouseToId: formData.value.transactionDirection === 'typPohybu.prijem' ? formData.value.warehouseId : null,
+      warehouseId: formData.value.warehouseId,
       items: localItems.value.length > 0 ? localItems.value.map(item => ({
         productId: item.productId,
         quantity: item.quantity,
@@ -350,9 +349,6 @@ const createTransaction = async () => {
         uomName: item.uomName
       })) : null
     };
-
-    // Odstraníme warehouseId z dataToSend, protože API ho neočekává
-    delete (dataToSend as any).warehouseId;
 
     console.log('📤 Odesílám data s items:', dataToSend);
     const created = await inventoryTransactionService.create(dataToSend);
