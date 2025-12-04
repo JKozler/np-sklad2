@@ -1,6 +1,6 @@
 <!-- src/views/utilities/inventory/InventoryTransactionCreatePage.vue -->
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import BaseBreadcrumb from '@/components/shared/BaseBreadcrumb.vue';
 import UiParentCard from '@/components/shared/UiParentCard.vue';
@@ -9,6 +9,7 @@ import { inventoryTransactionTypeService } from '@/services/inventoryTransaction
 import { warehouseService } from '@/services/warehouseService';
 import { uomService } from '@/services/uomService';
 import { useProductAutocomplete } from '@/composables/useProductAutocomplete';
+import { useSupplierAutocomplete } from '@/composables/useSupplierAutocomplete';
 import type { CreateInventoryTransactionData, InventoryTransactionItem } from '@/services/inventoryTransactionService';
 import type { InventoryTransactionType } from '@/services/inventoryTransactionTypeService';
 import type { UOM } from '@/services/uomService';
@@ -38,6 +39,13 @@ const {
   searchQuery: productSearchQuery
 } = useProductAutocomplete();
 
+// **NOVÉ: Autocomplete pro dodavatele**
+const {
+  suppliers: autocompleteSuppliers,
+  loading: loadingSupplierAutocomplete,
+  searchQuery: supplierSearchQuery
+} = useSupplierAutocomplete();
+
 const DEFAULT_TRANSACTION_TYPE_ID = '690d2882b7b77c02f';
 
 const formData = ref<CreateInventoryTransactionData>({
@@ -49,6 +57,20 @@ const formData = ref<CreateInventoryTransactionData>({
   transactionDate: new Date().toISOString().split('T')[0],
   description: '',
   items: []
+});
+
+// **NOVÉ: ID vybraného dodavatele**
+const selectedSupplierId = ref<string>('');
+
+// **NOVÉ: Watch pro aktualizaci názvu podle dodavatele**
+watch(selectedSupplierId, (newSupplierId) => {
+  if (newSupplierId) {
+    const supplier = autocompleteSuppliers.value.find(s => s.id === newSupplierId);
+    if (supplier) {
+      formData.value.name = supplier.name;
+      console.log('✅ Název pohybu aktualizován podle dodavatele:', supplier.name);
+    }
+  }
 });
 
 const localItems = ref<InventoryTransactionItem[]>([]);
@@ -403,16 +425,47 @@ onMounted(() => {
             <UiParentCard title="Základní informace">
               <v-row>
                 <v-col cols="12">
-                  <v-text-field
-                    v-model="formData.name"
-                    label="Název pohybu *"
+                  <!-- **NOVÉ: Autocomplete pro dodavatele místo textového pole** -->
+                  <v-autocomplete
+                    v-model="selectedSupplierId"
+                    v-model:search="supplierSearchQuery"
+                    :items="autocompleteSuppliers"
+                    item-title="name"
+                    item-value="id"
+                    label="Dodavatel *"
                     variant="outlined"
                     density="comfortable"
-                    prepend-inner-icon="mdi-file-document"
+                    prepend-inner-icon="mdi-domain"
+                    :loading="loadingSupplierAutocomplete"
                     :rules="[rules.required]"
-                    hint="Např. 'Příjem zboží od dodavatele'"
+                    placeholder="Začněte psát pro vyhledání dodavatele..."
+                    hint="Vyberte dodavatele - název se automaticky doplní"
                     persistent-hint
-                  ></v-text-field>
+                    no-filter
+                    clearable
+                  >
+                    <template v-slot:item="{ props: itemProps, item }">
+                      <v-list-item v-bind="itemProps">
+                        <template v-slot:prepend>
+                          <v-icon color="primary">mdi-domain</v-icon>
+                        </template>
+                        <v-list-item-title>{{ item.raw.name }}</v-list-item-title>
+                        <v-list-item-subtitle class="text-caption">
+                          {{ item.raw.website || 'Bez webové stránky' }}
+                        </v-list-item-subtitle>
+                      </v-list-item>
+                    </template>
+
+                    <template v-slot:no-data>
+                      <v-list-item>
+                        <v-list-item-title>
+                          {{ supplierSearchQuery.length < 2
+                            ? 'Začněte psát pro vyhledání dodavatelů (min. 2 znaky)'
+                            : 'Žádní dodavatelé nenalezeni' }}
+                        </v-list-item-title>
+                      </v-list-item>
+                    </template>
+                  </v-autocomplete>
                 </v-col>
 
                 <v-col cols="12" md="6">

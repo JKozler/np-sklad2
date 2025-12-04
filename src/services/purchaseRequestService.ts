@@ -19,6 +19,7 @@ export interface PurchaseRequest {
 }
 
 export interface CreatePurchaseRequestData {
+  name?: string;
   status: 'New' | 'Ignored' | 'Purchased' | 'Done';
   productName: string;
   productId: string;
@@ -35,6 +36,7 @@ export interface CreatePurchaseRequestData {
 }
 
 export interface UpdatePurchaseRequestData {
+  name?: string;
   status?: 'New' | 'Ignored' | 'Purchased' | 'Done';
   productName?: string;
   productId?: string;

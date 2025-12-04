@@ -39,6 +39,7 @@ const {
 
 // Formulářová data
 const formData = ref<CreatePurchaseRequestData>({
+  name: '',
   status: 'New',
   productName: '',
   productId: '',
@@ -190,6 +191,7 @@ const unignoreRequest = async (request: PurchaseRequest) => {
 const openCreateDialog = () => {
   editingRequest.value = null;
   formData.value = {
+    name: '',
     status: 'New',
     productName: '',
     productId: '',
@@ -211,6 +213,7 @@ const openCreateDialog = () => {
 const openEditDialog = (request: PurchaseRequest) => {
   editingRequest.value = request;
   formData.value = {
+    name: request.name || '',
     status: request.status,
     productName: request.productName || '',
     productId: request.productId || '',
@@ -246,6 +249,7 @@ const saveRequest = async () => {
   try {
     if (editingRequest.value) {
       await purchaseRequestService.update(editingRequest.value.id, {
+        name: formData.value.name,
         status: formData.value.status,
         productName: formData.value.productName,
         productId: formData.value.productId,
@@ -631,6 +635,17 @@ onMounted(() => {
       <v-card-text class="pt-4">
         <v-form>
           <v-row>
+            <v-col cols="12">
+              <v-text-field
+                v-model="formData.name"
+                label="Název žádosti"
+                variant="outlined"
+                density="comfortable"
+                prepend-inner-icon="mdi-file-document"
+                placeholder="Např. 'Objednávka surovin'"
+              ></v-text-field>
+            </v-col>
+
             <v-col cols="12">
               <v-autocomplete
                 v-model="formData.productId"
