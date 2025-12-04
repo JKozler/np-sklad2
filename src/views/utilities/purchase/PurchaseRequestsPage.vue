@@ -64,6 +64,10 @@ const unignoreTargetRequest = ref<PurchaseRequest | null>(null);
 const showDeleteDialog = ref(false);
 const deleteTargetRequest = ref<PurchaseRequest | null>(null);
 
+// Kanban view
+const viewMode = ref<'kanban' | 'table'>('kanban');
+const draggedItem = ref<PurchaseRequest | null>(null);
+
 // Autocomplete pro produkty
 const {
   products: autocompleteProducts,
@@ -168,15 +172,18 @@ const loadRequests = async () => {
   try {
     const filters: any = {};
 
-    // Filtr podle aktivního tabu
-    if (activeTab.value === 'new') {
-      filters.status = 'New';
-    } else if (activeTab.value === 'ignored') {
-      filters.status = 'Ignored';
-    } else if (activeTab.value === 'purchased') {
-      filters.status = 'Purchased';
-    } else if (activeTab.value === 'done') {
-      filters.status = 'Done';
+    // V Kanban módu načti všechny, jinak filtruj podle tabu
+    if (viewMode.value === 'table') {
+      // Filtr podle aktivního tabu
+      if (activeTab.value === 'new') {
+        filters.status = 'New';
+      } else if (activeTab.value === 'ignored') {
+        filters.status = 'Ignored';
+      } else if (activeTab.value === 'purchased') {
+        filters.status = 'Purchased';
+      } else if (activeTab.value === 'done') {
+        filters.status = 'Done';
+      }
     }
 
     // Přidej search filtr pokud je zadán
@@ -185,7 +192,7 @@ const loadRequests = async () => {
     }
 
     const response = await purchaseRequestService.getAll(filters, {
-      maxSize: itemsPerPage.value,
+      maxSize: viewMode.value === 'kanban' ? 500 : itemsPerPage.value,
       offset: currentOffset.value
     });
 
@@ -461,6 +468,53 @@ watch(searchQuery, () => {
   loadRequests();
 });
 
+watch(viewMode, () => {
+  currentOffset.value = 0;
+  loadRequests();
+});
+
+// Drag and drop handlers
+const handleDragStart = (event: DragEvent, item: PurchaseRequest) => {
+  draggedItem.value = item;
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move';
+  }
+};
+
+const handleDragEnd = () => {
+  draggedItem.value = null;
+};
+
+const handleDragOver = (event: DragEvent) => {
+  event.preventDefault();
+  if (event.dataTransfer) {
+    event.dataTransfer.dropEffect = 'move';
+  }
+};
+
+const handleDrop = async (event: DragEvent, targetStatus: PurchaseRequest['status']) => {
+  event.preventDefault();
+
+  if (!draggedItem.value || draggedItem.value.status === targetStatus) {
+    draggedItem.value = null;
+    return;
+  }
+
+  try {
+    await purchaseRequestService.updateStatus(draggedItem.value.id, targetStatus);
+    await loadRequests();
+    draggedItem.value = null;
+  } catch (err: any) {
+    error.value = err.message || 'Chyba při změně statusu';
+    console.error('Chyba při drag & drop:', err);
+    draggedItem.value = null;
+  }
+};
+
+const getRequestsByStatus = (status: PurchaseRequest['status']) => {
+  return requests.value.filter(r => r.status === status);
+};
+
 onMounted(() => {
   loadRequests();
 });
@@ -594,7 +648,24 @@ onMounted(() => {
               Zobrazeny žádosti: <strong>{{ activeTab === 'new' ? 'Nové' : activeTab === 'purchased' ? 'Objednáno' : activeTab === 'done' ? 'Hotovo' : activeTab === 'ignored' ? 'Ignorováno' : 'Vše' }}</strong>
             </div>
 
-            <div class="d-flex gap-2">
+            <div class="d-flex gap-2 align-center">
+              <v-btn-toggle
+                v-model="viewMode"
+                color="primary"
+                variant="outlined"
+                mandatory
+                density="comfortable"
+              >
+                <v-btn value="kanban" size="small">
+                  <v-icon start>mdi-view-column</v-icon>
+                  Kanban
+                </v-btn>
+                <v-btn value="table" size="small">
+                  <v-icon start>mdi-table</v-icon>
+                  Tabulka
+                </v-btn>
+              </v-btn-toggle>
+
               <v-btn
                 color="primary"
                 prepend-icon="mdi-refresh"
@@ -602,13 +673,6 @@ onMounted(() => {
                 :loading="loading"
               >
                 Obnovit
-              </v-btn>
-              <v-btn
-                color="success"
-                prepend-icon="mdi-plus"
-                @click="openCreateDialog"
-              >
-                Nová žádost
               </v-btn>
             </div>
           </div>
@@ -639,8 +703,238 @@ onMounted(() => {
           <strong>Chyba:</strong> {{ error }}
         </v-alert>
 
+        <!-- Kanban Board -->
+        <div v-if="viewMode === 'kanban'" class="kanban-board">
+          <div class="kanban-columns">
+            <!-- Nové -->
+            <div
+              class="kanban-column"
+              @dragover="handleDragOver"
+              @drop="handleDrop($event, 'New')"
+            >
+              <div class="kanban-column-header new-header">
+                <div class="d-flex align-center">
+                  <v-icon class="mr-2" color="warning">mdi-alert-circle</v-icon>
+                  <span class="font-weight-bold">Nové</span>
+                </div>
+                <v-chip size="small" color="warning" variant="tonal">
+                  {{ getRequestsByStatus('New').length }}
+                </v-chip>
+              </div>
+              <div class="kanban-column-content">
+                <div
+                  v-for="item in getRequestsByStatus('New')"
+                  :key="item.id"
+                  class="kanban-card"
+                  draggable="true"
+                  @dragstart="handleDragStart($event, item)"
+                  @dragend="handleDragEnd"
+                >
+                  <div class="kanban-card-title">{{ item.name }}</div>
+                  <div
+                    v-if="item.productId && item.productName"
+                    class="kanban-card-product"
+                    @click="router.push(`/products/${item.productId}`)"
+                  >
+                    <v-icon size="x-small" class="mr-1">mdi-package-variant</v-icon>
+                    {{ item.productName }}
+                    <v-icon size="x-small" class="ml-1">mdi-open-in-new</v-icon>
+                  </div>
+                  <div v-if="item.descriptionSmall" class="kanban-card-description" v-html="item.descriptionSmall"></div>
+                  <div v-if="item.expectedDate" class="kanban-card-date">
+                    <v-icon size="x-small" class="mr-1">mdi-calendar</v-icon>
+                    {{ formatDate(item.expectedDate) }}
+                  </div>
+                  <div class="kanban-card-actions">
+                    <v-btn
+                      icon
+                      size="x-small"
+                      variant="text"
+                      @click="openEditDialog(item)"
+                    >
+                      <v-icon size="small">mdi-pencil</v-icon>
+                    </v-btn>
+                  </div>
+                </div>
+                <div v-if="getRequestsByStatus('New').length === 0" class="kanban-empty">
+                  Žádné položky
+                </div>
+              </div>
+            </div>
+
+            <!-- Objednáno -->
+            <div
+              class="kanban-column"
+              @dragover="handleDragOver"
+              @drop="handleDrop($event, 'Purchased')"
+            >
+              <div class="kanban-column-header purchased-header">
+                <div class="d-flex align-center">
+                  <v-icon class="mr-2" color="info">mdi-cart</v-icon>
+                  <span class="font-weight-bold">Objednáno</span>
+                </div>
+                <v-chip size="small" color="info" variant="tonal">
+                  {{ getRequestsByStatus('Purchased').length }}
+                </v-chip>
+              </div>
+              <div class="kanban-column-content">
+                <div
+                  v-for="item in getRequestsByStatus('Purchased')"
+                  :key="item.id"
+                  class="kanban-card"
+                  draggable="true"
+                  @dragstart="handleDragStart($event, item)"
+                  @dragend="handleDragEnd"
+                >
+                  <div class="kanban-card-title">{{ item.name }}</div>
+                  <div
+                    v-if="item.productId && item.productName"
+                    class="kanban-card-product"
+                    @click="router.push(`/products/${item.productId}`)"
+                  >
+                    <v-icon size="x-small" class="mr-1">mdi-package-variant</v-icon>
+                    {{ item.productName }}
+                    <v-icon size="x-small" class="ml-1">mdi-open-in-new</v-icon>
+                  </div>
+                  <div v-if="item.descriptionSmall" class="kanban-card-description" v-html="item.descriptionSmall"></div>
+                  <div v-if="item.expectedDate" class="kanban-card-date">
+                    <v-icon size="x-small" class="mr-1">mdi-calendar</v-icon>
+                    {{ formatDate(item.expectedDate) }}
+                  </div>
+                  <div class="kanban-card-actions">
+                    <v-btn
+                      icon
+                      size="x-small"
+                      variant="text"
+                      @click="openEditDialog(item)"
+                    >
+                      <v-icon size="small">mdi-pencil</v-icon>
+                    </v-btn>
+                  </div>
+                </div>
+                <div v-if="getRequestsByStatus('Purchased').length === 0" class="kanban-empty">
+                  Žádné položky
+                </div>
+              </div>
+            </div>
+
+            <!-- Hotovo -->
+            <div
+              class="kanban-column"
+              @dragover="handleDragOver"
+              @drop="handleDrop($event, 'Done')"
+            >
+              <div class="kanban-column-header done-header">
+                <div class="d-flex align-center">
+                  <v-icon class="mr-2" color="success">mdi-check-circle</v-icon>
+                  <span class="font-weight-bold">Hotovo</span>
+                </div>
+                <v-chip size="small" color="success" variant="tonal">
+                  {{ getRequestsByStatus('Done').length }}
+                </v-chip>
+              </div>
+              <div class="kanban-column-content">
+                <div
+                  v-for="item in getRequestsByStatus('Done')"
+                  :key="item.id"
+                  class="kanban-card"
+                  draggable="true"
+                  @dragstart="handleDragStart($event, item)"
+                  @dragend="handleDragEnd"
+                >
+                  <div class="kanban-card-title">{{ item.name }}</div>
+                  <div
+                    v-if="item.productId && item.productName"
+                    class="kanban-card-product"
+                    @click="router.push(`/products/${item.productId}`)"
+                  >
+                    <v-icon size="x-small" class="mr-1">mdi-package-variant</v-icon>
+                    {{ item.productName }}
+                    <v-icon size="x-small" class="ml-1">mdi-open-in-new</v-icon>
+                  </div>
+                  <div v-if="item.descriptionSmall" class="kanban-card-description" v-html="item.descriptionSmall"></div>
+                  <div class="kanban-card-date">
+                    <v-icon size="x-small" class="mr-1">mdi-calendar</v-icon>
+                    {{ formatDate(item.createdAt) }}
+                  </div>
+                  <div class="kanban-card-actions">
+                    <v-btn
+                      icon
+                      size="x-small"
+                      variant="text"
+                      @click="openEditDialog(item)"
+                    >
+                      <v-icon size="small">mdi-pencil</v-icon>
+                    </v-btn>
+                  </div>
+                </div>
+                <div v-if="getRequestsByStatus('Done').length === 0" class="kanban-empty">
+                  Žádné položky
+                </div>
+              </div>
+            </div>
+
+            <!-- Ignorováno -->
+            <div
+              class="kanban-column"
+              @dragover="handleDragOver"
+              @drop="handleDrop($event, 'Ignored')"
+            >
+              <div class="kanban-column-header ignored-header">
+                <div class="d-flex align-center">
+                  <v-icon class="mr-2">mdi-eye-off</v-icon>
+                  <span class="font-weight-bold">Ignorováno</span>
+                </div>
+                <v-chip size="small" variant="tonal">
+                  {{ getRequestsByStatus('Ignored').length }}
+                </v-chip>
+              </div>
+              <div class="kanban-column-content">
+                <div
+                  v-for="item in getRequestsByStatus('Ignored')"
+                  :key="item.id"
+                  class="kanban-card"
+                  draggable="true"
+                  @dragstart="handleDragStart($event, item)"
+                  @dragend="handleDragEnd"
+                >
+                  <div class="kanban-card-title">{{ item.name }}</div>
+                  <div
+                    v-if="item.productId && item.productName"
+                    class="kanban-card-product"
+                    @click="router.push(`/products/${item.productId}`)"
+                  >
+                    <v-icon size="x-small" class="mr-1">mdi-package-variant</v-icon>
+                    {{ item.productName }}
+                    <v-icon size="x-small" class="ml-1">mdi-open-in-new</v-icon>
+                  </div>
+                  <div v-if="item.descriptionSmall" class="kanban-card-description" v-html="item.descriptionSmall"></div>
+                  <div v-if="item.ignoredReason" class="kanban-card-note">
+                    <v-icon size="x-small" class="mr-1">mdi-comment-text</v-icon>
+                    {{ item.ignoredReason }}
+                  </div>
+                  <div class="kanban-card-actions">
+                    <v-btn
+                      icon
+                      size="x-small"
+                      variant="text"
+                      @click="openEditDialog(item)"
+                    >
+                      <v-icon size="small">mdi-pencil</v-icon>
+                    </v-btn>
+                  </div>
+                </div>
+                <div v-if="getRequestsByStatus('Ignored').length === 0" class="kanban-empty">
+                  Žádné položky
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Tabulka -->
         <v-data-table
+          v-else
           :headers="headers"
           :items="requests"
           :loading="loading"
@@ -653,7 +947,18 @@ onMounted(() => {
           </template>
 
           <template v-slot:item.name="{ item }">
-            <div class="font-weight-medium">{{ item.name }}</div>
+            <div>
+              <div class="font-weight-medium">{{ item.name }}</div>
+              <div
+                v-if="item.productId && item.productName"
+                class="text-caption product-link"
+                @click="router.push(`/products/${item.productId}`)"
+              >
+                <v-icon size="x-small" class="mr-1">mdi-package-variant</v-icon>
+                {{ item.productName }}
+                <v-icon size="x-small" class="ml-1">mdi-open-in-new</v-icon>
+              </div>
+            </div>
           </template>
 
           <template v-slot:item.status="{ item }">
@@ -704,20 +1009,6 @@ onMounted(() => {
                 </template>
               </v-tooltip>
 
-              <v-tooltip text="Smazat" location="top">
-                <template v-slot:activator="{ props }">
-                  <v-btn
-                    v-bind="props"
-                    icon
-                    size="small"
-                    variant="text"
-                    color="error"
-                    @click="openDeleteDialog(item)"
-                  >
-                    <v-icon>mdi-delete</v-icon>
-                  </v-btn>
-                </template>
-              </v-tooltip>
 
               <v-tooltip v-if="item.status === 'New'" text="Označit jako objednáno" location="top">
                 <template v-slot:activator="{ props }">
@@ -1260,5 +1551,155 @@ onMounted(() => {
 :deep(.expected-date) {
   font-weight: bold;
   color: #4caf50;
+}
+
+.product-link {
+  cursor: pointer;
+  color: rgb(var(--v-theme-primary));
+  transition: all 0.2s;
+}
+
+.product-link:hover {
+  text-decoration: underline;
+}
+
+/* Kanban Board Styles */
+.kanban-board {
+  width: 100%;
+  overflow-x: auto;
+  padding: 16px 0;
+}
+
+.kanban-columns {
+  display: flex;
+  gap: 16px;
+  min-width: max-content;
+}
+
+.kanban-column {
+  flex: 1;
+  min-width: 280px;
+  max-width: 350px;
+  background: #f5f5f5;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  max-height: 70vh;
+}
+
+.kanban-column-header {
+  padding: 12px 16px;
+  border-radius: 8px 8px 0 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+  border-bottom: 2px solid rgba(0, 0, 0, 0.1);
+}
+
+.new-header {
+  background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
+}
+
+.purchased-header {
+  background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+}
+
+.done-header {
+  background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+}
+
+.ignored-header {
+  background: linear-gradient(135deg, #f5f5f5 0%, #e0e0e0 100%);
+}
+
+.kanban-column-content {
+  padding: 8px;
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.kanban-card {
+  background: white;
+  border-radius: 8px;
+  padding: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  cursor: grab;
+  transition: all 0.2s;
+  border-left: 4px solid transparent;
+}
+
+.kanban-card:hover {
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+  transform: translateY(-2px);
+}
+
+.kanban-card:active {
+  cursor: grabbing;
+  opacity: 0.7;
+}
+
+.kanban-card-title {
+  font-weight: 600;
+  font-size: 14px;
+  margin-bottom: 8px;
+  color: #333;
+}
+
+.kanban-card-product {
+  font-size: 12px;
+  color: rgb(var(--v-theme-primary));
+  margin-bottom: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  transition: all 0.2s;
+}
+
+.kanban-card-product:hover {
+  text-decoration: underline;
+}
+
+.kanban-card-description {
+  font-size: 12px;
+  color: #666;
+  margin-bottom: 8px;
+  line-height: 1.4;
+}
+
+.kanban-card-date {
+  font-size: 11px;
+  color: #999;
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.kanban-card-note {
+  font-size: 11px;
+  color: #999;
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+  font-style: italic;
+}
+
+.kanban-card-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+  margin-top: 4px;
+  border-top: 1px solid #f0f0f0;
+  padding-top: 8px;
+}
+
+.kanban-empty {
+  text-align: center;
+  padding: 24px;
+  color: #999;
+  font-size: 13px;
 }
 </style>

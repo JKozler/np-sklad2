@@ -39,6 +39,7 @@ export interface Product {
   accountsIds?: string[]; // Nový atribut - pole ID dodavatelů
   accountsNames?: Record<string, string>; // Nový atribut - mapování ID na jména dodavatelů
   accountsColumns?: Record<string, { supplierSku: string | null; costPrice: number | null }>; // Nový atribut - data dodavatelů
+  minimumStockQuantity?: number; // Minimální skladové množství
 }
 
 export interface ProductsResponse {
@@ -101,6 +102,7 @@ export interface UpdateProductData {
   accountsIds?: string[];
   accountsNames?: Record<string, string>;
   accountsColumns?: Record<string, { supplierSku: string | null; costPrice: number | null }>;
+  minimumStockQuantity?: number;
 }
 
 export const productsService = {

@@ -70,23 +70,39 @@ class PurchaseRequestService {
     const params = new URLSearchParams();
 
     // Výchozí parametry
-    params.append('select', 'createdAt,ignoredReason,ignoredUntil,expectedDate,status,descriptionSmall,name');
+    params.append('select', 'createdAt,ignoredReason,ignoredUntil,expectedDate,status,descriptionSmall,name,productId,productName');
     params.append('maxSize', queryParams?.maxSize?.toString() || '100');
     params.append('offset', queryParams?.offset?.toString() || '0');
     params.append('orderBy', queryParams?.orderBy || 'expectedDate');
     params.append('order', queryParams?.order || 'asc');
 
+    let whereIndex = 0;
+
     // Přidání filtrů
     if (filters?.status) {
-      params.append('where[0][type]', 'equals');
-      params.append('where[0][attribute]', 'status');
-      params.append('where[0][value]', filters.status);
+      params.append(`where[${whereIndex}][type]`, 'equals');
+      params.append(`where[${whereIndex}][attribute]`, 'status');
+      params.append(`where[${whereIndex}][value]`, filters.status);
+      whereIndex++;
     }
 
     if (filters?.search) {
-      params.append('where[1][type]', 'contains');
-      params.append('where[1][attribute]', 'name');
-      params.append('where[1][value]', filters.search);
+      params.append(`where[${whereIndex}][type]`, 'contains');
+      params.append(`where[${whereIndex}][attribute]`, 'name');
+      params.append(`where[${whereIndex}][value]`, filters.search);
+      whereIndex++;
+    }
+
+    // Pokud je status "Done", přidej filtr pro posledních 7 dní
+    if (filters?.status === 'Done') {
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      const dateStr = sevenDaysAgo.toISOString().split('T')[0]; // Format: YYYY-MM-DD
+
+      params.append(`where[${whereIndex}][type]`, 'after');
+      params.append(`where[${whereIndex}][attribute]`, 'createdAt');
+      params.append(`where[${whereIndex}][value]`, dateStr);
+      whereIndex++;
     }
 
     // Vlastní query params
