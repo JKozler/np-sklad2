@@ -153,135 +153,133 @@ const clearSearch = () => {
 };
 
 /**
- * Obsluha focus/blur pro zobrazení výsledků
+ * Obsluha focus pro zobrazení výsledků
  */
 const handleFocus = () => {
   if (searchResults.value.length > 0) {
     showResults.value = true;
   }
 };
-
-const handleBlur = () => {
-  // Timeout kvůli kliku na výsledek
-  setTimeout(() => {
-    showResults.value = false;
-  }, 200);
-};
 </script>
 
 <template>
   <div class="global-search-wrapper">
-    <v-text-field
-      v-model="searchQuery"
-      prepend-inner-icon="mdi-magnify"
-      placeholder="Globální vyhledávání..."
-      variant="outlined"
-      density="compact"
-      hide-details
-      clearable
-      @focus="handleFocus"
-      @blur="handleBlur"
-      @click:clear="clearSearch"
-      class="global-search-input"
-    >
-      <template v-slot:append-inner>
-        <v-progress-circular
-          v-if="loading"
-          indeterminate
-          size="20"
-          width="2"
-          color="primary"
-        ></v-progress-circular>
-      </template>
-    </v-text-field>
-
-    <!-- Výsledky vyhledávání -->
-    <v-card
-      v-if="showResults"
-      class="search-results-card elevation-8"
+    <v-menu
+      v-model="showResults"
+      :close-on-content-click="false"
+      location="bottom"
+      offset="8"
       max-height="400"
     >
-      <!-- Loading state -->
-      <div v-if="loading" class="pa-4 text-center">
-        <v-progress-circular indeterminate color="primary"></v-progress-circular>
-        <div class="text-caption mt-2">Vyhledávám...</div>
-      </div>
-
-      <!-- Error state -->
-      <v-alert
-        v-else-if="error"
-        type="error"
-        variant="tonal"
-        density="compact"
-        class="ma-2"
-      >
-        {{ error }}
-      </v-alert>
-
-      <!-- No results -->
-      <div v-else-if="searchResults.length === 0 && searchQuery.length >= 2" class="pa-4 text-center">
-        <v-icon size="48" color="grey-lighten-1">mdi-magnify</v-icon>
-        <div class="text-subtitle-2 mt-2">Žádné výsledky</div>
-        <div class="text-caption text-medium-emphasis">
-          Pro výraz "{{ searchQuery }}" nebyly nalezeny žádné záznamy
-        </div>
-      </div>
-
-      <!-- Results list -->
-      <v-list v-else density="compact">
-        <v-list-subheader v-if="searchResults.length > 0">
-          Nalezeno {{ searchResults.length }} výsledků
-        </v-list-subheader>
-
-        <v-list-item
-          v-for="result in searchResults"
-          :key="`${result.entityType}-${result.id}`"
-          @click="navigateToResult(result)"
-          class="search-result-item"
+      <template v-slot:activator="{ props }">
+        <v-text-field
+          v-model="searchQuery"
+          prepend-inner-icon="mdi-magnify"
+          placeholder="Globální vyhledávání..."
+          variant="outlined"
+          density="compact"
+          hide-details
+          clearable
+          @focus="handleFocus"
+          @click:clear="clearSearch"
+          class="global-search-input"
+          v-bind="props"
         >
-          <template v-slot:prepend>
-            <v-avatar :color="getEntityColor(result.entityType)" size="40" variant="tonal">
-              <v-icon :icon="getEntityIcon(result.entityType)"></v-icon>
-            </v-avatar>
+          <template v-slot:append-inner>
+            <v-progress-circular
+              v-if="loading"
+              indeterminate
+              size="20"
+              width="2"
+              color="primary"
+            ></v-progress-circular>
           </template>
+        </v-text-field>
+      </template>
 
-          <v-list-item-title class="font-weight-medium">
-            {{ result.name }}
-          </v-list-item-title>
+      <!-- Výsledky vyhledávání -->
+      <v-card class="search-results-card elevation-8">
+        <!-- Loading state -->
+        <div v-if="loading" class="pa-4 text-center">
+          <v-progress-circular indeterminate color="primary"></v-progress-circular>
+          <div class="text-caption mt-2">Vyhledávám...</div>
+        </div>
 
-          <v-list-item-subtitle>
-            <v-chip 
-              :color="getEntityColor(result.entityType)" 
-              size="x-small" 
-              variant="tonal"
-              class="mr-2"
-            >
-              {{ getEntityLabel(result.entityType) }}
-            </v-chip>
-            <span v-if="result.code" class="text-caption">
-              Kód: {{ result.code }}
-            </span>
-          </v-list-item-subtitle>
+        <!-- Error state -->
+        <v-alert
+          v-else-if="error"
+          type="error"
+          variant="tonal"
+          density="compact"
+          class="ma-2"
+        >
+          {{ error }}
+        </v-alert>
 
-          <template v-slot:append>
-            <v-icon size="small">mdi-chevron-right</v-icon>
-          </template>
-        </v-list-item>
-      </v-list>
+        <!-- No results -->
+        <div v-else-if="searchResults.length === 0 && searchQuery.length >= 2" class="pa-4 text-center">
+          <v-icon size="48" color="grey-lighten-1">mdi-magnify</v-icon>
+          <div class="text-subtitle-2 mt-2">Žádné výsledky</div>
+          <div class="text-caption text-medium-emphasis">
+            Pro výraz "{{ searchQuery }}" nebyly nalezeny žádné záznamy
+          </div>
+        </div>
 
-      <!-- Footer s tipem -->
-      <v-divider></v-divider>
-      <div class="pa-2 text-center text-caption text-medium-emphasis">
-        <v-icon size="small" class="mr-1">mdi-information-outline</v-icon>
-        Vyhledávání minimálně 2 znaky
-      </div>
-    </v-card>
+        <!-- Results list -->
+        <v-list v-else density="compact">
+          <v-list-subheader v-if="searchResults.length > 0">
+            Nalezeno {{ searchResults.length }} výsledků
+          </v-list-subheader>
+
+          <v-list-item
+            v-for="result in searchResults"
+            :key="`${result.entityType}-${result.id}`"
+            @click="navigateToResult(result)"
+            class="search-result-item"
+          >
+            <template v-slot:prepend>
+              <v-avatar :color="getEntityColor(result.entityType)" size="40" variant="tonal">
+                <v-icon :icon="getEntityIcon(result.entityType)"></v-icon>
+              </v-avatar>
+            </template>
+
+            <v-list-item-title class="font-weight-medium">
+              {{ result.name }}
+            </v-list-item-title>
+
+            <v-list-item-subtitle>
+              <v-chip
+                :color="getEntityColor(result.entityType)"
+                size="x-small"
+                variant="tonal"
+                class="mr-2"
+              >
+                {{ getEntityLabel(result.entityType) }}
+              </v-chip>
+              <span v-if="result.code" class="text-caption">
+                Kód: {{ result.code }}
+              </span>
+            </v-list-item-subtitle>
+
+            <template v-slot:append>
+              <v-icon size="small">mdi-chevron-right</v-icon>
+            </template>
+          </v-list-item>
+        </v-list>
+
+        <!-- Footer s tipem -->
+        <v-divider></v-divider>
+        <div class="pa-2 text-center text-caption text-medium-emphasis">
+          <v-icon size="small" class="mr-1">mdi-information-outline</v-icon>
+          Vyhledávání minimálně 2 znaky
+        </div>
+      </v-card>
+    </v-menu>
   </div>
 </template>
 
 <style scoped>
 .global-search-wrapper {
-  position: relative;
   width: 100%;
   max-width: 400px;
 }
@@ -291,11 +289,7 @@ const handleBlur = () => {
 }
 
 .search-results-card {
-  position: absolute;
-  top: calc(100% + 8px);
-  left: 0;
-  right: 0;
-  z-index: 1000;
+  min-width: 400px;
   overflow-y: auto;
 }
 
@@ -311,6 +305,10 @@ const handleBlur = () => {
 @media (max-width: 600px) {
   .global-search-wrapper {
     max-width: 100%;
+  }
+
+  .search-results-card {
+    min-width: 100%;
   }
 }
 </style>
