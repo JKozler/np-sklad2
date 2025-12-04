@@ -169,8 +169,8 @@ const formatDate = (dateString: string) => {
   return new Date(dateString).toLocaleDateString('cs-CZ');
 };
 
-const formatWebsiteUrl = (url: string | null): string | null => {
-  if (!url) return null;
+const formatWebsiteUrl = (url: string | null): string => {
+  if (!url) return '';
   // Pokud URL již obsahuje protokol, vrať ji tak jak je
   if (url.startsWith('http://') || url.startsWith('https://')) {
     return url;
