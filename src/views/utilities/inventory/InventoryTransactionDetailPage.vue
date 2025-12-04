@@ -929,6 +929,9 @@ onMounted(() => {
               suffix="Kč"
               prepend-inner-icon="mdi-currency-usd"
               step="0.01"
+              :disabled="transaction?.transactionDirection === 'typPohybu.vydej'"
+              :hint="transaction?.transactionDirection === 'typPohybu.vydej' ? 'Cenu u výdejek nelze editovat' : ''"
+              persistent-hint
             ></v-text-field>
           </v-col>
 

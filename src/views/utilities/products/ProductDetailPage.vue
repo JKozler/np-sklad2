@@ -356,7 +356,8 @@ const loadProduct = async () => {
       isStockItem: product.value.isStockItem,
       vatRate: product.value.vatRate,
       productGroupId: product.value.productGroupId,
-      uomId: product.value.uomId || undefined
+      uomId: product.value.uomId || undefined,
+      minimumStockQuantity: product.value.minimumStockQuantity
     };
 
     // Automaticky načti skladové karty, transakce a dodavatele
@@ -493,7 +494,8 @@ const toggleEditMode = () => {
       isStockItem: product.value.isStockItem,
       vatRate: product.value.vatRate,
       productGroupId: product.value.productGroupId,
-      uomId: product.value.uomId || undefined
+      uomId: product.value.uomId || undefined,
+      minimumStockQuantity: product.value.minimumStockQuantity
     };
   }
   editMode.value = !editMode.value;
@@ -1334,6 +1336,36 @@ onMounted(() => {
                 <div>
                   <div class="text-subtitle-2 text-medium-emphasis">Skupina produktů</div>
                   <div class="text-body-1 font-weight-medium mt-2">{{ product.productGroupName || '—' }}</div>
+                </div>
+              </v-col>
+
+              <v-col cols="12" md="6">
+                <v-text-field
+                  v-if="editMode"
+                  v-model.number="editData.minimumStockQuantity"
+                  label="Minimální skladové množství"
+                  type="number"
+                  variant="outlined"
+                  density="comfortable"
+                  min="0"
+                  step="0.01"
+                  prepend-inner-icon="mdi-alert"
+                  hint="Minimální množství na skladě před upozorněním"
+                  persistent-hint
+                ></v-text-field>
+                <div v-else>
+                  <div class="text-subtitle-2 text-medium-emphasis">Minimální skladové množství</div>
+                  <v-chip
+                    v-if="product.minimumStockQuantity !== null && product.minimumStockQuantity !== undefined"
+                    :color="totalStockQuantity < product.minimumStockQuantity ? 'error' : 'success'"
+                    class="mt-2"
+                  >
+                    <v-icon start size="small">
+                      {{ totalStockQuantity < product.minimumStockQuantity ? 'mdi-alert-circle' : 'mdi-check-circle' }}
+                    </v-icon>
+                    {{ product.minimumStockQuantity }} {{ product.uomName || 'ks' }}
+                  </v-chip>
+                  <div v-else class="text-body-1 font-weight-medium mt-2">—</div>
                 </div>
               </v-col>
             </v-row>
