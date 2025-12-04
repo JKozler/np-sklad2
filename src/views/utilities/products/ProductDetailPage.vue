@@ -10,6 +10,8 @@ import { inventoryCardService } from '@/services/inventoryCardService';
 import type { InventoryCard } from '@/services/inventoryCardService';
 import { inventoryTransactionService } from '@/services/inventoryTransactionService';
 import type { InventoryTransaction } from '@/services/inventoryTransactionService';
+import { accountService } from '@/services/accountService';
+import type { AccountListItem } from '@/services/accountService';
 
 const route = useRoute();
 const router = useRouter();
@@ -55,6 +57,14 @@ const photoInput = ref<HTMLInputElement | null>(null);
 // **NOVÉ: Grafy**
 const transactions = ref<InventoryTransaction[]>([]);
 const loadingTransactions = ref(false);
+
+// **NOVÉ: Dodavatelé**
+const suppliers = ref<AccountListItem[]>([]);
+const loadingSuppliers = ref(false);
+const searchSuppliers = ref('');
+const availableSuppliers = ref<AccountListItem[]>([]);
+const selectedSupplierIds = ref<string[]>([]);
+const supplierData = ref<Record<string, { supplierSku: string | null; costPrice: number | null }>>({});
 
 const inventoryCardHeaders = ref([
   { title: 'Sklad / Období', key: 'warehouseName', sortable: true },
@@ -349,9 +359,10 @@ const loadProduct = async () => {
       uomId: product.value.uomId || undefined
     };
 
-    // Automaticky načti skladové karty a transakce
+    // Automaticky načti skladové karty, transakce a dodavatele
     await loadInventoryCards();
     await loadTransactions();
+    await loadSuppliers();
   } catch (err: any) {
     error.value = err.message || 'Chyba při načítání produktu';
     console.error('Chyba při načítání produktu:', err);
@@ -398,6 +409,76 @@ const loadTransactions = async () => {
   }
 };
 
+/**
+ * **NOVÉ: Načte dodavatele pro autocomplete**
+ */
+const searchSuppliersDebounced = async (query: string) => {
+  if (!query || query.length < 2) {
+    availableSuppliers.value = [];
+    return;
+  }
+
+  loadingSuppliers.value = true;
+
+  try {
+    const response = await accountService.getSuppliers({
+      searchText: query.trim(),
+      maxSize: 50,
+      offset: 0,
+      orderBy: 'name',
+      order: 'asc'
+    });
+    availableSuppliers.value = response.list;
+    console.log('🔍 Nalezeno dodavatelů:', availableSuppliers.value.length);
+  } catch (err: any) {
+    console.error('❌ Chyba při vyhledávání dodavatelů:', err);
+    availableSuppliers.value = [];
+  } finally {
+    loadingSuppliers.value = false;
+  }
+};
+
+/**
+ * **NOVÉ: Načte dodavatele produktu**
+ */
+const loadSuppliers = async () => {
+  if (!product.value?.accountsIds || product.value.accountsIds.length === 0) {
+    suppliers.value = [];
+    selectedSupplierIds.value = [];
+    supplierData.value = {};
+    return;
+  }
+
+  loadingSuppliers.value = true;
+
+  try {
+    // Načti detaily všech dodavatelů
+    const supplierPromises = product.value.accountsIds.map(id => accountService.getById(id));
+    const suppliersData = await Promise.all(supplierPromises);
+
+    suppliers.value = suppliersData.map(s => ({
+      id: s.id,
+      name: s.name,
+      website: s.website,
+      type: s.type,
+      billingAddressCountry: s.billingAddressCountry,
+      createdAt: s.createdAt,
+      createdById: s.createdById,
+      assignedUserId: s.assignedUserId,
+      isStarred: s.isStarred
+    }));
+
+    selectedSupplierIds.value = [...product.value.accountsIds];
+    supplierData.value = { ...(product.value.accountsColumns || {}) };
+
+    console.log('✅ Načteno dodavatelů:', suppliers.value.length);
+  } catch (err: any) {
+    console.error('❌ Chyba při načítání dodavatelů:', err);
+  } finally {
+    loadingSuppliers.value = false;
+  }
+};
+
 const toggleEditMode = () => {
   if (editMode.value && product.value) {
     // Zrušení editace - obnovit původní data
@@ -420,22 +501,47 @@ const toggleEditMode = () => {
 
 const saveChanges = async () => {
   if (!product.value) return;
-  
+
   // Validace
   if (!editData.value.uomId) {
     error.value = 'Měrná jednotka je povinná';
     return;
   }
-  
+
   saving.value = true;
   error.value = null;
-  
+
   try {
+    // Připrav suppliers data pro update
+    if (selectedSupplierIds.value.length > 0) {
+      editData.value.accountsIds = selectedSupplierIds.value;
+
+      // Vytvoř accountsNames z suppliers
+      const accountsNames: Record<string, string> = {};
+      selectedSupplierIds.value.forEach(id => {
+        const supplier = suppliers.value.find(s => s.id === id);
+        if (supplier) {
+          accountsNames[id] = supplier.name;
+        }
+      });
+      editData.value.accountsNames = accountsNames;
+
+      // Připrav accountsColumns
+      editData.value.accountsColumns = supplierData.value;
+    } else {
+      editData.value.accountsIds = [];
+      editData.value.accountsNames = {};
+      editData.value.accountsColumns = {};
+    }
+
     console.log('📤 Odesílám update s daty:', editData.value);
     const updated = await productsService.update(productId, editData.value);
     product.value = updated;
     editMode.value = false;
-    
+
+    // Reload suppliers aby se zobrazily aktuální data
+    await loadSuppliers();
+
     // Zobrazit success notifikaci
     alert('Produkt byl úspěšně uložen');
   } catch (err: any) {
@@ -717,6 +823,67 @@ const handlePhotoUpload = async (event: Event) => {
     // Reset input aby bylo možné nahrát stejný soubor znovu
     if (input) input.value = '';
   }
+};
+
+/**
+ * **NOVÉ: Handler pro změnu vybraných dodavatelů**
+ */
+const handleSuppliersChange = async (selectedIds: string[]) => {
+  // Odeber dodavatele, kteří již nejsou vybraní
+  const removedIds = selectedSupplierIds.value.filter(id => !selectedIds.includes(id));
+  removedIds.forEach(id => {
+    delete supplierData.value[id];
+  });
+
+  // Přidej nové dodavatele
+  const newIds = selectedIds.filter(id => !selectedSupplierIds.value.includes(id));
+  for (const id of newIds) {
+    if (!supplierData.value[id]) {
+      supplierData.value[id] = { supplierSku: null, costPrice: null };
+    }
+
+    // Načti dodavatele pokud ještě není v suppliers
+    if (!suppliers.value.find(s => s.id === id)) {
+      try {
+        const supplier = await accountService.getById(id);
+        suppliers.value.push({
+          id: supplier.id,
+          name: supplier.name,
+          website: supplier.website,
+          type: supplier.type,
+          billingAddressCountry: supplier.billingAddressCountry,
+          createdAt: supplier.createdAt,
+          createdById: supplier.createdById,
+          assignedUserId: supplier.assignedUserId,
+          isStarred: supplier.isStarred
+        });
+      } catch (err) {
+        console.error('❌ Chyba při načítání dodavatele:', err);
+      }
+    }
+  }
+
+  selectedSupplierIds.value = selectedIds;
+};
+
+/**
+ * **NOVÉ: Handler pro změnu SKU dodavatele**
+ */
+const handleSupplierSkuChange = (supplierId: string, sku: string) => {
+  if (!supplierData.value[supplierId]) {
+    supplierData.value[supplierId] = { supplierSku: null, costPrice: null };
+  }
+  supplierData.value[supplierId].supplierSku = sku || null;
+};
+
+/**
+ * **NOVÉ: Handler pro změnu ceny dodavatele**
+ */
+const handleSupplierCostPriceChange = (supplierId: string, price: number | null) => {
+  if (!supplierData.value[supplierId]) {
+    supplierData.value[supplierId] = { supplierSku: null, costPrice: null };
+  }
+  supplierData.value[supplierId].costPrice = price;
 };
 
 onMounted(() => {
@@ -1170,6 +1337,175 @@ onMounted(() => {
                 </div>
               </v-col>
             </v-row>
+          </UiParentCard>
+
+          <!-- **NOVÉ: Dodavatelé** -->
+          <UiParentCard title="Dodavatelé" class="mt-4">
+            <template v-slot:action>
+              <v-btn
+                v-if="editMode"
+                color="primary"
+                size="small"
+                prepend-icon="mdi-plus"
+                @click="searchSuppliers = ''"
+              >
+                Spravovat
+              </v-btn>
+            </template>
+
+            <div v-if="editMode">
+              <v-autocomplete
+                v-model="selectedSupplierIds"
+                v-model:search="searchSuppliers"
+                :items="availableSuppliers"
+                :loading="loadingSuppliers"
+                item-title="name"
+                item-value="id"
+                label="Vyberte dodavatele"
+                placeholder="Začněte psát pro vyhledání..."
+                variant="outlined"
+                density="comfortable"
+                multiple
+                chips
+                clearable
+                prepend-inner-icon="mdi-truck"
+                @update:model-value="handleSuppliersChange"
+                @update:search="searchSuppliersDebounced"
+              >
+                <template v-slot:chip="{ props, item }">
+                  <v-chip
+                    v-bind="props"
+                    :text="item.raw.name"
+                    closable
+                  ></v-chip>
+                </template>
+
+                <template v-slot:item="{ props, item }">
+                  <v-list-item
+                    v-bind="props"
+                    :title="item.raw.name"
+                    :subtitle="item.raw.website || 'Bez webové stránky'"
+                  >
+                    <template v-slot:prepend>
+                      <v-icon>mdi-domain</v-icon>
+                    </template>
+                  </v-list-item>
+                </template>
+
+                <template v-slot:no-data>
+                  <v-list-item>
+                    <v-list-item-title>
+                      {{ searchSuppliers && searchSuppliers.length >= 2 ? 'Žádní dodavatelé nenalezeni' : 'Začněte psát pro vyhledání...' }}
+                    </v-list-item-title>
+                  </v-list-item>
+                </template>
+              </v-autocomplete>
+
+              <!-- Detail dodavatelů s editací SKU a Cost Price -->
+              <v-row v-if="selectedSupplierIds.length > 0" class="mt-4">
+                <v-col cols="12">
+                  <div class="text-subtitle-2 text-medium-emphasis mb-3">Detail dodavatelů:</div>
+                </v-col>
+
+                <v-col
+                  v-for="supplierId in selectedSupplierIds"
+                  :key="supplierId"
+                  cols="12"
+                >
+                  <v-card variant="outlined" class="pa-4">
+                    <div class="d-flex align-center mb-3">
+                      <v-icon color="primary" class="mr-2">mdi-domain</v-icon>
+                      <div class="text-h6">
+                        {{ suppliers.find(s => s.id === supplierId)?.name || 'Načítání...' }}
+                      </div>
+                    </div>
+
+                    <v-row>
+                      <v-col cols="12" md="6">
+                        <v-text-field
+                          :model-value="supplierData[supplierId]?.supplierSku || ''"
+                          @update:model-value="(val: string) => handleSupplierSkuChange(supplierId, val)"
+                          label="SKU dodavatele"
+                          variant="outlined"
+                          density="comfortable"
+                          prepend-inner-icon="mdi-barcode"
+                          placeholder="Zadejte SKU"
+                        ></v-text-field>
+                      </v-col>
+
+                      <v-col cols="12" md="6">
+                        <v-text-field
+                          :model-value="supplierData[supplierId]?.costPrice"
+                          @update:model-value="(val: any) => handleSupplierCostPriceChange(supplierId, val ? parseFloat(val) : null)"
+                          label="Nákupní cena"
+                          type="number"
+                          variant="outlined"
+                          density="comfortable"
+                          suffix="Kč"
+                          prepend-inner-icon="mdi-currency-usd"
+                          placeholder="Zadejte cenu"
+                        ></v-text-field>
+                      </v-col>
+                    </v-row>
+                  </v-card>
+                </v-col>
+              </v-row>
+            </div>
+
+            <!-- View mode - zobrazení dodavatelů -->
+            <div v-else>
+              <div v-if="!loadingSuppliers && suppliers.length === 0" class="text-center py-8">
+                <v-icon size="64" color="grey-lighten-1">mdi-truck</v-icon>
+                <div class="text-h6 mt-4">Žádní dodavatelé</div>
+                <div class="text-caption text-medium-emphasis">
+                  Pro tento produkt nejsou evidováni žádní dodavatelé
+                </div>
+              </div>
+
+              <v-row v-else>
+                <v-col
+                  v-for="supplier in suppliers"
+                  :key="supplier.id"
+                  cols="12"
+                  md="6"
+                >
+                  <v-card variant="outlined" class="pa-4">
+                    <div class="d-flex align-center mb-3">
+                      <v-icon color="primary" class="mr-2" size="32">mdi-domain</v-icon>
+                      <div>
+                        <div class="text-h6">{{ supplier.name }}</div>
+                        <div v-if="supplier.website" class="text-caption text-medium-emphasis">
+                          {{ supplier.website }}
+                        </div>
+                      </div>
+                    </div>
+
+                    <v-divider class="my-3"></v-divider>
+
+                    <div class="mb-2">
+                      <div class="text-subtitle-2 text-medium-emphasis">SKU dodavatele</div>
+                      <div class="text-body-1 font-weight-medium mt-1">
+                        {{ supplierData[supplier.id]?.supplierSku || '—' }}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div class="text-subtitle-2 text-medium-emphasis">Nákupní cena</div>
+                      <div class="text-h6 font-weight-bold text-primary mt-1">
+                        {{ supplierData[supplier.id]?.costPrice ? formatPrice(supplierData[supplier.id].costPrice) : '—' }}
+                      </div>
+                    </div>
+                  </v-card>
+                </v-col>
+              </v-row>
+
+              <div v-if="loadingSuppliers" class="text-center py-8">
+                <v-progress-circular indeterminate color="primary"></v-progress-circular>
+                <div class="text-caption text-medium-emphasis mt-2">
+                  Načítání dodavatelů...
+                </div>
+              </div>
+            </div>
           </UiParentCard>
 
           <!-- **GRAFY: Graf výdejů a příjmů** -->
