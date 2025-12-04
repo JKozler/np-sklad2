@@ -169,6 +169,16 @@ const formatDate = (dateString: string) => {
   return new Date(dateString).toLocaleDateString('cs-CZ');
 };
 
+const formatWebsiteUrl = (url: string | null): string | null => {
+  if (!url) return null;
+  // Pokud URL již obsahuje protokol, vrať ji tak jak je
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    return url;
+  }
+  // Jinak přidej https://
+  return `https://${url}`;
+};
+
 const getCountryFlag = (countryCode: string | null): string => {
   if (!countryCode) return '🏳️';
   const flags: Record<string, string> = {
@@ -285,7 +295,7 @@ onMounted(() => {
           <template v-slot:item.website="{ item }">
             <a
               v-if="item.website"
-              :href="item.website"
+              :href="formatWebsiteUrl(item.website)"
               target="_blank"
               class="text-primary text-decoration-none"
             >
