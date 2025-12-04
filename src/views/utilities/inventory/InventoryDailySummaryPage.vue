@@ -20,8 +20,13 @@ const loading = ref(false);
 const error = ref<string | null>(null);
 const expandedDate = ref<string | null>(null);
 
-const dateFrom = ref<string>('');
-const dateTo = ref<string>('');
+// Inicializuj na posledních 10 dnů
+const today = new Date();
+const tenDaysAgo = new Date();
+tenDaysAgo.setDate(today.getDate() - 10);
+
+const dateFrom = ref<string>(tenDaysAgo.toISOString().split('T')[0]);
+const dateTo = ref<string>(today.toISOString().split('T')[0]);
 
 interface DailySummary {
   date: string;
@@ -138,7 +143,18 @@ const loadTransactions = async () => {
   error.value = null;
 
   try {
-    const response = await inventoryTransactionService.getAll();
+    // Načti transakce s filtry (defaultně posledních 10 dnů)
+    const filters: any = {};
+
+    if (dateFrom.value) {
+      filters.dateFrom = dateFrom.value;
+    }
+
+    if (dateTo.value) {
+      filters.dateTo = dateTo.value;
+    }
+
+    const response = await inventoryTransactionService.getAll(filters);
     transactions.value = response.list;
     console.log('✅ Načteno skladových pohybů:', transactions.value.length);
   } catch (err: any) {

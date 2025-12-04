@@ -93,6 +93,17 @@ const averageCostPrice = computed(() => {
 
 // **NOVÉ: Computed data pro grafy**
 
+// Filtrované transakce - pouze z posledních 14 dnů (2 týdny)
+const filteredTransactions = computed(() => {
+  const twoWeeksAgo = new Date();
+  twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
+
+  return transactions.value.filter(transaction => {
+    const transactionDate = new Date(transaction.transactionDate);
+    return transactionDate >= twoWeeksAgo;
+  });
+});
+
 // Graf 1: Výdeje a příjmy v čase
 const transactionChartOptions = computed(() => {
   return {
@@ -152,11 +163,11 @@ const transactionChartOptions = computed(() => {
 });
 
 const transactionChartSeries = computed(() => {
-  // Agreguj data podle data transakce
+  // Agreguj data podle data transakce (pouze z posledních 14 dnů)
   const receiptsByDate = new Map<string, number>();
   const issuesByDate = new Map<string, number>();
 
-  transactions.value.forEach(transaction => {
+  filteredTransactions.value.forEach(transaction => {
     const date = new Date(transaction.transactionDate).getTime();
     const quantity = transaction.items?.reduce((sum, item) => sum + item.quantity, 0) || 0;
 
@@ -254,8 +265,12 @@ const priceChartOptions = computed(() => {
 });
 
 const priceChartSeries = computed(() => {
-  // Nákladová cena z inventoryCards
+  // Nákladová cena z inventoryCards (pouze z posledních 14 dnů)
+  const twoWeeksAgo = new Date();
+  twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
+
   const costPriceData = inventoryCards.value
+    .filter(card => new Date(card.createdAt) >= twoWeeksAgo)
     .map(card => ({
       x: new Date(card.createdAt).getTime(),
       y: card.averageCostPrice
@@ -351,11 +366,11 @@ const loadUoms = async () => {
 const loadProduct = async () => {
   loading.value = true;
   error.value = null;
-  
+
   try {
     product.value = await productsService.getById(productId);
     page.value.title = product.value.name;
-    
+
     // Inicializuj editData
     editData.value = {
       name: product.value.name,
@@ -372,14 +387,16 @@ const loadProduct = async () => {
       minimumStockQuantity: product.value.minimumStockQuantity
     };
 
-    // Automaticky načti skladové karty, transakce a dodavatele
-    await loadInventoryCards();
-    await loadTransactions();
-    await loadSuppliers();
+    // Vypni loading pro základní informace
+    loading.value = false;
+
+    // Načti skladové karty, transakce a dodavatele na pozadí (bez await)
+    loadInventoryCards();
+    loadTransactions();
+    loadSuppliers();
   } catch (err: any) {
     error.value = err.message || 'Chyba při načítání produktu';
     console.error('Chyba při načítání produktu:', err);
-  } finally {
     loading.value = false;
   }
 };

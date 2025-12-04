@@ -6,6 +6,7 @@ import BaseBreadcrumb from '@/components/shared/BaseBreadcrumb.vue';
 import UiParentCard from '@/components/shared/UiParentCard.vue';
 import { inventoryTransactionService } from '@/services/inventoryTransactionService';
 import { inventoryTransactionTypeService } from '@/services/inventoryTransactionTypeService';
+import { warehouseService } from '@/services/warehouseService';
 import { useProductAutocomplete } from '@/composables/useProductAutocomplete';
 import type { InventoryTransaction } from '@/services/inventoryTransactionService';
 import type { InventoryTransactionType } from '@/services/inventoryTransactionTypeService';
@@ -23,6 +24,9 @@ const transactions = ref<InventoryTransaction[]>([]);
 const transactionTypes = ref<InventoryTransactionType[]>([]);
 const loading = ref(false);
 const error = ref<string | null>(null);
+
+// **NOVÉ: Cache pro jména skladů**
+const warehouseNames = ref<Map<string, string>>(new Map());
 
 // Product autocomplete
 const {
@@ -146,17 +150,63 @@ const getStockTypeIcon = (stockType: string | undefined) => {
 };
 
 /**
- * **NOVÉ: Vrací název skladu podle směru pohybu**
- * Pro příjem: zobrazí cílový sklad (warehouseToName)
- * Pro výdej: zobrazí zdrojový sklad (warehouseFromName)
+ * **NOVÉ: Načte jména skladů z API pro všechny transakce**
+ */
+const loadWarehouseNames = async () => {
+  // Získej unikátní warehouse IDs z transakcí
+  const warehouseIds = new Set<string>();
+
+  transactions.value.forEach(transaction => {
+    if (transaction.transactionDirection === 'typPohybu.prijem' && transaction.warehouseToId) {
+      warehouseIds.add(transaction.warehouseToId);
+    } else if (transaction.transactionDirection === 'typPohybu.vydej' && transaction.warehouseFromId) {
+      warehouseIds.add(transaction.warehouseFromId);
+    }
+  });
+
+  // Načti jména pro každý sklad (pokud ještě není v cache)
+  const loadPromises: Promise<void>[] = [];
+
+  warehouseIds.forEach(warehouseId => {
+    if (!warehouseNames.value.has(warehouseId)) {
+      const loadPromise = warehouseService.getById(warehouseId)
+        .then(warehouse => {
+          warehouseNames.value.set(warehouseId, warehouse.name);
+        })
+        .catch(err => {
+          console.error(`❌ Chyba při načítání skladu ${warehouseId}:`, err);
+          warehouseNames.value.set(warehouseId, '—');
+        });
+
+      loadPromises.push(loadPromise);
+    }
+  });
+
+  // Počkej na všechny requesty
+  if (loadPromises.length > 0) {
+    await Promise.all(loadPromises);
+    console.log('✅ Načteno jmen skladů:', warehouseNames.value.size);
+  }
+};
+
+/**
+ * **UPRAVENO: Vrací název skladu podle směru pohybu z API**
+ * Pro příjem: zobrazí cílový sklad (z warehouseToId)
+ * Pro výdej: zobrazí zdrojový sklad (z warehouseFromId)
  */
 const getWarehouseName = (transaction: InventoryTransaction) => {
+  let warehouseId: string | null | undefined;
+
   if (transaction.transactionDirection === 'typPohybu.prijem') {
-    return transaction.warehouseToName || '—';
+    warehouseId = transaction.warehouseToId;
   } else if (transaction.transactionDirection === 'typPohybu.vydej') {
-    return transaction.warehouseFromName || '—';
+    warehouseId = transaction.warehouseFromId;
   }
-  return '—';
+
+  if (!warehouseId) return '—';
+
+  // Vrať jméno z cache, nebo 'Načítání...' pokud ještě není načteno
+  return warehouseNames.value.get(warehouseId) || 'Načítání...';
 };
 
 /**
@@ -209,6 +259,9 @@ const loadTransactions = async () => {
     if (response.total > 200) {
       console.warn('⚠️ POZOR: Celkový počet pohybů (' + response.total + ') překračuje maxSize (200)!');
     }
+
+    // Načti jména skladů z API
+    await loadWarehouseNames();
   } catch (err: any) {
     error.value = err.message || 'Chyba při načítání skladových pohybů';
     console.error('❌ Chyba při načítání:', err);
