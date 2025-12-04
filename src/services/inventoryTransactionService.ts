@@ -182,7 +182,6 @@ export const inventoryTransactionService = {
    */
   async create(data: CreateInventoryTransactionData): Promise<InventoryTransaction> {
     console.log('➕ Creating inventory transaction:', data);
-    data.warehouseId = data.warehouseFromId;
     // Validace items pokud jsou přítomny
     if (data.items && data.items.length > 0) {
       data.items.forEach((item, index) => {
@@ -194,7 +193,7 @@ export const inventoryTransactionService = {
         }
       });
     }
-    
+
     return apiClient.post<InventoryTransaction>('/InventoryTransaction', data);
   },
 
@@ -208,7 +207,6 @@ export const inventoryTransactionService = {
    */
   async update(id: string, data: UpdateInventoryTransactionData): Promise<InventoryTransaction> {
     console.log('✏️ Updating inventory transaction:', id, data);
-    data.warehouseId = data.warehouseFromId;
     // Validace items pokud jsou přítomny
     if (data.items && data.items.length > 0) {
       data.items.forEach((item, index) => {
@@ -220,7 +218,7 @@ export const inventoryTransactionService = {
         }
       });
     }
-    
+
     return apiClient.put<InventoryTransaction>(`/InventoryTransaction/${id}`, data);
   },
 
