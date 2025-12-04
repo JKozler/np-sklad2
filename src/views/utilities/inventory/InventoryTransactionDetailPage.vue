@@ -1,12 +1,13 @@
 <!-- src/views/utilities/inventory/InventoryTransactionDetailPage.vue -->
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import BaseBreadcrumb from '@/components/shared/BaseBreadcrumb.vue';
 import UiParentCard from '@/components/shared/UiParentCard.vue';
 import { inventoryTransactionService } from '@/services/inventoryTransactionService';
 import { uomService } from '@/services/uomService';
 import { useProductAutocomplete } from '@/composables/useProductAutocomplete';
+import { useSupplierAutocomplete } from '@/composables/useSupplierAutocomplete';
 import type { InventoryTransaction, InventoryTransactionItem, UpdateInventoryTransactionData } from '@/services/inventoryTransactionService';
 import type { UOM } from '@/services/uomService';
 
@@ -45,6 +46,27 @@ const {
   loading: loadingAutocompleteEdit,
   searchQuery: productSearchQueryEdit
 } = useProductAutocomplete();
+
+// **NOVÉ: Autocomplete pro dodavatele**
+const {
+  suppliers: autocompleteSuppliers,
+  loading: loadingSupplierAutocomplete,
+  searchQuery: supplierSearchQuery
+} = useSupplierAutocomplete();
+
+// **NOVÉ: ID vybraného dodavatele**
+const selectedSupplierId = ref<string>('');
+
+// **NOVÉ: Watch pro aktualizaci názvu podle dodavatele**
+watch(selectedSupplierId, (newSupplierId) => {
+  if (newSupplierId && editMode.value) {
+    const supplier = autocompleteSuppliers.value.find(s => s.id === newSupplierId);
+    if (supplier) {
+      editData.value.name = supplier.name;
+      console.log('✅ Název pohybu aktualizován podle dodavatele:', supplier.name);
+    }
+  }
+});
 
 // Bottom panel pro přidávání items
 const showAddItemPanel = ref(false);
@@ -417,13 +439,47 @@ onMounted(() => {
           <UiParentCard title="Základní informace">
             <v-row>
               <v-col cols="12" md="4">
-                <v-text-field
+                <!-- **NOVÉ: Autocomplete pro dodavatele v editačním módu** -->
+                <v-autocomplete
                   v-if="editMode"
-                  v-model="editData.name"
-                  label="Název pohybu"
+                  v-model="selectedSupplierId"
+                  v-model:search="supplierSearchQuery"
+                  :items="autocompleteSuppliers"
+                  item-title="name"
+                  item-value="id"
+                  label="Dodavatel *"
                   variant="outlined"
                   density="comfortable"
-                ></v-text-field>
+                  prepend-inner-icon="mdi-domain"
+                  :loading="loadingSupplierAutocomplete"
+                  placeholder="Začněte psát pro vyhledání dodavatele..."
+                  hint="Vyberte dodavatele - název se automaticky aktualizuje"
+                  persistent-hint
+                  no-filter
+                  clearable
+                >
+                  <template v-slot:item="{ props: itemProps, item }">
+                    <v-list-item v-bind="itemProps">
+                      <template v-slot:prepend>
+                        <v-icon color="primary">mdi-domain</v-icon>
+                      </template>
+                      <v-list-item-title>{{ item.raw.name }}</v-list-item-title>
+                      <v-list-item-subtitle class="text-caption">
+                        {{ item.raw.website || 'Bez webové stránky' }}
+                      </v-list-item-subtitle>
+                    </v-list-item>
+                  </template>
+
+                  <template v-slot:no-data>
+                    <v-list-item>
+                      <v-list-item-title>
+                        {{ supplierSearchQuery.length < 2
+                          ? 'Začněte psát pro vyhledání dodavatelů (min. 2 znaky)'
+                          : 'Žádní dodavatelé nenalezeni' }}
+                      </v-list-item-title>
+                    </v-list-item>
+                  </template>
+                </v-autocomplete>
                 <div v-else>
                   <div class="text-subtitle-2 text-medium-emphasis">Název pohybu</div>
                   <div class="text-h5 font-weight-bold">{{ transaction.name }}</div>
