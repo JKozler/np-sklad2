@@ -70,6 +70,11 @@ const MainRoutes = {
       component: () => import('@/views/utilities/inventory/InventoryTransactionsPage.vue')
     },
     {
+      name: 'Dopravci',
+      path: '/carriers',
+      component: () => import('@/views/utilities/carriers/CarriersPage.vue')
+    },
+    {
       name: 'Sklady',
       path: '/warehouses',
       component: () => import('@/views/utilities/warehouses/WarehousesPage.vue')
