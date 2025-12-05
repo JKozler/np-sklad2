@@ -147,17 +147,23 @@ export const inventoryTransactionService = {
       whereGroupIndex++;
     }
 
-    // Filtr podle data od
-    if (filters?.dateFrom) {
+    // Filtr podle data - použij between pokud jsou obě hodnoty, jinak where
+    if (filters?.dateFrom && filters?.dateTo) {
+      // Použij between pro rozsah dat
+      queryParams.append(`whereGroup[${whereGroupIndex}][type]`, 'between');
+      queryParams.append(`whereGroup[${whereGroupIndex}][attribute]`, 'transactionDate');
+      queryParams.append(`whereGroup[${whereGroupIndex}][value][]`, filters.dateFrom);
+      queryParams.append(`whereGroup[${whereGroupIndex}][value][]`, filters.dateTo);
+      whereGroupIndex++;
+    } else if (filters?.dateFrom) {
+      // Pouze dateFrom
       queryParams.append(`whereGroup[${whereGroupIndex}][type]`, 'where');
       queryParams.append(`whereGroup[${whereGroupIndex}][column]`, 'transactionDate');
       queryParams.append(`whereGroup[${whereGroupIndex}][operator]`, '>=');
       queryParams.append(`whereGroup[${whereGroupIndex}][value]`, filters.dateFrom);
       whereGroupIndex++;
-    }
-
-    // Filtr podle data do
-    if (filters?.dateTo) {
+    } else if (filters?.dateTo) {
+      // Pouze dateTo
       queryParams.append(`whereGroup[${whereGroupIndex}][type]`, 'where');
       queryParams.append(`whereGroup[${whereGroupIndex}][column]`, 'transactionDate');
       queryParams.append(`whereGroup[${whereGroupIndex}][operator]`, '<=');
