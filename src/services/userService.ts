@@ -115,7 +115,7 @@ export const userService = {
    */
   async changePassword(userId: string, data: ChangePasswordData): Promise<void> {
     console.log('🔐 Changing password for user:', userId);
-    await apiClient.put(`/User/${userId}/password`, data);
+    await apiClient.put(`/UserSecurity/password`, data);
   },
 
   /**
