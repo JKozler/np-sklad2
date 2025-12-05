@@ -16,7 +16,7 @@ const router = useRouter();
 
 const transactionId = route.params.id as string;
 
-const page = ref({ title: 'Detail skladového pohybu' });
+const pageInfo = ref({ title: 'Detail skladového pohybu' });
 const breadcrumbs = ref([
   { title: 'Sklad', disabled: false, href: '#' },
   { title: 'Skladové pohyby', disabled: false, href: '/inventory-transactions' },
@@ -151,7 +151,7 @@ const loadTransaction = async () => {
 
   try {
     transaction.value = await inventoryTransactionService.getById(transactionId);
-    page.value.title = transaction.value.name;
+    pageInfo.value.title = transaction.value.name;
 
     editData.value = {
       name: transaction.value.name,
@@ -379,7 +379,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <BaseBreadcrumb :title="page.title" :breadcrumbs="breadcrumbs"></BaseBreadcrumb>
+  <BaseBreadcrumb :title="pageInfo.title" :breadcrumbs="breadcrumbs"></BaseBreadcrumb>
   
   <v-row v-if="loading">
     <v-col cols="12">
