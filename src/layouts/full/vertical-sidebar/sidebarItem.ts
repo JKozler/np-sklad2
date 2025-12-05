@@ -56,7 +56,7 @@ const sidebarItem: menu[] = [
   {
     title: 'Výroba',
     icon: TruckLoadingIcon,
-    to: 'https://crm.naturalprotein.cz/?entryPoint=productionPortal',
+    to: 'https://smart-int-be.naturalprotein.net/?entryPoint=productionPortal',
     type: 'external',
     requiredDashboards: ['WAREHOUSE_MANAGER']
   },
