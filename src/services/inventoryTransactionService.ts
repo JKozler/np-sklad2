@@ -269,12 +269,37 @@ export const inventoryTransactionService = {
   },
 
   /**
-   * Načte položky transakce
+   * Načte všechny položky transakce s automatickou paginací
    */
   async getItems(transactionId: string): Promise<InventoryTransactionItem[]> {
     console.log('📋 Getting transaction items:', transactionId);
-    const response = await apiClient.get<{ list: InventoryTransactionItem[] }>(`/InventoryTransaction/${transactionId}/items`);
-    return response.list;
+
+    const maxSize = 200;
+    let offset = 0;
+    let allItems: InventoryTransactionItem[] = [];
+    let total = 0;
+
+    // Načítej data dokud nejsou všechny položky načteny
+    do {
+      const queryParams = new URLSearchParams({
+        maxSize: maxSize.toString(),
+        offset: offset.toString()
+      });
+
+      const response = await apiClient.get<{ total: number; list: InventoryTransactionItem[] }>(
+        `/InventoryTransaction/${transactionId}/items?${queryParams}`
+      );
+
+      allItems = allItems.concat(response.list);
+      total = response.total;
+      offset += maxSize;
+
+      console.log(`📋 Loaded ${allItems.length}/${total} items (offset: ${offset - maxSize})`);
+
+    } while (allItems.length < total);
+
+    console.log(`✅ All ${allItems.length} items loaded successfully`);
+    return allItems;
   },
 
   /**

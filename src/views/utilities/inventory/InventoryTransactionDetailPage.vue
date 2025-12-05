@@ -553,7 +553,7 @@ onMounted(() => {
                 <div>
                   <div class="text-subtitle-2 text-medium-emphasis">Celková částka</div>
                   <div class="text-h5 font-weight-bold text-primary mt-2">
-                    {{ formatPrice(transaction.totalAmount || totalItemsAmount) }}
+                    {{ formatPrice(transaction.totalPrice || totalItemsAmount) }}
                   </div>
                 </div>
               </v-col>
