@@ -15,8 +15,10 @@ const router = useRouter();
 const orderId = computed(() => route.params.id as string);
 const isNewOrder = computed(() => orderId.value === 'new');
 
-const page = ref({ title: isNewOrder.value ? 'Nový výrobní příkaz' : 'Detail výrobního příkazu' });
-const breadcrumbs = ref([
+const page = computed(() => ({
+  title: isNewOrder.value ? 'Nový výrobní příkaz' : 'Detail výrobního příkazu'
+}));
+const breadcrumbs = computed(() => [
   { title: 'Výroba', disabled: false, href: '#' },
   { title: 'Výrobní příkazy', disabled: false, href: '/production-orders' },
   { title: isNewOrder.value ? 'Nový' : 'Detail', disabled: true, href: '#' }
