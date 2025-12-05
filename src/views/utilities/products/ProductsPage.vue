@@ -682,7 +682,7 @@ onMounted(() => {
           :items="products"
           :loading="loading"
           :items-per-page="200"
-          class="elevation-1"
+          :class="['elevation-1', { 'missing-products-table': activeTab === 'chybejici' }]"
           hide-default-footer
           :hover="true"
         >
@@ -887,5 +887,22 @@ onMounted(() => {
 
 :deep(.v-data-table__tr:hover) {
   background-color: rgba(var(--v-theme-primary), 0.05);
+}
+
+/* Lehce červená barva pro tabulku chybějících produktů */
+.missing-products-table {
+  background-color: rgba(var(--v-theme-error), 0.03);
+}
+
+.missing-products-table :deep(.v-data-table__tr) {
+  background-color: rgba(var(--v-theme-error), 0.02);
+}
+
+.missing-products-table :deep(.v-data-table__tr:hover) {
+  background-color: rgba(var(--v-theme-error), 0.08) !important;
+}
+
+.missing-products-table :deep(.v-data-table-header) {
+  background-color: rgba(var(--v-theme-error), 0.05);
 }
 </style>
