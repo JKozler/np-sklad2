@@ -38,6 +38,9 @@ const page = ref(1);
 const itemsPerPage = ref(20);
 const totalItems = ref(0);
 
+// Search state
+const searchQuery = ref('');
+
 // **NOVÉ: Autocomplete pro přidání položky**
 const {
   products: autocompleteProducts,
@@ -180,7 +183,8 @@ const loadItems = async () => {
     const response = await inventoryTransactionService.getItems(
       transactionId,
       itemsPerPage.value,
-      offset
+      offset,
+      searchQuery.value
     );
     items.value = response.list;
     totalItems.value = response.total;
@@ -371,6 +375,19 @@ const getStockTypeIcon = (stockType: string | undefined) => {
   // Default pro typZasoby.material a ostatní
   return 'mdi-package-variant';
 };
+
+// Watch pro search query s debouncem
+let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+watch(searchQuery, () => {
+  if (searchDebounceTimer) {
+    clearTimeout(searchDebounceTimer);
+  }
+
+  searchDebounceTimer = setTimeout(() => {
+    page.value = 1; // Reset na první stránku při vyhledávání
+    loadItems();
+  }, 500); // 500ms debounce
+});
 
 onMounted(() => {
   loadTransaction();
@@ -610,6 +627,34 @@ onMounted(() => {
                 Přidat položku
               </v-btn>
             </template>
+
+            <!-- Search filter -->
+            <v-row class="mb-4">
+              <v-col cols="12" md="6">
+                <v-text-field
+                  v-model="searchQuery"
+                  label="Vyhledat položky"
+                  placeholder="Začněte psát název produktu, kód..."
+                  prepend-inner-icon="mdi-magnify"
+                  variant="outlined"
+                  density="comfortable"
+                  clearable
+                  hide-details
+                  @click:clear="searchQuery = ''"
+                >
+                  <template v-slot:append-inner>
+                    <v-fade-transition leave-absolute>
+                      <v-progress-circular
+                        v-if="loadingItems"
+                        size="24"
+                        color="primary"
+                        indeterminate
+                      ></v-progress-circular>
+                    </v-fade-transition>
+                  </template>
+                </v-text-field>
+              </v-col>
+            </v-row>
 
             <v-data-table
               :headers="itemsHeaders"
