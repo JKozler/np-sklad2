@@ -45,6 +45,21 @@ const MainRoutes = {
       component: () => import('@/views/utilities/packages/PackageDetailPage.vue')
     },
     {
+      name: 'Výrobní příkazy',
+      path: '/production-orders',
+      component: () => import('@/views/utilities/production/ProductionOrdersPage.vue')
+    },
+    {
+      name: 'Detail výrobního příkazu',
+      path: '/production-orders/:id',
+      component: () => import('@/views/utilities/production/ProductionOrderDetailPage.vue')
+    },
+    {
+      name: 'Nový výrobní příkaz',
+      path: '/production-orders/new',
+      component: () => import('@/views/utilities/production/ProductionOrderDetailPage.vue')
+    },
+    {
       name: 'Zákazníci',
       path: '/customers',
       component: () => import('@/views/utilities/customers/CustomersPage.vue')
