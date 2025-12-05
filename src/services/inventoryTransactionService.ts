@@ -322,7 +322,7 @@ export const inventoryTransactionService = {
       const itemsPromises = response.list.map(async (transaction) => {
         try {
           // Pro grafy načteme všechny položky (maxSize=1000 by mělo stačit)
-          const result = await this.getItems(transaction.id, 1000, 0);
+          const result = await this.getItems(transaction.id, 200, 0);
           return { transaction, items: result.list };
         } catch (err) {
           console.warn(`Failed to load items for transaction ${transaction.id}:`, err);
