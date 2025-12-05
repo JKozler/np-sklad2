@@ -1045,6 +1045,40 @@ onMounted(() => {
         <strong>Chyba:</strong> {{ error }}
       </v-alert>
 
+      <!-- Varování o chybějícím produktu -->
+      <v-alert
+        v-if="product.outageFlag"
+        type="warning"
+        variant="tonal"
+        class="mb-4"
+        prominent
+      >
+        <v-row align="center">
+          <v-col class="grow">
+            <div class="text-h6">
+              <v-icon start>mdi-alert-circle</v-icon>
+              Produkt momentálně chybí
+            </div>
+            <div v-if="product.outageNote" class="mt-2">
+              {{ product.outageNote }}
+            </div>
+            <div v-if="product.outageExpectedStockDate" class="mt-1 text-body-2">
+              Očekávaný příjem: {{ formatDate(product.outageExpectedStockDate) }}
+            </div>
+          </v-col>
+          <v-col class="flex-grow-0">
+            <v-btn
+              color="success"
+              prepend-icon="mdi-check-circle"
+              @click="markAsAvailable"
+              :loading="markingAsAvailable"
+            >
+              Produkt je již dostupný
+            </v-btn>
+          </v-col>
+        </v-row>
+      </v-alert>
+
       <!-- Hlavní informace -->
       <v-row>
         <v-col cols="12" md="8">
