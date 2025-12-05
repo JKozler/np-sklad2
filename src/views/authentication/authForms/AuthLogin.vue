@@ -101,15 +101,6 @@ const handleSubmit = async () => {
         Přihlásit se
       </v-btn>
     </v-form>
-
-    <div class="text-center mt-6">
-      <div class="text-caption text-medium-emphasis">
-        Natural Protein CRM System
-      </div>
-      <div class="text-caption text-medium-emphasis mt-1">
-        Powered by EspoCRM
-      </div>
-    </div>
   </div>
 </template>
 
