@@ -725,12 +725,27 @@ onMounted(() => {
               </template>
 
               <template v-slot:bottom>
-                <div class="pa-4 d-flex justify-space-between align-center bg-grey-lighten-4">
-                  <div class="text-subtitle-1 font-weight-bold">
-                    Celkem položek: {{ totalItems }}
+                <div class="bg-grey-lighten-4">
+                  <!-- Souhrn -->
+                  <div class="pa-4 d-flex justify-space-between align-center">
+                    <div class="text-subtitle-1 font-weight-bold">
+                      Celkem položek: {{ totalItems }}
+                    </div>
+                    <div class="text-h6 font-weight-bold text-primary">
+                      Částka na stránce: {{ formatPrice(totalItemsAmount) }}
+                    </div>
                   </div>
-                  <div class="text-h6 font-weight-bold text-primary">
-                    Částka na stránce: {{ formatPrice(totalItemsAmount) }}
+
+                  <!-- Paginace -->
+                  <v-divider></v-divider>
+                  <div class="pa-2 d-flex justify-center">
+                    <v-pagination
+                      v-model="page"
+                      :length="Math.ceil(totalItems / itemsPerPage)"
+                      :total-visible="7"
+                      @update:model-value="loadItems"
+                      rounded="circle"
+                    ></v-pagination>
                   </div>
                 </div>
               </template>
