@@ -269,37 +269,28 @@ export const inventoryTransactionService = {
   },
 
   /**
-   * Načte všechny položky transakce s automatickou paginací
+   * Načte položky transakce s paginací
    */
-  async getItems(transactionId: string): Promise<InventoryTransactionItem[]> {
-    console.log('📋 Getting transaction items:', transactionId);
+  async getItems(
+    transactionId: string,
+    maxSize: number = 20,
+    offset: number = 0
+  ): Promise<{ total: number; list: InventoryTransactionItem[] }> {
+    console.log('📋 Getting transaction items:', transactionId, `maxSize=${maxSize}, offset=${offset}`);
 
-    const maxSize = 200;
-    let offset = 0;
-    let allItems: InventoryTransactionItem[] = [];
-    let total = 0;
+    const queryParams = new URLSearchParams({
+      maxSize: maxSize.toString(),
+      offset: offset.toString(),
+      orderBy: 'createdAt',
+      order: 'desc'
+    });
 
-    // Načítej data dokud nejsou všechny položky načteny
-    do {
-      const queryParams = new URLSearchParams({
-        maxSize: maxSize.toString(),
-        offset: offset.toString()
-      });
+    const response = await apiClient.get<{ total: number; list: InventoryTransactionItem[] }>(
+      `/InventoryTransaction/${transactionId}/items?${queryParams}`
+    );
 
-      const response = await apiClient.get<{ total: number; list: InventoryTransactionItem[] }>(
-        `/InventoryTransaction/${transactionId}/items?${queryParams}`
-      );
-
-      allItems = allItems.concat(response.list);
-      total = response.total;
-      offset += maxSize;
-
-      console.log(`📋 Loaded ${allItems.length}/${total} items (offset: ${offset - maxSize})`);
-
-    } while (allItems.length < total);
-
-    console.log(`✅ All ${allItems.length} items loaded successfully`);
-    return allItems;
+    console.log(`✅ Loaded ${response.list.length} items (${offset + 1}-${offset + response.list.length} of ${response.total})`);
+    return response;
   },
 
   /**
@@ -323,8 +314,9 @@ export const inventoryTransactionService = {
       // Načteme položky pro všechny transakce PARALELNĚ (místo sekvenčně)
       const itemsPromises = response.list.map(async (transaction) => {
         try {
-          const items = await this.getItems(transaction.id);
-          return { transaction, items };
+          // Pro grafy načteme všechny položky (maxSize=1000 by mělo stačit)
+          const result = await this.getItems(transaction.id, 1000, 0);
+          return { transaction, items: result.list };
         } catch (err) {
           console.warn(`Failed to load items for transaction ${transaction.id}:`, err);
           return { transaction, items: [] };
