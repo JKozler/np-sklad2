@@ -13,7 +13,7 @@ const route = useRoute();
 const router = useRouter();
 
 const orderId = computed(() => route.params.id as string);
-const isNewOrder = computed(() => orderId.value === 'new');
+const isNewOrder = computed(() => route.name === 'Nový výrobní příkaz');
 
 const page = computed(() => ({
   title: isNewOrder.value ? 'Nový výrobní příkaz' : 'Detail výrobního příkazu'
