@@ -585,17 +585,41 @@ const saveChanges = async () => {
 
 const deleteProduct = async () => {
   if (!product.value) return;
-  
+
   if (!confirm(`Opravdu chcete smazat produkt "${product.value.name}"?`)) {
     return;
   }
-  
+
   try {
     await productsService.delete(productId);
     router.push('/products');
   } catch (err: any) {
     error.value = err.message || 'Chyba při mazání produktu';
     console.error('Chyba při mazání:', err);
+  }
+};
+
+/**
+ * Označení produktu jako dostupného (nastavení outageFlag na false)
+ */
+const markingAsAvailable = ref(false);
+
+const markAsAvailable = async () => {
+  if (!product.value) return;
+
+  markingAsAvailable.value = true;
+  error.value = null;
+
+  try {
+    console.log('📤 Označuji produkt jako dostupný');
+    const updated = await productsService.update(productId, { outageFlag: false });
+    product.value = updated;
+    alert('Produkt byl označen jako dostupný');
+  } catch (err: any) {
+    error.value = err.message || 'Chyba při aktualizaci produktu';
+    console.error('Chyba při označení jako dostupný:', err);
+  } finally {
+    markingAsAvailable.value = false;
   }
 };
 
@@ -967,7 +991,7 @@ onMounted(() => {
           >
             Upravit
           </v-btn>
-          
+
           <template v-if="editMode">
             <v-btn
               variant="outlined"
@@ -986,7 +1010,18 @@ onMounted(() => {
               Uložit změny
             </v-btn>
           </template>
-          
+
+          <!-- Tlačítko pro označení produktu jako dostupného -->
+          <v-btn
+            v-if="!editMode && product.outageFlag"
+            color="success"
+            prepend-icon="mdi-check-circle"
+            @click="markAsAvailable"
+            :loading="markingAsAvailable"
+          >
+            Produkt je již dostupný
+          </v-btn>
+
           <v-btn
             color="error"
             variant="outlined"
