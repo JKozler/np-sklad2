@@ -145,7 +145,7 @@ export const packagesService = {
    * Vrátí URL pro stažení štítku balíku
    */
   getLabelDownloadUrl(labelId: string): string {
-    return `https://smart-int-be.naturalprotein.net/?entryPoint=download&id=${labelId}`;
+    return `https://smart-be.naturalprotein.net/?entryPoint=download&id=${labelId}`;
   },
 
   /**

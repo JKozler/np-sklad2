@@ -49,14 +49,14 @@ const sidebarItem: menu[] = [
   {
     title: 'Expedice',
     icon: TruckDeliveryIcon,
-    to: 'https://smart-int-be.naturalprotein.net/?entryPoint=expeditionPortal',
+    to: 'https://smart-be.naturalprotein.net/?entryPoint=expeditionPortal',
     type: 'external',
     requiredDashboards: ['WAREHOUSE_MANAGER']
   },
   {
     title: 'Výroba',
     icon: TruckLoadingIcon,
-    to: 'https://smart-int-be.naturalprotein.net/?entryPoint=productionPortal',
+    to: 'https://smart-be.naturalprotein.net/?entryPoint=productionPortal',
     type: 'external',
     requiredDashboards: ['WAREHOUSE_MANAGER']
   },

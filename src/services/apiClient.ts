@@ -1,5 +1,5 @@
 // src/services/apiClient.ts
-const API_BASE_URL = 'https://smart-int-be.naturalprotein.net/api/v1';  // Přímé volání
+const API_BASE_URL = 'https://smart-be.naturalprotein.net/api/v1';
 
 export interface ApiRequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';

@@ -41,12 +41,11 @@ export default defineConfig({
     entries: ['./src/**/*.vue']
   },
   
-  // ===== PŘIDÁNO: Proxy pro API =====
   server: {
     port: 5173,
     proxy: {
       '/api': {
-        target: 'https://smart-int-be.naturalprotein.net',
+        target: 'https://smart-be.naturalprotein.net',
         changeOrigin: true,
         secure: false,
         configure: (proxy, options) => {

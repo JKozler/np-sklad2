@@ -47,7 +47,7 @@ const exportFormat = ref<'csv' | 'json' | 'xlsx'>('csv');
 // **NOVÉ: URL fotky produktu**
 const photoUrl = computed(() => {
   if (!product.value?.photoId) return null;
-  return `https://smart-int-be.naturalprotein.net/?entryPoint=image&size=medium&id=${product.value.photoId}`;
+  return `https://smart-be.naturalprotein.net/?entryPoint=image&size=medium&id=${product.value.photoId}`;
 });
 
 // **NOVÉ: Upload fotky**
