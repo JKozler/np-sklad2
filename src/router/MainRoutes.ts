@@ -50,13 +50,13 @@ const MainRoutes = {
       component: () => import('@/views/utilities/production/ProductionOrdersPage.vue')
     },
     {
-      name: 'Detail výrobního příkazu',
-      path: '/production-orders/:id',
+      name: 'Nový výrobní příkaz',
+      path: '/production-orders/new',
       component: () => import('@/views/utilities/production/ProductionOrderDetailPage.vue')
     },
     {
-      name: 'Nový výrobní příkaz',
-      path: '/production-orders/new',
+      name: 'Detail výrobního příkazu',
+      path: '/production-orders/:id',
       component: () => import('@/views/utilities/production/ProductionOrderDetailPage.vue')
     },
     {

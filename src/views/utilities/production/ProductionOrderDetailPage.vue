@@ -145,6 +145,13 @@ const loadOrder = async () => {
     return;
   }
 
+  // Ochrana proti volání API s undefined ID
+  if (!orderId.value || orderId.value === 'undefined') {
+    console.warn('⚠️ ProductionOrder ID is undefined, skipping load');
+    error.value = 'Neplatné ID výrobního příkazu';
+    return;
+  }
+
   loading.value = true;
   error.value = null;
 
