@@ -61,6 +61,12 @@ const sidebarItem: menu[] = [
     requiredDashboards: ['WAREHOUSE_MANAGER']
   },
   {
+    title: 'Výrobní příkazy',
+    icon: ClipboardListIcon,
+    to: '/production-orders',
+    requiredDashboards: ['WAREHOUSE_MANAGER']
+  },
+  {
     title: 'Balíky',
     icon: PackageIcon,
     to: '/packages'
