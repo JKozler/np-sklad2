@@ -89,14 +89,26 @@ const editItemData = ref<InventoryTransactionItem>({
 // Editovatelná data hlavičky
 const editData = ref<UpdateInventoryTransactionData>({});
 
-const itemsHeaders = ref([
-  { title: 'Produkt', key: 'productName', sortable: true },
-  { title: 'Množství', key: 'quantity', sortable: true },
-  { title: 'Jednotka', key: 'uomName', sortable: false },
-  { title: 'Cena/ks', key: 'unitPrice', sortable: true },
-  { title: 'Celkem', key: 'totalPrice', sortable: true },
-  { title: 'Akce', key: 'actions', sortable: false }
-]);
+const itemsHeaders = computed(() => {
+  const headers = [
+    { title: 'Produkt', key: 'productName', sortable: true }
+  ];
+
+  // Pro výdejky přidáme sloupec "Požadované množství" před "Množství"
+  if (transaction.value?.transactionDirection === 'vydej') {
+    headers.push({ title: 'Požadované množství', key: 'requestedQuantity', sortable: true });
+  }
+
+  headers.push(
+    { title: 'Množství', key: 'quantity', sortable: true },
+    { title: 'Jednotka', key: 'uomName', sortable: false },
+    { title: 'Cena/ks', key: 'unitPrice', sortable: true },
+    { title: 'Celkem', key: 'totalPrice', sortable: true },
+    { title: 'Akce', key: 'actions', sortable: false }
+  );
+
+  return headers;
+});
 
 const totalItemsAmount = computed(() => {
   return items.value.reduce((sum, item) => sum + (item.totalPrice || 0), 0);
@@ -261,6 +273,7 @@ const openEditItemDialog = (item: InventoryTransactionItem) => {
   editItemData.value = {
     productId: item.productId,
     quantity: item.quantity,
+    requestedQuantity: item.requestedQuantity,
     unitPrice: item.unitPrice || 0
   };
   productSearchQueryEdit.value = ''; // Reset search
@@ -602,6 +615,19 @@ onMounted(() => {
                 </div>
               </template>
 
+              <template v-slot:item.requestedQuantity="{ item }">
+                <v-chip
+                  v-if="item.requestedQuantity !== undefined && item.requestedQuantity !== null"
+                  size="small"
+                  color="info"
+                  variant="tonal"
+                >
+                  <v-icon start size="small">mdi-clipboard-list</v-icon>
+                  {{ item.requestedQuantity }}
+                </v-chip>
+                <span v-else class="text-medium-emphasis">—</span>
+              </template>
+
               <template v-slot:item.quantity="{ item }">
                 <v-chip
                   size="small"
@@ -834,6 +860,18 @@ onMounted(() => {
             </v-autocomplete>
           </v-col>
 
+          <v-col cols="12" md="2" v-if="transaction?.transactionDirection === 'vydej'">
+            <v-text-field
+              v-model.number="newItem.requestedQuantity"
+              label="Požadované množství"
+              type="number"
+              variant="outlined"
+              density="comfortable"
+              min="0.001"
+              step="0.001"
+            ></v-text-field>
+          </v-col>
+
           <v-col cols="12" md="2">
             <v-text-field
               v-model.number="newItem.quantity"
@@ -906,6 +944,19 @@ onMounted(() => {
         </v-alert>
 
         <v-row>
+          <v-col cols="12" md="6" v-if="transaction?.transactionDirection === 'vydej'">
+            <v-text-field
+              v-model.number="editItemData.requestedQuantity"
+              label="Požadované množství"
+              type="number"
+              variant="outlined"
+              density="comfortable"
+              min="0.001"
+              step="0.001"
+              prepend-inner-icon="mdi-clipboard-list"
+            ></v-text-field>
+          </v-col>
+
           <v-col cols="12" md="6">
             <v-text-field
               v-model.number="editItemData.quantity"

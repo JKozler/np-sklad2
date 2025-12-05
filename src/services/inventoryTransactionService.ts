@@ -10,6 +10,7 @@ export interface InventoryTransactionItem {
   uomName?: string;
   unitPrice?: number;
   quantity: number;
+  requestedQuantity?: number;
   price?: number;
   totalPrice?: number;
   description?: string;

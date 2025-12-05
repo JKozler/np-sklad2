@@ -596,6 +596,9 @@ onMounted(() => {
                   </template>
                   <v-list-item-title>{{ item.productName }}</v-list-item-title>
                   <v-list-item-subtitle>
+                    <template v-if="formData.transactionDirection === 'typPohybu.vydej' && item.requestedQuantity !== undefined && item.requestedQuantity !== null">
+                      Požadované: {{ item.requestedQuantity }} {{ item.uomName || '' }} |
+                    </template>
                     Množství: {{ item.quantity }} {{ item.uomName || '' }} |
                     Cena: {{ formatPrice(item.unitPrice || 0) }} |
                     Celkem: {{ formatPrice((item.quantity || 0) * (item.unitPrice || 0)) }}
@@ -731,6 +734,18 @@ onMounted(() => {
                 </v-list-item>
               </template>
             </v-autocomplete>
+          </v-col>
+
+          <v-col cols="12" md="4" v-if="formData.transactionDirection === 'typPohybu.vydej'">
+            <v-text-field
+              v-model.number="newItem.requestedQuantity"
+              label="Požadované množství"
+              type="number"
+              variant="outlined"
+              density="comfortable"
+              min="0.001"
+              step="0.001"
+            ></v-text-field>
           </v-col>
 
           <v-col cols="12" md="4">
