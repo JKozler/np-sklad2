@@ -7,6 +7,7 @@ import UiParentCard from '@/components/shared/UiParentCard.vue';
 import { productionOrderService } from '@/services/productionOrderService';
 import type { ProductionOrder } from '@/services/productionOrderService';
 import { useProductAutocomplete } from '@/composables/useProductAutocomplete';
+import { useProductionWorkerAutocomplete } from '@/composables/useProductionWorkerAutocomplete';
 
 const route = useRoute();
 const router = useRouter();
@@ -34,6 +35,14 @@ const {
   searchQuery: productSearchQuery,
   loadProductById
 } = useProductAutocomplete();
+
+// Production Worker autocomplete
+const {
+  workers: autocompleteWorkers,
+  loading: loadingWorkerAutocomplete,
+  searchQuery: workerSearchQuery,
+  loadAllWorkers
+} = useProductionWorkerAutocomplete();
 
 // Editovatelné fieldy
 const editForm = ref({
@@ -94,6 +103,28 @@ const formatDateTime = (dateString: string | null) => {
     hour: '2-digit',
     minute: '2-digit'
   }).format(date);
+};
+
+const formatPrice = (price: number) => {
+  return new Intl.NumberFormat('cs-CZ', {
+    style: 'currency',
+    currency: 'CZK'
+  }).format(price);
+};
+
+const getStockTypeIcon = (stockType: string | undefined) => {
+  if (stockType === 'typZasoby.vyrobek') {
+    return 'mdi-food-drumstick';
+  }
+  // Default pro typZasoby.material a ostatní
+  return 'mdi-package-variant';
+};
+
+const getStockTypeLabel = (stockType: string | undefined) => {
+  if (stockType === 'typZasoby.vyrobek') {
+    return 'Produkt';
+  }
+  return 'Surovina';
 };
 
 /**
@@ -247,6 +278,8 @@ watch(() => editForm.value.productId, async (newProductId) => {
 
 onMounted(() => {
   loadOrder();
+  // Načti pracovníky pro autocomplete
+  loadAllWorkers();
 });
 </script>
 
@@ -495,7 +528,7 @@ onMounted(() => {
             <v-form @submit.prevent="saveOrder">
               <v-row>
                 <v-col cols="12" md="6">
-                  <!-- Product combobox -->
+                  <!-- Product autocomplete - vylepšený jako v InventoryTransaction -->
                   <v-autocomplete
                     v-model="editForm.productId"
                     v-model:search="productSearchQuery"
@@ -510,19 +543,34 @@ onMounted(() => {
                     prepend-inner-icon="mdi-package-variant"
                     hint="Vyberte produkt k výrobě"
                     persistent-hint
+                    no-filter
                     :rules="[v => !!v || 'Produkt je povinný']"
                   >
                     <template v-slot:item="{ props, item }">
                       <v-list-item v-bind="props">
                         <template v-slot:prepend>
-                          <v-icon>mdi-package-variant</v-icon>
+                          <v-icon color="primary">{{ getStockTypeIcon(item.raw.stockType) }}</v-icon>
                         </template>
                         <template v-slot:title>
                           {{ item.raw.name }}
                         </template>
                         <template v-slot:subtitle>
-                          Kód: {{ item.raw.code }}
+                          <span class="text-caption">
+                            Kód: {{ item.raw.code }} |
+                            {{ getStockTypeLabel(item.raw.stockType) }} |
+                            {{ formatPrice(item.raw.priceWithoutVat || 0) }}
+                          </span>
                         </template>
+                      </v-list-item>
+                    </template>
+
+                    <template v-slot:no-data>
+                      <v-list-item>
+                        <v-list-item-title>
+                          {{ productSearchQuery.length < 2
+                            ? 'Začněte psát pro vyhledání produktů (min. 2 znaky)'
+                            : 'Žádné produkty nenalezeny' }}
+                        </v-list-item-title>
                       </v-list-item>
                     </template>
                   </v-autocomplete>
@@ -583,6 +631,47 @@ onMounted(() => {
                       </v-chip>
                     </template>
                   </v-select>
+                </v-col>
+
+                <v-col cols="12">
+                  <!-- ProductionWorker autocomplete -->
+                  <v-autocomplete
+                    v-model="editForm.productionWorkerId"
+                    v-model:search="workerSearchQuery"
+                    :items="autocompleteWorkers"
+                    :loading="loadingWorkerAutocomplete"
+                    label="Pracovník výroby"
+                    placeholder="Vyberte pracovníka výroby..."
+                    variant="outlined"
+                    item-title="name"
+                    item-value="id"
+                    clearable
+                    prepend-inner-icon="mdi-account-hard-hat"
+                    hint="Volitelné - vyberte pracovníka odpovědného za výrobu"
+                    persistent-hint
+                    no-filter
+                  >
+                    <template v-slot:item="{ props, item }">
+                      <v-list-item v-bind="props">
+                        <template v-slot:prepend>
+                          <v-icon color="primary">mdi-account-hard-hat</v-icon>
+                        </template>
+                        <template v-slot:title>
+                          {{ item.raw.name }}
+                        </template>
+                      </v-list-item>
+                    </template>
+
+                    <template v-slot:no-data>
+                      <v-list-item>
+                        <v-list-item-title>
+                          {{ workerSearchQuery.length < 2
+                            ? 'Začněte psát pro vyhledání pracovníků (min. 2 znaky)'
+                            : 'Žádní pracovníci nenalezeni' }}
+                        </v-list-item-title>
+                      </v-list-item>
+                    </template>
+                  </v-autocomplete>
                 </v-col>
 
                 <v-col cols="12">
