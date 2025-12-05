@@ -33,6 +33,11 @@ const editMode = ref(false);
 const uoms = ref<UOM[]>([]);
 const loadingUoms = ref(false);
 
+// Pagination state
+const page = ref(1);
+const itemsPerPage = ref(20);
+const totalItems = ref(0);
+
 // **NOVÉ: Autocomplete pro přidání položky**
 const {
   products: autocompleteProducts,
@@ -171,8 +176,15 @@ const loadTransaction = async () => {
 const loadItems = async () => {
   loadingItems.value = true;
   try {
-    items.value = await inventoryTransactionService.getItems(transactionId);
-    console.log('✅ Načteny položky:', items.value);
+    const offset = (page.value - 1) * itemsPerPage.value;
+    const response = await inventoryTransactionService.getItems(
+      transactionId,
+      itemsPerPage.value,
+      offset
+    );
+    items.value = response.list;
+    totalItems.value = response.total;
+    console.log('✅ Načteny položky:', response.list.length, 'z', response.total);
   } catch (err) {
     console.error('Chyba při načítání položek:', err);
   } finally {
@@ -260,6 +272,7 @@ const addItem = async () => {
     };
 
     await inventoryTransactionService.addItem(transactionId, itemWithStockType);
+    page.value = 1; // Reset na první stránku
     await loadItems();
     showAddItemPanel.value = false;
   } catch (err: any) {
@@ -318,6 +331,12 @@ const deleteItem = async (itemId: string) => {
 
   try {
     await inventoryTransactionService.deleteItem(transactionId, itemId);
+
+    // Pokud byla odstraněna poslední položka na stránce, přejdi na předchozí
+    if (items.value.length === 1 && page.value > 1) {
+      page.value--;
+    }
+
     await loadItems();
   } catch (err: any) {
     error.value = err.message || 'Chyba při mazání položky';
@@ -596,7 +615,11 @@ onMounted(() => {
               :headers="itemsHeaders"
               :items="items"
               :loading="loadingItems"
-              hide-default-footer
+              :items-length="totalItems"
+              v-model:page="page"
+              :items-per-page="itemsPerPage"
+              @update:page="loadItems"
+              @update:items-per-page="(value) => { itemsPerPage = value; page = 1; loadItems(); }"
               class="elevation-1"
             >
               <template v-slot:item.productName="{ item }">
@@ -704,10 +727,10 @@ onMounted(() => {
               <template v-slot:bottom>
                 <div class="pa-4 d-flex justify-space-between align-center bg-grey-lighten-4">
                   <div class="text-subtitle-1 font-weight-bold">
-                    Celkem položek: {{ items.length }}
+                    Celkem položek: {{ totalItems }}
                   </div>
                   <div class="text-h6 font-weight-bold text-primary">
-                    Celková částka: {{ formatPrice(totalItemsAmount) }}
+                    Částka na stránce: {{ formatPrice(totalItemsAmount) }}
                   </div>
                 </div>
               </template>
@@ -743,22 +766,22 @@ onMounted(() => {
                   <div class="mb-3">
                     <div class="d-flex justify-space-between">
                       <span class="text-body-2 text-medium-emphasis">Počet položek:</span>
-                      <span class="font-weight-bold">{{ items.length }}</span>
+                      <span class="font-weight-bold">{{ totalItems }}</span>
                     </div>
                   </div>
 
                   <div class="mb-3">
                     <div class="d-flex justify-space-between">
-                      <span class="text-body-2 text-medium-emphasis">Celkové množství:</span>
+                      <span class="text-body-2 text-medium-emphasis">Na aktuální stránce:</span>
                       <span class="font-weight-bold">
-                        {{ items.reduce((sum, item) => sum + item.quantity, 0) }}
+                        {{ items.length }} položek
                       </span>
                     </div>
                   </div>
 
                   <div>
                     <div class="d-flex justify-space-between">
-                      <span class="text-body-2 text-medium-emphasis">Průměrná cena:</span>
+                      <span class="text-body-2 text-medium-emphasis">Průměrná cena (stránka):</span>
                       <span class="font-weight-bold">
                         {{ formatPrice(items.length > 0 ? totalItemsAmount / items.length : 0) }}
                       </span>
