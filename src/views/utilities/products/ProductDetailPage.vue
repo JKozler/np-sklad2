@@ -1011,17 +1011,6 @@ onMounted(() => {
             </v-btn>
           </template>
 
-          <!-- Tlačítko pro označení produktu jako dostupného -->
-          <v-btn
-            v-if="!editMode && product.outageFlag"
-            color="success"
-            prepend-icon="mdi-check-circle"
-            @click="markAsAvailable"
-            :loading="markingAsAvailable"
-          >
-            Produkt je již dostupný
-          </v-btn>
-
           <v-btn
             color="error"
             variant="outlined"
