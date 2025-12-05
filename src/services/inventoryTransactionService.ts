@@ -274,9 +274,10 @@ export const inventoryTransactionService = {
   async getItems(
     transactionId: string,
     maxSize: number = 20,
-    offset: number = 0
+    offset: number = 0,
+    textFilter?: string
   ): Promise<{ total: number; list: InventoryTransactionItem[] }> {
-    console.log('📋 Getting transaction items:', transactionId, `maxSize=${maxSize}, offset=${offset}`);
+    console.log('📋 Getting transaction items:', transactionId, `maxSize=${maxSize}, offset=${offset}, textFilter=${textFilter || 'none'}`);
 
     const queryParams = new URLSearchParams({
       maxSize: maxSize.toString(),
@@ -284,6 +285,12 @@ export const inventoryTransactionService = {
       orderBy: 'createdAt',
       order: 'desc'
     });
+
+    // Přidáme text filter pokud je zadán
+    if (textFilter && textFilter.trim()) {
+      queryParams.append('whereGroup[0][type]', 'textFilter');
+      queryParams.append('whereGroup[0][value]', textFilter.trim());
+    }
 
     const response = await apiClient.get<{ total: number; list: InventoryTransactionItem[] }>(
       `/InventoryTransaction/${transactionId}/items?${queryParams}`
