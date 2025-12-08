@@ -652,8 +652,8 @@ const createOutage = async () => {
     console.log('📤 Nastavuji produkt jako nedostupný');
     const updated = await productsService.update(productId, {
       outageFlag: true,
-      outageNote: outageData.value.outageNote || null,
-      outageExpectedStockDate: outageData.value.outageExpectedStockDate || null
+      outageNote: outageData.value.outageNote || undefined,
+      outageExpectedStockDate: outageData.value.outageExpectedStockDate || undefined
     });
     product.value = updated;
     showOutageDialog.value = false;
