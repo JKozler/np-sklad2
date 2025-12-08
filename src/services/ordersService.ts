@@ -249,6 +249,9 @@ export interface PackageDetail {
   errorMessage?: string; // Nový atribut - důvod erroru
   packageIssuedFlag?: boolean; // Nový atribut - flag jestli proběhla výdejka
   packageReceivedFlag?: boolean; // Nový atribut - flag jestli proběhla příjemka vratky
+  warehouseWorkerId?: string | null; // Nový atribut - ID skladníka
+  warehouseWorkerName?: string | null; // Nový atribut - jméno skladníka
+  expeditionDate?: string | null; // Nový atribut - datum expedice
 }
 
 export const ordersService = {
