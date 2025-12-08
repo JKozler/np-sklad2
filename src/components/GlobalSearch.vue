@@ -24,6 +24,7 @@ const entityIcons: Record<string, string> = {
   Account: 'mdi-domain',
   Lead: 'mdi-account-plus',
   Opportunity: 'mdi-cash',
+  SalesOrder: 'mdi-file-document-outline',
   default: 'mdi-file-document'
 };
 
@@ -35,6 +36,7 @@ const entityColors: Record<string, string> = {
   Account: 'warning',
   Lead: 'purple',
   Opportunity: 'green',
+  SalesOrder: 'indigo',
   default: 'grey'
 };
 
@@ -46,6 +48,7 @@ const entityLabels: Record<string, string> = {
   Account: 'Účet',
   Lead: 'Lead',
   Opportunity: 'Příležitost',
+  SalesOrder: 'Objednávka',
   default: 'Záznam'
 };
 
@@ -70,6 +73,10 @@ const getEntityRoute = (result: GlobalSearchResult): string => {
       return `/inventory-transactions/${result.id}`;
     case 'Warehouse':
       return `/warehouses`;
+    case 'SalesOrder':
+      return `/orders/${result.id}`;
+    case 'Account':
+      return `/customers`;
     default:
       return '#';
   }

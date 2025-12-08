@@ -39,6 +39,16 @@ export const globalSearchService = {
 
     console.log('🔍 Global Search:', `/GlobalSearch?${queryParams}`);
 
-    return apiClient.get<GlobalSearchResponse>(`/GlobalSearch?${queryParams}`);
+    const response = await apiClient.get<any>(`/GlobalSearch?${queryParams}`);
+
+    // Transform _scope to entityType for each result
+    if (response.list) {
+      response.list = response.list.map((item: any) => ({
+        ...item,
+        entityType: item._scope || item.entityType
+      }));
+    }
+
+    return response as GlobalSearchResponse;
   }
 };
