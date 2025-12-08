@@ -378,6 +378,14 @@ onMounted(() => {
                       </v-chip>
                     </td>
                   </tr>
+                  <tr v-if="packageDetail.warehouseWorkerName || packageDetail.warehouseWorkerId">
+                    <td class="text-medium-emphasis font-weight-medium">Skladník:</td>
+                    <td>{{ packageDetail.warehouseWorkerName || packageDetail.warehouseWorkerId || '—' }}</td>
+                  </tr>
+                  <tr v-if="packageDetail.expeditionDate">
+                    <td class="text-medium-emphasis font-weight-medium">Datum expedice:</td>
+                    <td>{{ formatDate(packageDetail.expeditionDate) }}</td>
+                  </tr>
                   <tr>
                     <td class="text-medium-emphasis font-weight-medium">Počet kusů:</td>
                     <td>{{ packageDetail.boxCount }}</td>
