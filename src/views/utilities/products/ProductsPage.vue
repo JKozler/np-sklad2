@@ -759,14 +759,14 @@ onMounted(() => {
 
           <!-- Price -->
           <template v-slot:item.costPrice="{ item }">
-            <span class="font-weight-medium">
+            <span class="font-weight-medium text-error">
               {{ formatPrice(item.costPrice?item.costPrice:0) }}
             </span>
           </template>
 
           <!-- Price -->
           <template v-slot:item.priceWithoutVat="{ item }">
-            <span class="font-weight-medium">
+            <span class="font-weight-medium text-success">
               {{ formatPrice(item.priceWithoutVat) }}
             </span>
           </template>
