@@ -27,6 +27,9 @@ export interface Package {
   errorMessage?: string;
   packageIssuedFlag?: boolean;
   packageReceivedFlag?: boolean;
+  warehouseWorkerId?: string | null;
+  warehouseWorkerName?: string | null;
+  expeditionDate?: string | null;
 }
 
 export interface PackagesResponse {
@@ -80,6 +83,9 @@ export interface PackageDetail {
   errorMessage?: string;
   packageIssuedFlag?: boolean;
   packageReceivedFlag?: boolean;
+  warehouseWorkerId?: string | null;
+  warehouseWorkerName?: string | null;
+  expeditionDate?: string | null;
 }
 
 export interface PackageItem {

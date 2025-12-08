@@ -1262,10 +1262,11 @@ onMounted(() => {
           <tbody>
             <template v-for="item in hierarchicalItems" :key="item.id">
               <!-- Bundle řádek -->
-              <tr v-if="item.isBundle" class="bundle-row">
+              <tr v-if="item.isBundle" class="bundle-row" :class="{ 'outage-row': item.outageFlag }">
                 <td>
                   <div class="d-flex align-center">
                     <v-icon size="small" class="mr-2" color="primary">mdi-package-variant</v-icon>
+                    <v-icon v-if="item.outageFlag" size="small" class="mr-2" color="error">mdi-alert-circle</v-icon>
                     <div>
                       <div class="font-weight-bold">
                         <router-link
@@ -1303,10 +1304,11 @@ onMounted(() => {
               </tr>
 
               <!-- Bundle items - vnořené položky -->
-              <tr v-for="bundleItem in item.bundleItems" :key="bundleItem.id" class="bundle-item-row">
+              <tr v-for="bundleItem in item.bundleItems" :key="bundleItem.id" class="bundle-item-row" :class="{ 'outage-row': bundleItem.outageFlag }">
                 <td>
                   <div class="d-flex align-center pl-8">
                     <v-icon size="x-small" class="mr-2" color="grey">mdi-subdirectory-arrow-right</v-icon>
+                    <v-icon v-if="bundleItem.outageFlag" size="small" class="mr-2" color="error">mdi-alert-circle</v-icon>
                     <div>
                       <div class="font-weight-medium">
                         <router-link
@@ -1337,24 +1339,27 @@ onMounted(() => {
               </tr>
 
               <!-- Normální položky (není bundle ani bundle item) -->
-              <tr v-if="!item.isBundle" class="normal-row">
+              <tr v-if="!item.isBundle" class="normal-row" :class="{ 'outage-row': item.outageFlag }">
                 <td>
-                  <div>
-                    <div class="font-weight-medium">
-                      <router-link
-                        v-if="item.productId"
-                        :to="`/products/${item.productId}`"
-                        class="text-decoration-none product-link"
+                  <div class="d-flex align-center">
+                    <v-icon v-if="item.outageFlag" size="small" class="mr-2" color="error">mdi-alert-circle</v-icon>
+                    <div>
+                      <div class="font-weight-medium">
+                        <router-link
+                          v-if="item.productId"
+                          :to="`/products/${item.productId}`"
+                          class="text-decoration-none product-link"
+                        >
+                          {{ item.name }}
+                        </router-link>
+                        <span v-else>{{ item.name }}</span>
+                      </div>
+                      <div
+                        v-if="item.productName && item.productName !== item.name"
+                        class="text-caption text-medium-emphasis"
                       >
-                        {{ item.name }}
-                      </router-link>
-                      <span v-else>{{ item.name }}</span>
-                    </div>
-                    <div
-                      v-if="item.productName && item.productName !== item.name"
-                      class="text-caption text-medium-emphasis"
-                    >
-                      {{ item.productName }}
+                        {{ item.productName }}
+                      </div>
                     </div>
                   </div>
                 </td>
@@ -1566,6 +1571,14 @@ onMounted(() => {
                 <tr v-if="selectedPackage.errorMessage">
                   <td class="text-medium-emphasis font-weight-medium">Chybová zpráva:</td>
                   <td class="text-error">{{ selectedPackage.errorMessage }}</td>
+                </tr>
+                <tr v-if="selectedPackage.warehouseWorkerName || selectedPackage.warehouseWorkerId">
+                  <td class="text-medium-emphasis font-weight-medium">Skladník:</td>
+                  <td>{{ selectedPackage.warehouseWorkerName || selectedPackage.warehouseWorkerId || '—' }}</td>
+                </tr>
+                <tr v-if="selectedPackage.expeditionDate">
+                  <td class="text-medium-emphasis font-weight-medium">Datum expedice:</td>
+                  <td>{{ formatDate(selectedPackage.expeditionDate) }}</td>
                 </tr>
                 <tr>
                   <td class="text-medium-emphasis font-weight-medium">Počet kusů:</td>
@@ -2054,5 +2067,14 @@ onMounted(() => {
 .product-link:hover {
   opacity: 0.7;
   text-decoration: underline !important;
+}
+
+/* Outage row styling */
+.outage-row {
+  background-color: rgba(var(--v-theme-error), 0.08) !important;
+}
+
+.outage-row:hover {
+  background-color: rgba(var(--v-theme-error), 0.12) !important;
 }
 </style>

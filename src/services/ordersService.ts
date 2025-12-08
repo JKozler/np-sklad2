@@ -41,6 +41,7 @@ export interface SalesOrderItem {
   bundleId?: string | null; // ID bundle kontejneru
   bundleName?: string | null; // Název bundlu
   type?: SalesOrderItemType; // Typ položky
+  outageFlag?: boolean; // Indikuje nedostupný produkt
 }
 
 export interface SalesOrder {
@@ -309,7 +310,7 @@ export const ordersService = {
       offset: '0',
       orderBy: 'createdAt',
       order: 'desc',
-      attributeSelect: 'productId,productName,name,quantity,unitPrice,priceWithoutVat,vatRate,priceWithVat,bundleId,bundleName,type'
+      attributeSelect: 'productId,productName,name,quantity,unitPrice,priceWithoutVat,vatRate,priceWithVat,bundleId,bundleName,type,outageFlag'
     });
 
     console.log('📋 Getting order items:', orderId);

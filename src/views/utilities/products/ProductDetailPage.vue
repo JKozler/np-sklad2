@@ -44,6 +44,14 @@ const exporting = ref(false);
 const showExportDialog = ref(false);
 const exportFormat = ref<'csv' | 'json' | 'xlsx'>('csv');
 
+// **NOVÉ: Outage management**
+const showOutageDialog = ref(false);
+const creatingOutage = ref(false);
+const outageData = ref({
+  outageNote: '',
+  outageExpectedStockDate: ''
+});
+
 // **NOVÉ: URL fotky produktu**
 const photoUrl = computed(() => {
   if (!product.value?.photoId) return null;
@@ -620,6 +628,41 @@ const markAsAvailable = async () => {
     console.error('Chyba při označení jako dostupný:', err);
   } finally {
     markingAsAvailable.value = false;
+  }
+};
+
+/**
+ * **NOVÉ: Nastavení produktu jako nedostupného**
+ */
+const openOutageDialog = () => {
+  outageData.value = {
+    outageNote: product.value?.outageNote || '',
+    outageExpectedStockDate: product.value?.outageExpectedStockDate || ''
+  };
+  showOutageDialog.value = true;
+};
+
+const createOutage = async () => {
+  if (!product.value) return;
+
+  creatingOutage.value = true;
+  error.value = null;
+
+  try {
+    console.log('📤 Nastavuji produkt jako nedostupný');
+    const updated = await productsService.update(productId, {
+      outageFlag: true,
+      outageNote: outageData.value.outageNote || null,
+      outageExpectedStockDate: outageData.value.outageExpectedStockDate || null
+    });
+    product.value = updated;
+    showOutageDialog.value = false;
+    alert('Produkt byl nastaven jako nedostupný');
+  } catch (err: any) {
+    error.value = err.message || 'Chyba při aktualizaci produktu';
+    console.error('Chyba při nastavení jako nedostupný:', err);
+  } finally {
+    creatingOutage.value = false;
   }
 };
 
@@ -1878,18 +1921,45 @@ onMounted(() => {
                 Duplikovat
               </v-btn>
               
-              <v-btn 
-                block 
-                variant="outlined" 
-                class="mb-2" 
+              <v-btn
+                block
+                variant="outlined"
+                class="mb-2"
                 prepend-icon="mdi-file-export"
                 @click="openExportDialog"
                 :loading="exporting"
               >
                 Exportovat
               </v-btn>
+
+              <!-- Outage Management Buttons -->
               <v-btn
-                block 
+                v-if="!product?.outageFlag"
+                block
+                variant="outlined"
+                class="mb-2"
+                prepend-icon="mdi-alert-circle"
+                color="warning"
+                @click="openOutageDialog"
+              >
+                Nastavit jako nedostupný
+              </v-btn>
+
+              <v-btn
+                v-if="product?.outageFlag"
+                block
+                variant="outlined"
+                class="mb-2"
+                prepend-icon="mdi-check-circle"
+                color="success"
+                @click="markAsAvailable"
+                :loading="markingAsAvailable"
+              >
+                Ukončit nedostupnost
+              </v-btn>
+
+              <v-btn
+                block
                 variant="outlined"
                 prepend-icon="mdi-file-tree"
                 @click="router.push(`/products/${productId}/bom`)"
@@ -1968,6 +2038,56 @@ onMounted(() => {
         </v-btn>
         <v-btn color="primary" @click="performExport">
           Exportovat
+        </v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
+
+  <!-- Dialog pro nastavení nedostupnosti -->
+  <v-dialog v-model="showOutageDialog" max-width="600">
+    <v-card>
+      <v-card-title class="d-flex justify-space-between align-center">
+        <span>Nastavit produkt jako nedostupný</span>
+        <v-btn icon variant="text" @click="showOutageDialog = false">
+          <v-icon>mdi-close</v-icon>
+        </v-btn>
+      </v-card-title>
+      <v-divider></v-divider>
+      <v-card-text>
+        <div class="text-body-2 text-medium-emphasis mb-4">
+          Vyplňte informace o nedostupnosti produktu
+        </div>
+
+        <v-textarea
+          v-model="outageData.outageNote"
+          label="Poznámka o nedostupnosti"
+          placeholder="Např. Produkt dočasně nedostupný u dodavatele"
+          rows="3"
+          variant="outlined"
+          class="mb-4"
+        ></v-textarea>
+
+        <v-text-field
+          v-model="outageData.outageExpectedStockDate"
+          label="Očekávaný příjem"
+          type="date"
+          variant="outlined"
+          hint="Kdy očekáváte opětovnou dostupnost"
+          persistent-hint
+        ></v-text-field>
+      </v-card-text>
+      <v-divider></v-divider>
+      <v-card-actions>
+        <v-spacer></v-spacer>
+        <v-btn variant="outlined" @click="showOutageDialog = false">
+          Zrušit
+        </v-btn>
+        <v-btn
+          color="warning"
+          @click="createOutage"
+          :loading="creatingOutage"
+        >
+          Nastavit jako nedostupný
         </v-btn>
       </v-card-actions>
     </v-card>
