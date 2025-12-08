@@ -67,13 +67,26 @@ const formData = ref<CreateInventoryTransactionData>({
 // **NOVÉ: ID vybraného dodavatele**
 const selectedSupplierId = ref<string>('');
 
-// **NOVÉ: Watch pro aktualizaci názvu podle dodavatele**
+// **NOVÉ: Watch pro aktualizaci názvu podle dodavatele (JEN pro příjemky)**
 watch(selectedSupplierId, (newSupplierId) => {
-  if (newSupplierId) {
+  if (newSupplierId && formData.value.transactionDirection === 'typPohybu.prijem') {
     const supplier = autocompleteSuppliers.value.find(s => s.id === newSupplierId);
     if (supplier) {
       formData.value.name = supplier.name;
       console.log('✅ Název pohybu aktualizován podle dodavatele:', supplier.name);
+    }
+  }
+});
+
+// **NOVÉ: Watch pro automatické nastavení názvu u výdejek**
+watch(() => formData.value.transactionDirection, (newDirection) => {
+  if (newDirection === 'typPohybu.vydej') {
+    formData.value.name = 'NaturalProtein';
+    console.log('✅ Název pohybu automaticky nastaven pro výdej:', formData.value.name);
+  } else if (newDirection === 'typPohybu.prijem') {
+    // Pro příjemky resetovat název, pokud ještě není vyplněn
+    if (formData.value.name === 'NaturalProtein') {
+      formData.value.name = '';
     }
   }
 });
@@ -472,8 +485,9 @@ onMounted(() => {
             <UiParentCard title="Základní informace">
               <v-row>
                 <v-col cols="12">
-                  <!-- **NOVÉ: Autocomplete pro dodavatele místo textového pole** -->
+                  <!-- **PŘÍJEMKY: Autocomplete pro dodavatele** -->
                   <v-autocomplete
+                    v-if="formData.transactionDirection === 'typPohybu.prijem'"
                     v-model="selectedSupplierId"
                     v-model:search="supplierSearchQuery"
                     :items="autocompleteSuppliers"
@@ -513,6 +527,19 @@ onMounted(() => {
                       </v-list-item>
                     </template>
                   </v-autocomplete>
+
+                  <!-- **VÝDEJKY: Textové pole Název s předvyplněnou hodnotou** -->
+                  <v-text-field
+                    v-else-if="formData.transactionDirection === 'typPohybu.vydej'"
+                    v-model="formData.name"
+                    label="Název *"
+                    variant="outlined"
+                    density="comfortable"
+                    prepend-inner-icon="mdi-text"
+                    :rules="[rules.required]"
+                    hint="Název výdejky (předvyplněno NaturalProtein)"
+                    persistent-hint
+                  ></v-text-field>
                 </v-col>
 
                 <v-col cols="12" md="6">

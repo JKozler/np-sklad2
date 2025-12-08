@@ -65,9 +65,9 @@ const {
 // **NOVÉ: ID vybraného dodavatele**
 const selectedSupplierId = ref<string>('');
 
-// **NOVÉ: Watch pro aktualizaci názvu podle dodavatele**
+// **NOVÉ: Watch pro aktualizaci názvu podle dodavatele (JEN pro příjemky)**
 watch(selectedSupplierId, (newSupplierId) => {
-  if (newSupplierId && editMode.value) {
+  if (newSupplierId && editMode.value && transaction.value?.transactionDirection === 'typPohybu.prijem') {
     const supplier = autocompleteSuppliers.value.find(s => s.id === newSupplierId);
     if (supplier) {
       editData.value.name = supplier.name;
@@ -488,47 +488,64 @@ onMounted(() => {
           <UiParentCard title="Základní informace">
             <v-row>
               <v-col cols="12" md="4">
-                <!-- **NOVÉ: Autocomplete pro dodavatele v editačním módu** -->
-                <v-autocomplete
-                  v-if="editMode"
-                  v-model="selectedSupplierId"
-                  v-model:search="supplierSearchQuery"
-                  :items="autocompleteSuppliers"
-                  item-title="name"
-                  item-value="id"
-                  label="Dodavatel *"
-                  variant="outlined"
-                  density="comfortable"
-                  prepend-inner-icon="mdi-domain"
-                  :loading="loadingSupplierAutocomplete"
-                  placeholder="Začněte psát pro vyhledání dodavatele..."
-                  hint="Vyberte dodavatele - název se automaticky aktualizuje"
-                  persistent-hint
-                  no-filter
-                  clearable
-                >
-                  <template v-slot:item="{ props: itemProps, item }">
-                    <v-list-item v-bind="itemProps">
-                      <template v-slot:prepend>
-                        <v-icon color="primary">mdi-domain</v-icon>
-                      </template>
-                      <v-list-item-title>{{ item.raw.name }}</v-list-item-title>
-                      <v-list-item-subtitle class="text-caption">
-                        {{ item.raw.website || 'Bez webové stránky' }}
-                      </v-list-item-subtitle>
-                    </v-list-item>
-                  </template>
+                <!-- **EDITAČNÍ MÓD** -->
+                <template v-if="editMode">
+                  <!-- **PŘÍJEMKY: Autocomplete pro dodavatele** -->
+                  <v-autocomplete
+                    v-if="transaction.transactionDirection === 'typPohybu.prijem'"
+                    v-model="selectedSupplierId"
+                    v-model:search="supplierSearchQuery"
+                    :items="autocompleteSuppliers"
+                    item-title="name"
+                    item-value="id"
+                    label="Dodavatel *"
+                    variant="outlined"
+                    density="comfortable"
+                    prepend-inner-icon="mdi-domain"
+                    :loading="loadingSupplierAutocomplete"
+                    placeholder="Začněte psát pro vyhledání dodavatele..."
+                    hint="Vyberte dodavatele - název se automaticky aktualizuje"
+                    persistent-hint
+                    no-filter
+                    clearable
+                  >
+                    <template v-slot:item="{ props: itemProps, item }">
+                      <v-list-item v-bind="itemProps">
+                        <template v-slot:prepend>
+                          <v-icon color="primary">mdi-domain</v-icon>
+                        </template>
+                        <v-list-item-title>{{ item.raw.name }}</v-list-item-title>
+                        <v-list-item-subtitle class="text-caption">
+                          {{ item.raw.website || 'Bez webové stránky' }}
+                        </v-list-item-subtitle>
+                      </v-list-item>
+                    </template>
 
-                  <template v-slot:no-data>
-                    <v-list-item>
-                      <v-list-item-title>
-                        {{ supplierSearchQuery.length < 2
-                          ? 'Začněte psát pro vyhledání dodavatelů (min. 2 znaky)'
-                          : 'Žádní dodavatelé nenalezeni' }}
-                      </v-list-item-title>
-                    </v-list-item>
-                  </template>
-                </v-autocomplete>
+                    <template v-slot:no-data>
+                      <v-list-item>
+                        <v-list-item-title>
+                          {{ supplierSearchQuery.length < 2
+                            ? 'Začněte psát pro vyhledání dodavatelů (min. 2 znaky)'
+                            : 'Žádní dodavatelé nenalezeni' }}
+                        </v-list-item-title>
+                      </v-list-item>
+                    </template>
+                  </v-autocomplete>
+
+                  <!-- **VÝDEJKY: Textové pole Název** -->
+                  <v-text-field
+                    v-else-if="transaction.transactionDirection === 'typPohybu.vydej'"
+                    v-model="editData.name"
+                    label="Název *"
+                    variant="outlined"
+                    density="comfortable"
+                    prepend-inner-icon="mdi-text"
+                    hint="Název výdejky"
+                    persistent-hint
+                  ></v-text-field>
+                </template>
+
+                <!-- **ZOBRAZOVACÍ MÓD** -->
                 <div v-else>
                   <div class="text-subtitle-2 text-medium-emphasis">Název pohybu</div>
                   <div class="text-h5 font-weight-bold">{{ transaction.name }}</div>
