@@ -93,6 +93,8 @@ export interface SalesOrder {
   followersNames?: Record<string, string>;
   isStarred?: boolean;
   eshopId?: string; // Nový atribut
+  flagPackageCreated?: boolean; // Flag zda byl balík vytvořen
+  packageErrorMessage?: string; // Chybová zpráva balíku
 }
 
 export interface SalesOrdersResponse {
