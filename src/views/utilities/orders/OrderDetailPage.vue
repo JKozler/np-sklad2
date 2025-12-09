@@ -1,6 +1,6 @@
 <!-- src/views/utilities/orders/OrderDetailPage.vue -->
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import BaseBreadcrumb from '@/components/shared/BaseBreadcrumb.vue';
 import UiParentCard from '@/components/shared/UiParentCard.vue';
@@ -734,6 +734,13 @@ const sendToExpedition = async () => {
     updatingPackageStatus.value = false;
   }
 };
+
+// Watch for route changes to reload order when navigating to different order via global search
+watch(orderId, (newId, oldId) => {
+  if (newId && newId !== oldId) {
+    loadOrder();
+  }
+});
 
 onMounted(() => {
   loadOrder();

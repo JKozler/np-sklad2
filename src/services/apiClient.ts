@@ -58,11 +58,21 @@ export class ApiClient {
       if (!response.ok) {
         const responseText = await response.text();
         console.error('❌ Response body:', responseText);
-        
+
         if (response.status === 401 || response.status === 403) {
-          throw new Error('Access denied - check credentials');
+          console.error('🔴 Authentication failed - session expired, logging out');
+
+          // Clear all authentication data
+          localStorage.removeItem('authUsername');
+          localStorage.removeItem('authPassword');
+          localStorage.removeItem('user');
+
+          // Redirect to login page (hard redirect to ensure clean state)
+          window.location.href = '/login';
+
+          throw new Error('Přihlášení vypršelo - prosím přihlaste se znovu');
         }
-        
+
         throw new Error(`API Error: ${response.status} - ${responseText}`);
       }
   
