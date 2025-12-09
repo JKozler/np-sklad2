@@ -951,7 +951,15 @@ onMounted(() => {
                   </tr>
                   <tr v-if="order.eshopId">
                     <td class="text-medium-emphasis font-weight-medium">Eshop ID:</td>
-                    <td>{{ order.eshopId }}</td>
+                    <td>
+                      <a
+                        :href="`https://www.naturalprotein.sk/admin/cs/eshop.orders.orders/detail?id=${order.eshopId}`"
+                        target="_blank"
+                        class="text-decoration-none"
+                      >
+                        {{ order.eshopId }}
+                      </a>
+                    </td>
                   </tr>
                   <tr v-if="order.paymentMethod">
                     <td class="text-medium-emphasis font-weight-medium">Způsob platby:</td>
