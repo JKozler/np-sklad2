@@ -136,6 +136,24 @@ export interface UpdateOrderData {
   carrierPickupPoint?: string;
 }
 
+export interface OrderFilters {
+  status?: string[];
+  carrierId?: string;
+  email?: string;
+  priceMin?: number;
+  priceMax?: number;
+  paymentMethod?: string[];
+  customerName?: string;
+}
+
+export interface OrderQueryParams {
+  maxSize?: number;
+  offset?: number;
+  orderBy?: string;
+  order?: 'asc' | 'desc';
+  [key: string]: any; // Pro whereGroup parametry
+}
+
 export interface StreamEntry {
   id: string;
   deleted: boolean;
@@ -261,40 +279,139 @@ export const ordersService = {
    * Načte seznam objednávek s možností vyhledávání a filtrování
    * @param searchText - Textové vyhledávání
    * @param primaryFilter - Primární filtr (např. 'starred' pro oblíbené, 'errors' pro chybové)
-   * @param maxSize - Maximální počet položek na stránku
-   * @param offset - Offset pro paginaci
+   * @param filters - Pokročilé filtry (status, dopravce, cena, atd.)
+   * @param params - Query parametry včetně whereGroup
    */
-  async getAll(searchText?: string, primaryFilter?: string, maxSize: number = 200, offset: number = 0): Promise<SalesOrdersResponse> {
-    const queryParams = new URLSearchParams({
-      maxSize: maxSize.toString(),
-      offset: offset.toString(),
-      orderBy: 'createdAt',
-      order: 'desc',
-      attributeSelect: 'name,priceWithVat,currency,shippingAddressLastName,shippingAddressFirstName,status,carrierId,carrierName,createdAt,isStarred'
-    });
+  async getAll(
+    searchText?: string,
+    primaryFilter?: string,
+    filters?: OrderFilters,
+    params?: OrderQueryParams
+  ): Promise<SalesOrdersResponse> {
+    const queryParams: any = {
+      maxSize: (params?.maxSize || 200).toString(),
+      offset: (params?.offset || 0).toString(),
+      orderBy: params?.orderBy || 'createdAt',
+      order: params?.order || 'desc'
+    };
+
+    let whereGroupIndex = 0;
 
     // Přidat primární filtr pokud existuje
     if (primaryFilter === 'errors') {
       // Speciální filtr pro chybové objednávky
-      queryParams.append('whereGroup[0][type]', 'in');
-      queryParams.append('whereGroup[0][attribute]', 'status');
-      queryParams.append('whereGroup[0][value][]', 'expedition-error');
-      queryParams.append('whereGroup[0][value][]', 'data-error');
+      queryParams[`whereGroup[${whereGroupIndex}][type]`] = 'in';
+      queryParams[`whereGroup[${whereGroupIndex}][attribute]`] = 'status';
+      queryParams[`whereGroup[${whereGroupIndex}][value][]`] = 'expedition-error';
+      queryParams[`whereGroup[${whereGroupIndex}][value][]`] = 'data-error';
+      whereGroupIndex++;
     } else if (primaryFilter) {
       // Standardní primární filtr (např. starred)
-      queryParams.append('whereGroup[0][type]', 'primary');
-      queryParams.append('whereGroup[0][value]', primaryFilter);
+      queryParams[`whereGroup[${whereGroupIndex}][type]`] = 'primary';
+      queryParams[`whereGroup[${whereGroupIndex}][value]`] = primaryFilter;
+      whereGroupIndex++;
     }
 
     // Přidat textový filtr pokud existuje
     if (searchText) {
-      const groupIndex = primaryFilter ? '1' : '0';
-      queryParams.append(`whereGroup[${groupIndex}][type]`, 'textFilter');
-      queryParams.append(`whereGroup[${groupIndex}][value]`, wrapWithWildcards(searchText));
+      queryParams[`whereGroup[${whereGroupIndex}][type]`] = 'textFilter';
+      queryParams[`whereGroup[${whereGroupIndex}][value]`] = wrapWithWildcards(searchText);
+      whereGroupIndex++;
     }
 
-    console.log('🔍 API Request:', `/SalesOrder?${queryParams}`);
-    return apiClient.get<SalesOrdersResponse>(`/SalesOrder?${queryParams}`);
+    // **NOVÉ: Pokročilé filtry**
+    if (filters) {
+      // Filtr podle statusu (in - pole hodnot)
+      if (filters.status && filters.status.length > 0) {
+        queryParams[`whereGroup[${whereGroupIndex}][type]`] = 'in';
+        queryParams[`whereGroup[${whereGroupIndex}][attribute]`] = 'status';
+        filters.status.forEach(status => {
+          queryParams[`whereGroup[${whereGroupIndex}][value][]`] = status;
+        });
+        whereGroupIndex++;
+      }
+
+      // Filtr podle dopravce (equals)
+      if (filters.carrierId) {
+        queryParams[`whereGroup[${whereGroupIndex}][type]`] = 'equals';
+        queryParams[`whereGroup[${whereGroupIndex}][attribute]`] = 'carrierId';
+        queryParams[`whereGroup[${whereGroupIndex}][value]`] = filters.carrierId;
+        whereGroupIndex++;
+      }
+
+      // Filtr podle emailu (startsWith)
+      if (filters.email) {
+        queryParams[`whereGroup[${whereGroupIndex}][type]`] = 'startsWith';
+        queryParams[`whereGroup[${whereGroupIndex}][attribute]`] = 'email';
+        queryParams[`whereGroup[${whereGroupIndex}][value]`] = filters.email;
+        whereGroupIndex++;
+      }
+
+      // Filtr podle jména zákazníka (contains v shippingAddressFirstName nebo shippingAddressLastName)
+      if (filters.customerName) {
+        queryParams[`whereGroup[${whereGroupIndex}][type]`] = 'or';
+        queryParams[`whereGroup[${whereGroupIndex}][value][0][type]`] = 'contains';
+        queryParams[`whereGroup[${whereGroupIndex}][value][0][attribute]`] = 'shippingAddressFirstName';
+        queryParams[`whereGroup[${whereGroupIndex}][value][0][value]`] = filters.customerName;
+        queryParams[`whereGroup[${whereGroupIndex}][value][1][type]`] = 'contains';
+        queryParams[`whereGroup[${whereGroupIndex}][value][1][attribute]`] = 'shippingAddressLastName';
+        queryParams[`whereGroup[${whereGroupIndex}][value][1][value]`] = filters.customerName;
+        whereGroupIndex++;
+      }
+
+      // Filtr podle minimální ceny (greaterThan)
+      if (filters.priceMin !== undefined && filters.priceMin > 0) {
+        queryParams[`whereGroup[${whereGroupIndex}][type]`] = 'greaterThan';
+        queryParams[`whereGroup[${whereGroupIndex}][attribute]`] = 'priceWithVat';
+        queryParams[`whereGroup[${whereGroupIndex}][value]`] = filters.priceMin.toString();
+        whereGroupIndex++;
+      }
+
+      // Filtr podle maximální ceny (lessThan)
+      if (filters.priceMax !== undefined && filters.priceMax > 0) {
+        queryParams[`whereGroup[${whereGroupIndex}][type]`] = 'lessThan';
+        queryParams[`whereGroup[${whereGroupIndex}][attribute]`] = 'priceWithVat';
+        queryParams[`whereGroup[${whereGroupIndex}][value]`] = filters.priceMax.toString();
+        whereGroupIndex++;
+      }
+
+      // Filtr podle platební metody (in - pole hodnot)
+      if (filters.paymentMethod && filters.paymentMethod.length > 0) {
+        queryParams[`whereGroup[${whereGroupIndex}][type]`] = 'in';
+        queryParams[`whereGroup[${whereGroupIndex}][attribute]`] = 'paymentMethod';
+        filters.paymentMethod.forEach(method => {
+          queryParams[`whereGroup[${whereGroupIndex}][value][]`] = method;
+        });
+        whereGroupIndex++;
+      }
+    }
+
+    // Pokud jsou v params whereGroup parametry, přidáme je
+    if (params) {
+      Object.keys(params).forEach(key => {
+        if (key.startsWith('whereGroup')) {
+          queryParams[key] = params[key];
+        }
+      });
+    }
+
+    // Sestavení URL parametrů
+    const urlParams = new URLSearchParams();
+    urlParams.append('maxSize', queryParams.maxSize);
+    urlParams.append('offset', queryParams.offset);
+    urlParams.append('orderBy', queryParams.orderBy);
+    urlParams.append('order', queryParams.order);
+    urlParams.append('attributeSelect', 'name,priceWithVat,currency,shippingAddressLastName,shippingAddressFirstName,status,carrierId,carrierName,createdAt,isStarred,email,paymentMethod');
+
+    // Přidat whereGroup parametry
+    Object.keys(queryParams).forEach(key => {
+      if (key.startsWith('whereGroup')) {
+        urlParams.append(key, queryParams[key]);
+      }
+    });
+
+    console.log('🔍 API Request:', `/SalesOrder?${urlParams}`);
+    return apiClient.get<SalesOrdersResponse>(`/SalesOrder?${urlParams}`);
   },
 
   /**

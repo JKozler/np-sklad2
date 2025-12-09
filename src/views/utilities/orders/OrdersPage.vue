@@ -4,7 +4,7 @@ import { ref, computed, onMounted, watch } from 'vue';
 import BaseBreadcrumb from '@/components/shared/BaseBreadcrumb.vue';
 import UiParentCard from '@/components/shared/UiParentCard.vue';
 import { ordersService } from '@/services/ordersService';
-import type { SalesOrder, OrderStatus } from '@/services/ordersService';
+import type { SalesOrder, OrderStatus, OrderFilters } from '@/services/ordersService';
 
 const page = ref({ title: 'Objednávky' });
 const breadcrumbs = ref([
@@ -22,6 +22,20 @@ const itemsPerPage = ref(200); // Max podporované API
 const totalFromAPI = ref(0);
 
 const activeTab = ref<string | undefined>(undefined);
+
+// **NOVÉ: Pokročilé filtry**
+const filters = ref<OrderFilters>({
+  status: [],
+  carrierId: undefined,
+  email: '',
+  priceMin: undefined,
+  priceMax: undefined,
+  paymentMethod: [],
+  customerName: ''
+});
+
+// Debounce timer pro vyhledávání
+let searchTimeout: number | null = null;
 
 const headers = ref([
   { title: 'Číslo', key: 'name', sortable: true },
@@ -61,6 +75,28 @@ const statusLabels: Record<string, string> = {
   'cancelled': 'Zrušeno'
 };
 
+// **NOVÉ: Možnosti pro filtry**
+const statusOptions = ref([
+  { title: 'Nová', value: 'new' },
+  { title: 'V průběhu', value: 'in-progress' },
+  { title: 'Expediční problém', value: 'expedition-error' },
+  { title: 'Datový problém', value: 'data-error' },
+  { title: 'Odesláno', value: 'sent' },
+  { title: 'Vratka', value: 'return' },
+  { title: 'Doručeno', value: 'delivered' },
+  { title: 'Zrušeno', value: 'cancelled' }
+]);
+
+const paymentMethodOptions = ref([
+  { title: 'Karta', value: 'card' },
+  { title: 'Hotově', value: 'cash' },
+  { title: 'Dobírka', value: 'cod' },
+  { title: 'Bankovní převod', value: 'bank-transfer' }
+]);
+
+// Seznam dopravců (bude načten dynamicky)
+const carriers = ref<Array<{ id: string; name: string }>>([]);
+
 // **PAGINACE: Computed properties**
 const totalPages = computed(() => {
   return Math.ceil(totalFromAPI.value / itemsPerPage.value);
@@ -74,6 +110,20 @@ const displayRange = computed(() => {
   const from = currentOffset.value + 1;
   const to = Math.min(currentOffset.value + orders.value.length, totalFromAPI.value);
   return { from, to };
+});
+
+// **NOVÉ: Počet aktivních filtrů**
+const activeFiltersCount = computed(() => {
+  let count = 0;
+  if (filters.value.status && filters.value.status.length > 0) count++;
+  if (filters.value.carrierId) count++;
+  if (filters.value.email && filters.value.email.trim()) count++;
+  if (filters.value.priceMin !== undefined && filters.value.priceMin > 0) count++;
+  if (filters.value.priceMax !== undefined && filters.value.priceMax > 0) count++;
+  if (filters.value.paymentMethod && filters.value.paymentMethod.length > 0) count++;
+  if (filters.value.customerName && filters.value.customerName.trim()) count++;
+  if (searchText.value.trim()) count++;
+  return count;
 });
 
 const formatPrice = (price: number, currency: string = 'CZK') => {
@@ -122,11 +172,25 @@ const getCarrierColor = (carrierName: string) => {
 const loadOrders = async () => {
   loading.value = true;
   try {
+    // Připrav filtry pro API
+    const apiFilters: OrderFilters = {
+      status: filters.value.status && filters.value.status.length > 0 ? filters.value.status : undefined,
+      carrierId: filters.value.carrierId || undefined,
+      email: filters.value.email?.trim() || undefined,
+      priceMin: filters.value.priceMin,
+      priceMax: filters.value.priceMax,
+      paymentMethod: filters.value.paymentMethod && filters.value.paymentMethod.length > 0 ? filters.value.paymentMethod : undefined,
+      customerName: filters.value.customerName?.trim() || undefined
+    };
+
     const response = await ordersService.getAll(
       searchText.value || undefined,
       activeTab.value || undefined,
-      itemsPerPage.value,
-      currentOffset.value
+      apiFilters,
+      {
+        maxSize: itemsPerPage.value,
+        offset: currentOffset.value
+      }
     );
     orders.value = response.list;
     totalFromAPI.value = response.total;
@@ -179,6 +243,63 @@ const handleSearch = () => {
 };
 
 /**
+ * Debounced search - čeká 500ms po posledním stisku klávesy
+ */
+const debouncedSearch = () => {
+  if (searchTimeout) {
+    clearTimeout(searchTimeout);
+  }
+
+  searchTimeout = window.setTimeout(() => {
+    currentOffset.value = 0;
+    loadOrders();
+  }, 500);
+};
+
+/**
+ * **NOVÉ: Vyčistí všechny filtry**
+ */
+const clearFilters = () => {
+  filters.value = {
+    status: [],
+    carrierId: undefined,
+    email: '',
+    priceMin: undefined,
+    priceMax: undefined,
+    paymentMethod: [],
+    customerName: ''
+  };
+  searchText.value = '';
+  currentOffset.value = 0;
+  loadOrders();
+};
+
+/**
+ * **NOVÉ: Načte seznam dopravců**
+ */
+const loadCarriers = async () => {
+  try {
+    // Načteme všechny objednávky a vytáhneme unikátní dopravce
+    const response = await ordersService.getAll(undefined, undefined, undefined, {
+      maxSize: 200,
+      offset: 0
+    });
+
+    const uniqueCarriers = new Map<string, string>();
+    response.list.forEach(order => {
+      if (order.carrierId && order.carrierName) {
+        uniqueCarriers.set(order.carrierId, order.carrierName);
+      }
+    });
+
+    carriers.value = Array.from(uniqueCarriers.entries()).map(([id, name]) => ({ id, name }));
+    console.log('✅ Načteno dopravců:', carriers.value.length);
+  } catch (error) {
+    console.error('Chyba při načítání dopravců:', error);
+  }
+};
+
+/**
  * **NOVÉ: Funkce pro změnu stránky**
  */
 const goToPage = (page: number) => {
@@ -206,8 +327,28 @@ watch(activeTab, () => {
   loadOrders();
 });
 
+// **NOVÉ: Watch na změnu searchText**
+watch(searchText, () => {
+  debouncedSearch();
+});
+
+// **NOVÉ: Watch na změnu filtrů**
+watch([
+  () => filters.value.status,
+  () => filters.value.carrierId,
+  () => filters.value.email,
+  () => filters.value.priceMin,
+  () => filters.value.priceMax,
+  () => filters.value.paymentMethod,
+  () => filters.value.customerName
+], () => {
+  currentOffset.value = 0;
+  debouncedSearch();
+}, { deep: true });
+
 onMounted(() => {
   loadOrders();
+  loadCarriers();
 });
 </script>
 
@@ -247,42 +388,270 @@ onMounted(() => {
           </v-tab>
         </v-tabs>
 
-        <div class="d-flex justify-space-between align-center mb-4 flex-wrap gap-2">
-          <v-text-field
-            v-model="searchText"
-            @keyup.enter="handleSearch"
-            label="Vyhledat objednávku..."
-            prepend-inner-icon="mdi-magnify"
-            variant="outlined"
-            density="compact"
-            hide-details
-            style="max-width: 400px"
-            clearable
-            @click:clear="handleSearch"
-          >
-            <template v-slot:append>
+        <div class="mb-4">
+          <v-row>
+            <v-col cols="12" md="6">
+              <!-- Vyhledávací pole -->
+              <v-text-field
+                v-model="searchText"
+                prepend-inner-icon="mdi-magnify"
+                label="Vyhledat objednávku"
+                placeholder="Zadejte číslo objednávky, jméno zákazníka..."
+                variant="outlined"
+                density="compact"
+                clearable
+                hint="Vyhledávání probíhá automaticky při psaní"
+                persistent-hint
+              >
+                <template v-slot:append-inner>
+                  <v-progress-circular
+                    v-if="loading"
+                    indeterminate
+                    size="20"
+                    width="2"
+                    color="primary"
+                  ></v-progress-circular>
+                </template>
+              </v-text-field>
+            </v-col>
+
+            <v-col cols="12" md="6" class="d-flex justify-end align-start gap-2">
               <v-btn
-                @click="handleSearch"
+                color="primary"
+                prepend-icon="mdi-refresh"
+                :loading="loading"
+                @click="loadOrders"
+                variant="tonal"
+              >
+                Obnovit
+              </v-btn>
+            </v-col>
+          </v-row>
+        </div>
+
+        <!-- **NOVÉ: Pokročilé filtry** -->
+        <v-expansion-panels class="mb-4">
+          <v-expansion-panel>
+            <v-expansion-panel-title>
+              <v-icon class="mr-2">mdi-filter</v-icon>
+              Pokročilé filtry
+              <v-chip
+                v-if="activeFiltersCount > 0"
                 color="primary"
                 size="small"
-                :loading="loading"
+                class="ml-2"
               >
-                Hledat
-              </v-btn>
-            </template>
-          </v-text-field>
-          
-          <div class="d-flex gap-2">
+                {{ activeFiltersCount }}
+              </v-chip>
+            </v-expansion-panel-title>
+            <v-expansion-panel-text>
+              <v-row>
+                <!-- Status -->
+                <v-col cols="12" md="4">
+                  <v-select
+                    v-model="filters.status"
+                    :items="statusOptions"
+                    label="Stav objednávky"
+                    variant="outlined"
+                    density="compact"
+                    multiple
+                    clearable
+                    chips
+                    hint="Můžete vybrat více stavů"
+                    persistent-hint
+                  >
+                    <template v-slot:chip="{ item }">
+                      <v-chip
+                        :color="statusColors[item.value]"
+                        size="small"
+                      >
+                        {{ item.title }}
+                      </v-chip>
+                    </template>
+                  </v-select>
+                </v-col>
+
+                <!-- Dopravce -->
+                <v-col cols="12" md="4">
+                  <v-select
+                    v-model="filters.carrierId"
+                    :items="carriers"
+                    item-title="name"
+                    item-value="id"
+                    label="Dopravce"
+                    variant="outlined"
+                    density="compact"
+                    clearable
+                    hint="Filtrovat podle dopravce"
+                    persistent-hint
+                  >
+                    <template v-slot:selection="{ item }">
+                      <v-chip
+                        size="small"
+                        :color="getCarrierColor(item.title).color"
+                        :variant="getCarrierColor(item.title).variant"
+                      >
+                        {{ item.title }}
+                      </v-chip>
+                    </template>
+                  </v-select>
+                </v-col>
+
+                <!-- Platební metoda -->
+                <v-col cols="12" md="4">
+                  <v-select
+                    v-model="filters.paymentMethod"
+                    :items="paymentMethodOptions"
+                    label="Platební metoda"
+                    variant="outlined"
+                    density="compact"
+                    multiple
+                    clearable
+                    chips
+                    hint="Můžete vybrat více metod"
+                    persistent-hint
+                  >
+                    <template v-slot:chip="{ item }">
+                      <v-chip
+                        size="small"
+                        color="primary"
+                      >
+                        {{ item.title }}
+                      </v-chip>
+                    </template>
+                  </v-select>
+                </v-col>
+              </v-row>
+
+              <v-row>
+                <!-- Email -->
+                <v-col cols="12" md="4">
+                  <v-text-field
+                    v-model="filters.email"
+                    label="Email zákazníka"
+                    placeholder="Začátek emailu..."
+                    variant="outlined"
+                    density="compact"
+                    prepend-inner-icon="mdi-email"
+                    clearable
+                    hint="Vyhledává objednávky, jejichž email začíná zadaným textem"
+                    persistent-hint
+                  ></v-text-field>
+                </v-col>
+
+                <!-- Jméno zákazníka -->
+                <v-col cols="12" md="4">
+                  <v-text-field
+                    v-model="filters.customerName"
+                    label="Jméno zákazníka"
+                    placeholder="Část jména nebo příjmení..."
+                    variant="outlined"
+                    density="compact"
+                    prepend-inner-icon="mdi-account"
+                    clearable
+                    hint="Vyhledává ve jméně i příjmení"
+                    persistent-hint
+                  ></v-text-field>
+                </v-col>
+              </v-row>
+
+              <v-row>
+                <!-- Minimální cena -->
+                <v-col cols="12" md="3">
+                  <v-text-field
+                    v-model.number="filters.priceMin"
+                    label="Cena od"
+                    type="number"
+                    variant="outlined"
+                    density="compact"
+                    prepend-inner-icon="mdi-currency-czk"
+                    clearable
+                    hint="Minimální cena objednávky"
+                    persistent-hint
+                  ></v-text-field>
+                </v-col>
+
+                <!-- Maximální cena -->
+                <v-col cols="12" md="3">
+                  <v-text-field
+                    v-model.number="filters.priceMax"
+                    label="Cena do"
+                    type="number"
+                    variant="outlined"
+                    density="compact"
+                    prepend-inner-icon="mdi-currency-czk"
+                    clearable
+                    hint="Maximální cena objednávky"
+                    persistent-hint
+                  ></v-text-field>
+                </v-col>
+              </v-row>
+
+              <v-row>
+                <v-col cols="12" class="d-flex justify-end">
+                  <v-btn
+                    variant="outlined"
+                    prepend-icon="mdi-refresh"
+                    @click="clearFilters"
+                  >
+                    Resetovat všechny filtry
+                  </v-btn>
+                </v-col>
+              </v-row>
+            </v-expansion-panel-text>
+          </v-expansion-panel>
+        </v-expansion-panels>
+
+        <!-- Info o aktivních filtrech -->
+        <v-alert
+          v-if="activeFiltersCount > 0"
+          type="info"
+          variant="tonal"
+          density="compact"
+          class="mb-4"
+          closable
+          @click:close="clearFilters"
+        >
+          <div class="d-flex align-center">
+            <v-icon start>mdi-filter</v-icon>
+            <div class="flex-grow-1">
+              <strong>Aktivní filtry ({{ activeFiltersCount }}):</strong>
+              <div class="text-caption mt-1">
+                <span v-if="searchText.trim()">
+                  Hledání: "{{ searchText }}"
+                </span>
+                <span v-if="filters.status && filters.status.length > 0" class="ml-2">
+                  | Status: {{ filters.status.map(s => statusLabels[s]).join(', ') }}
+                </span>
+                <span v-if="filters.carrierId" class="ml-2">
+                  | Dopravce: {{ carriers.find(c => c.id === filters.carrierId)?.name }}
+                </span>
+                <span v-if="filters.paymentMethod && filters.paymentMethod.length > 0" class="ml-2">
+                  | Platba: {{ filters.paymentMethod.join(', ') }}
+                </span>
+                <span v-if="filters.email?.trim()" class="ml-2">
+                  | Email: "{{ filters.email }}"
+                </span>
+                <span v-if="filters.customerName?.trim()" class="ml-2">
+                  | Zákazník: "{{ filters.customerName }}"
+                </span>
+                <span v-if="filters.priceMin" class="ml-2">
+                  | Cena od: {{ filters.priceMin }} Kč
+                </span>
+                <span v-if="filters.priceMax" class="ml-2">
+                  | Cena do: {{ filters.priceMax }} Kč
+                </span>
+              </div>
+            </div>
             <v-btn
-              @click="loadOrders"
-              variant="outlined"
-              prepend-icon="mdi-refresh"
-              :loading="loading"
+              size="small"
+              variant="text"
+              @click="clearFilters"
             >
-              Obnovit
+              Vyčistit
             </v-btn>
           </div>
-        </div>
+        </v-alert>
 
         <v-data-table
           :headers="headers"
