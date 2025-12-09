@@ -120,7 +120,8 @@ const sidebarItem: menu[] = [
 {
   title: 'Sklady',
   icon: BuildingWarehouseIcon,
-  to: '/warehouses'
+  to: '/warehouses',
+  requiredDashboards: ['WAREHOUSE_MANAGER']
 },
 {
   title: 'Systém',
