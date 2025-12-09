@@ -22,6 +22,7 @@ onMounted(() => {
           <v-tab value="1">Sklad surovin/expedice</v-tab>
           <v-tab value="2">Přehled objednávek</v-tab>
           <v-tab value="3">Přehled stavu</v-tab>
+          <v-tab value="4">Chybějící produkty na výdej</v-tab>
         </v-tabs>
 
         <v-card-text>
@@ -40,6 +41,11 @@ onMounted(() => {
             <v-window-item value="3">
                 <v-card-text style="height: 1200px;">
                   <iframe style="width: 100%;height: 100%;" src="https://grafana.naturalprotein.cz/modules/grafana/service/public-dashboards/ff3e7a62b357416d8c0f0722f5334d97"></iframe>
+                </v-card-text>
+            </v-window-item>
+            <v-window-item value="4">
+                <v-card-text style="height: 1200px;">
+                  <iframe style="width: 100%;height: 100%;" src="https://grafana.naturalprotein.cz/modules/grafana/service/public-dashboards/dbb77efda0044da69637dda45a1b4b64"></iframe>
                 </v-card-text>
             </v-window-item>
           </v-window>
