@@ -757,6 +757,22 @@ onMounted(() => {
   </v-row>
 
   <v-row v-else-if="order">
+    <!-- Chybová zpráva z packageErrorMessage -->
+    <v-col cols="12" v-if="order.packageErrorMessage">
+      <v-alert
+        type="error"
+        variant="tonal"
+        prominent
+        border="start"
+        class="mb-4"
+      >
+        <v-alert-title class="text-h6 mb-2">
+          Chyba balíku
+        </v-alert-title>
+        <div>{{ order.packageErrorMessage }}</div>
+      </v-alert>
+    </v-col>
+
     <!-- Akční tlačítka -->
     <v-col cols="12">
       <div class="d-flex justify-space-between align-center mb-4">
