@@ -67,7 +67,7 @@ const statusColors: Record<string, string> = {
 const statusLabels: Record<string, string> = {
   'new': 'Nová',
   'in-progress': 'V průběhu',
-  'expedition-error': 'Expediční problém',
+  'expedition-error': 'Chybí produkt',
   'data-error': 'Datový problém',
   'sent': 'Odesláno',
   'return': 'Vratka',
@@ -79,7 +79,7 @@ const statusLabels: Record<string, string> = {
 const statusOptions = ref([
   { title: 'Nová', value: 'new' },
   { title: 'V průběhu', value: 'in-progress' },
-  { title: 'Expediční problém', value: 'expedition-error' },
+  { title: 'Chybí produkt', value: 'expedition-error' },
   { title: 'Datový problém', value: 'data-error' },
   { title: 'Odesláno', value: 'sent' },
   { title: 'Vratka', value: 'return' },

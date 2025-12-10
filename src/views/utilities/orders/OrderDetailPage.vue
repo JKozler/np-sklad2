@@ -87,7 +87,7 @@ const editForm = ref({
 const statusOptions: Array<{ value: OrderStatus; title: string; color: string }> = [
   { value: 'new', title: 'Nová', color: 'default' },
   { value: 'in-progress', title: 'V průběhu', color: 'warning' },
-  { value: 'expedition-error', title: 'Expediční problém', color: 'error' },
+  { value: 'expedition-error', title: 'Chybí produkt', color: 'error' },
   { value: 'data-error', title: 'Datový problém', color: 'error' },
   { value: 'sent', title: 'Odesláno', color: 'success' },
   { value: 'return', title: 'Vratka', color: 'info' },
@@ -109,7 +109,7 @@ const statusColors: Record<string, string> = {
 const statusLabels: Record<string, string> = {
   'new': 'Nová',
   'in-progress': 'V průběhu',
-  'expedition-error': 'Expediční problém',
+  'expedition-error': 'Chybí produkt',
   'data-error': 'Datový problém',
   'sent': 'Odesláno',
   'return': 'Vratka',
