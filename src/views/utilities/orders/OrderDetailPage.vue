@@ -55,6 +55,14 @@ const splitOverrides = ref({
   codAmount: 0
 });
 
+// Return to expedition modal
+const returnToExpeditionDialog = ref(false);
+const returningToExpedition = ref(false);
+const returnToExpeditionForm = ref({
+  customerNote: '',
+  internalNote: ''
+});
+
 // Editovatelné fieldy
 const editForm = ref({
   status: '' as OrderStatus,
@@ -649,6 +657,56 @@ const closeSplitDialog = () => {
   };
 };
 
+const openReturnToExpeditionDialog = () => {
+  if (!order.value) return;
+
+  returnToExpeditionForm.value = {
+    customerNote: order.value.customerNote || '',
+    internalNote: order.value.internalNote || ''
+  };
+  returnToExpeditionDialog.value = true;
+};
+
+const confirmReturnToExpedition = async () => {
+  if (!order.value) return;
+
+  returningToExpedition.value = true;
+
+  try {
+    // Prepare update data
+    const updateData: any = {
+      status: 'in-progress'
+    };
+
+    // Add notes if they changed
+    if (returnToExpeditionForm.value.customerNote !== (order.value.customerNote || '')) {
+      updateData.customerNote = returnToExpeditionForm.value.customerNote;
+    }
+    if (returnToExpeditionForm.value.internalNote !== (order.value.internalNote || '')) {
+      updateData.internalNote = returnToExpeditionForm.value.internalNote;
+    }
+
+    await ordersService.update(order.value.id, updateData);
+
+    returnToExpeditionDialog.value = false;
+    await loadOrder();
+    alert('Objednávka byla vrácena do expedice');
+  } catch (error) {
+    console.error('Chyba při vracení do expedice:', error);
+    alert('Chyba při vracení do expedice');
+  } finally {
+    returningToExpedition.value = false;
+  }
+};
+
+const closeReturnToExpeditionDialog = () => {
+  returnToExpeditionDialog.value = false;
+  returnToExpeditionForm.value = {
+    customerNote: '',
+    internalNote: ''
+  };
+};
+
 // Package status management
 const updatingPackageStatus = ref(false);
 
@@ -817,9 +875,9 @@ onMounted(() => {
         </div>
 
         <div class="d-flex gap-2">
-          <!-- Tlačítko pro přegenerování balíku (pouze pro chybové stavy) -->
+          <!-- Tlačítko pro přegenerování balíku (pouze když je data-error a existuje chybová zpráva) -->
           <v-btn
-            v-if="order.status === 'expedition-error' || order.status === 'data-error'"
+            v-if="order.status === 'data-error' && order.packageErrorMessage"
             @click="regeneratePackage"
             color="error"
             size="large"
@@ -829,20 +887,20 @@ onMounted(() => {
             Přegenerovat balík
           </v-btn>
 
-          <!-- Tlačítko pro vrácení do expedice (pro objednávky mimo chybové stavy, když existuje balík a není chybová zpráva) -->
+          <!-- Tlačítko pro vrácení do expedice (pouze když je data-error a není chybová zpráva) -->
           <v-btn
-            v-if="order.status !== 'expedition-error' && order.status !== 'data-error' && !order.packageErrorMessage && packages.length > 0"
-            @click="regeneratePackage"
+            v-if="order.status === 'data-error' && !order.packageErrorMessage"
+            @click="openReturnToExpeditionDialog"
             color="warning"
             size="large"
             prepend-icon="mdi-truck-delivery"
-            :loading="regeneratingPackage"
+            :loading="returningToExpedition"
           >
-            Vrátit do expedice
+            Vrátit k expedici
           </v-btn>
 
-          <!-- Tlačítko pro rozdělení balíku (pouze pro in-progress) -->
-          <v-btn
+          <!-- Tlačítko pro rozdělení balíku - SKRYTO -->
+          <!-- <v-btn
             v-if="order.status === 'in-progress'"
             @click="openSplitPackageDialog"
             color="info"
@@ -850,7 +908,7 @@ onMounted(() => {
             prepend-icon="mdi-package-variant-closed"
           >
             Rozdělit balík
-          </v-btn>
+          </v-btn> -->
 
           <v-btn
             @click="applyDiscount"
@@ -1969,6 +2027,76 @@ onMounted(() => {
           :disabled="selectedItemsToMove.length === 0"
         >
           Rozdělit balík
+        </v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
+
+  <!-- Return to Expedition Dialog -->
+  <v-dialog v-model="returnToExpeditionDialog" max-width="600px" persistent>
+    <v-card>
+      <v-card-title class="d-flex align-center justify-space-between bg-grey-lighten-4">
+        <span class="text-h5">Vrátit k expedici</span>
+        <v-btn
+          icon="mdi-close"
+          variant="text"
+          size="small"
+          @click="closeReturnToExpeditionDialog"
+          :disabled="returningToExpedition"
+        ></v-btn>
+      </v-card-title>
+
+      <v-divider></v-divider>
+
+      <v-card-text class="pa-6">
+        <p class="text-body-1 mb-4">
+          Před vrácením objednávky k expedici můžete upravit poznámky:
+        </p>
+
+        <v-row>
+          <v-col cols="12">
+            <v-textarea
+              v-model="returnToExpeditionForm.customerNote"
+              label="Poznámka zákazníka"
+              variant="outlined"
+              rows="3"
+              hint="Poznámka viditelná pro zákazníka"
+              persistent-hint
+            ></v-textarea>
+          </v-col>
+
+          <v-col cols="12">
+            <v-textarea
+              v-model="returnToExpeditionForm.internalNote"
+              label="Interní poznámka"
+              variant="outlined"
+              rows="3"
+              hint="Interní poznámka pouze pro tým"
+              persistent-hint
+            ></v-textarea>
+          </v-col>
+        </v-row>
+      </v-card-text>
+
+      <v-divider></v-divider>
+
+      <v-card-actions class="pa-4">
+        <v-btn
+          variant="outlined"
+          @click="closeReturnToExpeditionDialog"
+          :disabled="returningToExpedition"
+        >
+          Zrušit
+        </v-btn>
+        <v-spacer></v-spacer>
+        <v-btn
+          color="warning"
+          size="large"
+          prepend-icon="mdi-truck-delivery"
+          @click="confirmReturnToExpedition"
+          :loading="returningToExpedition"
+        >
+          Vrátit k expedici
         </v-btn>
       </v-card-actions>
     </v-card>
