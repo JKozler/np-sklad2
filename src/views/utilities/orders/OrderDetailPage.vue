@@ -875,9 +875,9 @@ onMounted(() => {
         </div>
 
         <div class="d-flex gap-2">
-          <!-- Tlačítko pro přegenerování balíku (pouze když je data-error a existuje chybová zpráva) -->
+          <!-- Tlačítko pro přegenerování balíku (pouze když je data-error a existuje chybová zpráva) v-if="order.status === 'data-error' && order.packageErrorMessage" -->
           <v-btn
-            v-if="order.status === 'data-error' && order.packageErrorMessage"
+            v-if="order.status === 'data-error'"
             @click="regeneratePackage"
             color="error"
             size="large"
