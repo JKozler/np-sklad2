@@ -1,0 +1,24 @@
+// Custom v-chip styles
+
+.v-chip.v-theme--PurpleTheme.bg-light-blue-darken-1.v-chip--density-default.v-chip--size-small.v-chip--variant-flat {
+  background: #fc0 !important;
+  color: black !important;
+  font-weight: bold !important;
+}
+
+.v-chip.v-theme--PurpleTheme.bg-red-darken-1.v-chip--density-default.v-chip--size-small.v-chip--variant-flat {
+  background: #e30613 !important;
+  font-weight: bold !important;
+}
+
+.v-chip.v-theme--PurpleTheme.bg-blue-darken-1.v-chip--density-default.v-chip--size-small.v-chip--variant-flat {
+  background: #42A5F5 !important;
+  font-weight: bold !important;
+}
+
+.v-chip.v-theme--PurpleTheme.v-chip--density-default.v-chip--size-small.v-chip--variant-outlined {
+  background: #0D47A1 !important;
+  color: white !important;
+  border: none !important;
+  font-weight: bold !important;
+}
