@@ -254,6 +254,11 @@ const getCarrierColor = (carrierName: string) => {
     return { color: 'blue-darken-1', variant: 'flat' as const };
   }
 
+  // PPL - modrá s bílým textem
+  if (name.includes('gls')) {
+    return { color: 'gls-darken-1', variant: 'flat' as const };
+  }
+
   // Balíkovna - světlejší modrá než PPL
   if (name.includes('balíkovna') || name.includes('balikovna')) {
     return { color: 'light-blue-darken-1', variant: 'flat' as const };
