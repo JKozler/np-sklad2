@@ -812,9 +812,9 @@ onMounted(() => {
         </div>
 
         <div class="d-flex gap-2">
-          <!-- Tlačítko pro přegenerování balíku (pouze pro chybové stavy) -->
+          <!-- Tlačítko pro přegenerování balíku (pouze pro chybové stavy s chybovou zprávou) -->
           <v-btn
-            v-if="order.status === 'expedition-error' || order.status === 'data-error'"
+            v-if="(order.status === 'expedition-error' || order.status === 'data-error') && order.packageErrorMessage"
             @click="regeneratePackage"
             color="error"
             size="large"
@@ -822,6 +822,18 @@ onMounted(() => {
             :loading="regeneratingPackage"
           >
             Přegenerovat balík
+          </v-btn>
+
+          <!-- Tlačítko pro vrácení do expedice (pouze pro chybové stavy bez chybové zprávy, když existuje balík) -->
+          <v-btn
+            v-if="(order.status === 'expedition-error' || order.status === 'data-error') && !order.packageErrorMessage && packages.length > 0"
+            @click="regeneratePackage"
+            color="warning"
+            size="large"
+            prepend-icon="mdi-truck-delivery"
+            :loading="regeneratingPackage"
+          >
+            Vrátit do expedice
           </v-btn>
 
           <!-- Tlačítko pro rozdělení balíku (pouze pro in-progress) -->

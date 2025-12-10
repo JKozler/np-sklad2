@@ -302,8 +302,7 @@ export const ordersService = {
       // Speciální filtr pro chybové objednávky
       queryParams[`whereGroup[${whereGroupIndex}][type]`] = 'in';
       queryParams[`whereGroup[${whereGroupIndex}][attribute]`] = 'status';
-      queryParams[`whereGroup[${whereGroupIndex}][value][]`] = 'expedition-error';
-      queryParams[`whereGroup[${whereGroupIndex}][value][]`] = 'data-error';
+      queryParams[`whereGroup[${whereGroupIndex}][value]`] = ['data-error', 'expedition-error'];
       whereGroupIndex++;
     } else if (primaryFilter) {
       // Standardní primární filtr (např. starred)
@@ -406,7 +405,15 @@ export const ordersService = {
     // Přidat whereGroup parametry
     Object.keys(queryParams).forEach(key => {
       if (key.startsWith('whereGroup')) {
-        urlParams.append(key, queryParams[key]);
+        const value = queryParams[key];
+        // Pokud je hodnota pole, přidat každou položku zvlášť s [] na konci klíče
+        if (Array.isArray(value)) {
+          value.forEach(item => {
+            urlParams.append(`${key}[]`, item);
+          });
+        } else {
+          urlParams.append(key, value);
+        }
       }
     });
 
