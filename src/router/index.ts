@@ -46,4 +46,16 @@ router.beforeEach(async (to, from, next) => {
   next();
 });
 
+// Update document title based on route meta
+router.afterEach((to) => {
+  const baseTitle = 'NaturalProtein - sklad';
+  const pageTitle = to.meta?.title as string | undefined;
+
+  if (pageTitle) {
+    document.title = `${pageTitle} | ${baseTitle}`;
+  } else {
+    document.title = baseTitle;
+  }
+});
+
 export default router;
