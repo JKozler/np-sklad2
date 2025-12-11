@@ -92,19 +92,6 @@ watch(() => formData.value.transactionDirection, (newDirection) => {
   }
 });
 
-// **OPRAVA: Zabránit Vuetify nastavit search query na celý název produktu**
-const handleSearchUpdate = (newSearch: string) => {
-  // Pokud search obsahuje celý název nějakého produktu, ignoruj to
-  // (Vuetify se to snaží nastavit po výběru)
-  const matchingProduct = autocompleteProducts.value.find(p => p.name === newSearch);
-  if (matchingProduct && newItem.value.productId === matchingProduct.id) {
-    // Produkt byl právě vybrán, ignoruj nastavení search query
-    productSearchQuery.value = '';
-    return;
-  }
-  // Jinak normálně nastav search query
-  productSearchQuery.value = newSearch;
-};
 
 const localItems = ref<InventoryTransactionItem[]>([]);
 
@@ -742,8 +729,7 @@ onMounted(() => {
             <!-- **AUTOCOMPLETE místo statického selectu** -->
             <v-autocomplete
               v-model="newItem.productId"
-              :search="productSearchQuery"
-              @update:search="handleSearchUpdate"
+              v-model:search="productSearchQuery"
               :items="autocompleteProducts"
               item-title="name"
               item-value="id"
