@@ -384,40 +384,18 @@ watch(searchQuery, () => {
   }, 500); // 500ms debounce
 });
 
-// **OPRAVA: Lokální cache produktů - NIKDY se nevyprázdní**
-const productCache = ref<typeof autocompleteProducts.value>([]);
-
-// Watch pro přidání nových produktů z autocomplete do cache
-watch(autocompleteProducts, (newProducts) => {
-  newProducts.forEach(product => {
-    if (!productCache.value.find(p => p.id === product.id)) {
-      productCache.value.push(product);
-    }
-  });
-});
-
-// Computed property pro items - obsahuje cache + aktuální výsledky vyhledávání
-const productAutocompleteItems = computed(() => {
-  // Začni s cache
-  const items = [...productCache.value];
-
-  // Přidej nové produkty z autocomplete (pokud už nejsou v cache)
-  autocompleteProducts.value.forEach(product => {
-    if (!items.find(p => p.id === product.id)) {
-      items.push(product);
-    }
-  });
-
-  return items;
-});
-
-// **OPRAVA: Po výběru produktu resetovat search query**
-const handleProductSelect = (productId: string | null) => {
-  if (productId) {
-    // Resetovat search query aby se nespustil nový API call
+// **OPRAVA: Zabránit Vuetify nastavit search query na celý název produktu**
+const handleSearchUpdate = (newSearch: string) => {
+  // Pokud search obsahuje celý název nějakého produktu, ignoruj to
+  // (Vuetify se to snaží nastavit po výběru)
+  const matchingProduct = autocompleteProducts.value.find(p => p.name === newSearch);
+  if (matchingProduct && newItem.value.productId === matchingProduct.id) {
+    // Produkt byl právě vybrán, ignoruj nastavení search query
     productSearchQuery.value = '';
-    console.log('✅ Produkt vybrán, search query resetován');
+    return;
   }
+  // Jinak normálně nastav search query
+  productSearchQuery.value = newSearch;
 };
 
 onMounted(() => {
@@ -955,8 +933,9 @@ onMounted(() => {
             <!-- **AUTOCOMPLETE místo statického selectu** -->
             <v-autocomplete
               v-model="newItem.productId"
-              v-model:search="productSearchQuery"
-              :items="productAutocompleteItems"
+              :search="productSearchQuery"
+              @update:search="handleSearchUpdate"
+              :items="autocompleteProducts"
               item-title="name"
               item-value="id"
               label="Produkt *"
@@ -966,7 +945,6 @@ onMounted(() => {
               placeholder="Začněte psát pro vyhledání..."
               no-filter
               clearable
-              @update:model-value="handleProductSelect"
             >
               <template v-slot:item="{ props: itemProps, item }">
                 <v-list-item v-bind="itemProps">
