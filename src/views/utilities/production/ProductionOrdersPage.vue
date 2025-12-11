@@ -26,6 +26,9 @@ const totalFromAPI = ref(0);
 const currentOffset = ref(0);
 const itemsPerPage = ref(20);
 
+// Aktivní tab pro filtrování
+const activeTab = ref<'all' | 'chybove'>('all');
+
 let searchTimeout: number | null = null;
 let totals = 0;
 
@@ -130,6 +133,14 @@ const loadProductionOrders = async () => {
       whereGroupIndex++;
     }
 
+    // Filtr podle aktivního tabu
+    if (activeTab.value === 'chybove') {
+      queryParams[`whereGroup[${whereGroupIndex}][type]`] = 'isNotEmpty';
+      queryParams[`whereGroup[${whereGroupIndex}][attribute]`] = 'errorMessage';
+      queryParams[`whereGroup[${whereGroupIndex}][value]`] = '';
+      whereGroupIndex++;
+    }
+
     console.log('🔍 API Request s filtry:', queryParams);
 
     const response = await productionOrderService.getAll(queryParams);
@@ -164,6 +175,14 @@ const debouncedSearch = () => {
 watch(searchText, () => {
   currentOffset.value = 0; // Reset na první stránku
   debouncedSearch();
+});
+
+/**
+ * Watch na změnu aktivního tabu
+ */
+watch(activeTab, () => {
+  currentOffset.value = 0; // Reset na první stránku
+  loadProductionOrders();
 });
 
 /**
@@ -235,6 +254,25 @@ onMounted(() => {
 
   <v-row>
     <v-col cols="12">
+      <!-- Taby pro filtrování -->
+      <v-card variant="outlined" class="mb-4">
+        <v-tabs
+          v-model="activeTab"
+          color="primary"
+          align-tabs="start"
+        >
+          <v-tab value="all">
+            <v-icon start>mdi-clipboard-list</v-icon>
+            Vše
+          </v-tab>
+
+          <v-tab value="chybove">
+            <v-icon start color="error">mdi-alert-circle</v-icon>
+            Chybové
+          </v-tab>
+        </v-tabs>
+      </v-card>
+
       <!-- Statistiky -->
       <v-row class="mb-4">
         <v-col cols="12" sm="6" md="3">
@@ -341,6 +379,32 @@ onMounted(() => {
           <strong>Chyba:</strong> {{ error }}
         </v-alert>
 
+        <!-- Info o aktivním tabu -->
+        <v-alert
+          v-if="activeTab === 'chybove'"
+          type="error"
+          variant="tonal"
+          density="compact"
+          class="mb-4"
+        >
+          <div class="d-flex align-center justify-space-between">
+            <div class="d-flex align-center">
+              <v-icon start color="error">mdi-alert-circle</v-icon>
+              <span>
+                Zobrazeny pouze výrobní příkazy s chybovou zprávou
+                <span class="text-medium-emphasis ml-2">({{ productionOrders.length }} příkazů)</span>
+              </span>
+            </div>
+            <v-btn
+              size="small"
+              variant="text"
+              @click="activeTab = 'all'"
+            >
+              Zobrazit vše
+            </v-btn>
+          </div>
+        </v-alert>
+
         <!-- Info o chybách -->
         <v-alert
           v-if="stats.withErrors > 0"
@@ -363,7 +427,7 @@ onMounted(() => {
           :items="productionOrders"
           :loading="loading"
           :items-per-page="itemsPerPage"
-          class="elevation-1"
+          :class="['elevation-1', { 'error-orders-table': activeTab === 'chybove' }]"
           hide-default-footer
           :hover="true"
           :item-class="getRowClass"
@@ -521,6 +585,9 @@ onMounted(() => {
         <div class="d-flex justify-space-between align-center pa-4 flex-wrap" v-if="totals > 0">
           <div class="text-body-2">
             Zobrazeno {{ displayRange.from }}-{{ displayRange.to }} z {{ totals }} výrobních příkazů
+            <span v-if="activeTab === 'chybove'" class="text-medium-emphasis ml-2">
+              (Chybové)
+            </span>
           </div>
 
           <v-pagination
@@ -572,5 +639,22 @@ onMounted(() => {
 
 :deep(.error-row:hover) {
   background-color: rgba(var(--v-theme-error), 0.12) !important;
+}
+
+/* Lehce červená barva pro tabulku chybových příkazů */
+.error-orders-table {
+  background-color: rgba(var(--v-theme-error), 0.03);
+}
+
+.error-orders-table :deep(.v-data-table__tr) {
+  background-color: rgba(var(--v-theme-error), 0.02);
+}
+
+.error-orders-table :deep(.v-data-table__tr:hover) {
+  background-color: rgba(var(--v-theme-error), 0.08) !important;
+}
+
+.error-orders-table :deep(.v-data-table-header) {
+  background-color: rgba(var(--v-theme-error), 0.05);
 }
 </style>
