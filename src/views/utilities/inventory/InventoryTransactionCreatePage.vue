@@ -314,7 +314,7 @@ const addItemToLocal = () => {
       : smartSettings.value.defaultProductWarehouseId;
 
     const warehouseName = warehouses.value.find(w => w.id === formData.value.warehouseId)?.name || 'Neznámý';
-    console.log(`✅ Automaticky nastaven sklad: ${warehouseName} (${isMaterial ? 'materiály' : 'produkty'})`);
+    console.log(`✅ Automaticky nastaven sklad: ${warehouseName} (${isMaterial ? 'suroviny' : 'produkty'})`);
   }
 
   showAddItemDialog.value = false;

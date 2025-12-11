@@ -385,7 +385,7 @@ onMounted(() => {
           
           <v-tab value="material">
             <v-icon start color="info">mdi-package-variant-closed</v-icon>
-            Materiál
+            Surovina
           </v-tab>
 <!--
           <v-tab value="neskladove">
@@ -602,7 +602,7 @@ onMounted(() => {
               </v-icon>
               <span>
                 Zobrazeny pouze produkty:
-                <strong>{{ activeTab === 'vyrobek' ? 'Výrobek' : activeTab === 'material' ? 'Materiál' : 'Nejsou ve skladu' }}</strong>
+                <strong>{{ activeTab === 'vyrobek' ? 'Výrobek' : activeTab === 'material' ? 'Surovina' : 'Nejsou ve skladu' }}</strong>
                 <span class="text-medium-emphasis ml-2">({{ products.length }} produktů)</span>
               </span>
             </div>
@@ -706,7 +706,7 @@ onMounted(() => {
                   : activeTab === 'vyrobek'
                     ? 'V kategorii "Výrobek" nejsou žádné produkty.'
                     : activeTab === 'material'
-                      ? 'V kategorii "Materiál" nejsou žádné produkty.'
+                      ? 'V kategorii "Surovina" nejsou žádné produkty.'
                       : activeTab === 'neskladove'
                         ? 'Nejsou žádné neskladové produkty.'
                         : 'Zatím nebyly načteny žádné produkty.'
@@ -840,7 +840,7 @@ onMounted(() => {
           <div class="text-body-2">
             Zobrazeno {{ displayRange.from }}-{{ displayRange.to }} z {{ totals }} produktů
             <span v-if="activeTab !== 'all'" class="text-medium-emphasis ml-2">
-              ({{ activeTab === 'vyrobek' ? 'Výrobek' : activeTab === 'material' ? 'Materiál' : activeTab === 'chybejici' ? 'Chybějící' : 'Nejsou ve skladu' }})
+              ({{ activeTab === 'vyrobek' ? 'Výrobek' : activeTab === 'material' ? 'Surovina' : activeTab === 'chybejici' ? 'Chybějící' : 'Nejsou ve skladu' }})
             </span>
           </div>
 
