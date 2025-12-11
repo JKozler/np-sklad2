@@ -43,6 +43,7 @@ const headers = ref([
   { title: 'Status', key: 'status', sortable: true },
   { title: 'Dopravce', key: 'carrierName', sortable: true },
   { title: 'Celková cena', key: 'priceWithVat', sortable: true },
+  { title: 'Balíky', key: 'packagesNames', sortable: false },
   { title: 'Datum', key: 'createdAt', sortable: true },
   { title: 'Akce', key: 'actions', sortable: false }
 ]);
@@ -156,6 +157,13 @@ const formatPaymentMethod = (paymentMethod: string): string => {
 
 const getCustomerName = (order: SalesOrder) => {
   return `${order.shippingAddressFirstName} ${order.shippingAddressLastName}`;
+};
+
+const formatPackagesNames = (packagesNames?: Record<string, string>) => {
+  if (!packagesNames || Object.keys(packagesNames).length === 0) {
+    return '';
+  }
+  return Object.values(packagesNames).join(', ');
 };
 
 const getCarrierColor = (carrierName: string) => {
@@ -735,6 +743,13 @@ onMounted(() => {
             <span class="font-weight-medium">
               {{ formatPrice(item.priceWithVat, item.currency) }}
             </span>
+          </template>
+
+          <template v-slot:item.packagesNames="{ item }">
+            <span v-if="formatPackagesNames(item.packagesNames)" class="text-body-2">
+              {{ formatPackagesNames(item.packagesNames) }}
+            </span>
+            <span v-else class="text-medium-emphasis">—</span>
           </template>
 
           <template v-slot:item.createdAt="{ item }">

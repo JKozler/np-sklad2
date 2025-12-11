@@ -95,6 +95,8 @@ export interface SalesOrder {
   eshopId?: string; // Nový atribut
   flagPackageCreated?: boolean; // Flag zda byl balík vytvořen
   packageErrorMessage?: string; // Chybová zpráva balíku
+  packagesIds?: string[]; // ID balíků
+  packagesNames?: Record<string, string>; // Názvy balíků (klíč = ID balíku, hodnota = název)
 }
 
 export interface SalesOrdersResponse {
@@ -400,7 +402,7 @@ export const ordersService = {
     urlParams.append('offset', queryParams.offset);
     urlParams.append('orderBy', queryParams.orderBy);
     urlParams.append('order', queryParams.order);
-    urlParams.append('attributeSelect', 'name,priceWithVat,currency,shippingAddressLastName,shippingAddressFirstName,status,carrierId,carrierName,createdAt,isStarred,email,paymentMethod');
+    urlParams.append('attributeSelect', 'name,priceWithVat,currency,shippingAddressLastName,shippingAddressFirstName,status,carrierId,carrierName,createdAt,isStarred,email,paymentMethod,packagesIds,packagesNames');
 
     // Přidat whereGroup parametry
     Object.keys(queryParams).forEach(key => {
