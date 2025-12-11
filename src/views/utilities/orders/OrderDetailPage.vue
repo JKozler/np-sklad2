@@ -249,6 +249,15 @@ const translateFieldName = (fieldName: string): string => {
   return fieldNameTranslations[fieldName] || fieldName;
 };
 
+const paymentMethodLabels: Record<string, string> = {
+  'cod': 'Dobírka',
+  'card': 'Kartou'
+};
+
+const formatPaymentMethod = (paymentMethod: string): string => {
+  return paymentMethodLabels[paymentMethod] || paymentMethod;
+};
+
 const getCarrierColor = (carrierName: string) => {
   const name = carrierName.toLowerCase();
 
@@ -1054,7 +1063,7 @@ onMounted(() => {
                   </tr>
                   <tr v-if="order.paymentMethod">
                     <td class="text-medium-emphasis font-weight-medium">Způsob platby:</td>
-                    <td>{{ order.paymentMethod }}</td>
+                    <td>{{ formatPaymentMethod(order.paymentMethod) }}</td>
                   </tr>
                 </tbody>
               </v-table>
@@ -1731,7 +1740,7 @@ onMounted(() => {
                   </tr>
                   <tr>
                     <td class="text-medium-emphasis font-weight-medium">Způsob platby:</td>
-                    <td class="text-end">{{ selectedPackage.paymentMethod }}</td>
+                    <td class="text-end">{{ formatPaymentMethod(selectedPackage.paymentMethod) }}</td>
                   </tr>
                 </tbody>
               </v-table>
