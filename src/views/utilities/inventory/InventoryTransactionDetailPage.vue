@@ -45,14 +45,16 @@ const searchQuery = ref('');
 const {
   products: autocompleteProducts,
   loading: loadingAutocomplete,
-  searchQuery: productSearchQuery
+  searchQuery: productSearchQuery,
+  loadProductById
 } = useProductAutocomplete();
 
 // **NOVÉ: Autocomplete pro editaci položky**
 const {
   products: autocompleteProductsEdit,
   loading: loadingAutocompleteEdit,
-  searchQuery: productSearchQueryEdit
+  searchQuery: productSearchQueryEdit,
+  loadProductById: loadProductByIdEdit
 } = useProductAutocomplete();
 
 // **NOVÉ: Autocomplete pro dodavatele**
@@ -387,6 +389,30 @@ watch(searchQuery, () => {
     page.value = 1; // Reset na první stránku při vyhledávání
     loadItems();
   }, 500); // 500ms debounce
+});
+
+// **OPRAVA: Watch pro udržení vybraného produktu v autocomplete seznamu (přidání položky)**
+watch(() => newItem.value.productId, async (newProductId) => {
+  if (newProductId && !autocompleteProducts.value.find(p => p.id === newProductId)) {
+    // Produkt není v seznamu, načti ho a přidej
+    const product = await loadProductById(newProductId);
+    if (product && !autocompleteProducts.value.find(p => p.id === product.id)) {
+      autocompleteProducts.value.push(product);
+      console.log('✅ Produkt přidán do autocomplete seznamu:', product.name);
+    }
+  }
+});
+
+// **OPRAVA: Watch pro udržení vybraného produktu v autocomplete seznamu (editace položky)**
+watch(() => editItemData.value.productId, async (newProductId) => {
+  if (newProductId && !autocompleteProductsEdit.value.find(p => p.id === newProductId)) {
+    // Produkt není v seznamu, načti ho a přidej
+    const product = await loadProductByIdEdit(newProductId);
+    if (product && !autocompleteProductsEdit.value.find(p => p.id === product.id)) {
+      autocompleteProductsEdit.value.push(product);
+      console.log('✅ Produkt přidán do autocomplete seznamu (edit):', product.name);
+    }
+  }
 });
 
 onMounted(() => {
