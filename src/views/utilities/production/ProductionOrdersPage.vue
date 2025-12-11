@@ -133,11 +133,15 @@ const loadProductionOrders = async () => {
       whereGroupIndex++;
     }
 
-    // Filtr podle aktivního tabu
+    // Filtr podle aktivního tabu - errorMessage není prázdná
     if (activeTab.value === 'chybove') {
-      queryParams[`whereGroup[${whereGroupIndex}][type]`] = 'isNotEmpty';
-      queryParams[`whereGroup[${whereGroupIndex}][attribute]`] = 'errorMessage';
-      queryParams[`whereGroup[${whereGroupIndex}][value]`] = '';
+      queryParams[`whereGroup[${whereGroupIndex}][type]`] = 'and';
+      queryParams[`whereGroup[${whereGroupIndex}][value][0][type]`] = 'notEquals';
+      queryParams[`whereGroup[${whereGroupIndex}][value][0][attribute]`] = 'errorMessage';
+      queryParams[`whereGroup[${whereGroupIndex}][value][0][value]`] = '';
+      queryParams[`whereGroup[${whereGroupIndex}][value][1][type]`] = 'isNotNull';
+      queryParams[`whereGroup[${whereGroupIndex}][value][1][attribute]`] = 'errorMessage';
+      queryParams[`whereGroup[${whereGroupIndex}][value][1][value]`] = '';
       whereGroupIndex++;
     }
 
