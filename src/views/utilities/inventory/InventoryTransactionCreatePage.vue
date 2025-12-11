@@ -92,17 +92,19 @@ watch(() => formData.value.transactionDirection, (newDirection) => {
   }
 });
 
-// **OPRAVA: Watch pro udržení vybraného produktu v autocomplete seznamu**
-watch(() => newItem.value.productId, async (newProductId) => {
-  if (newProductId && !autocompleteProducts.value.find(p => p.id === newProductId)) {
-    // Produkt není v seznamu, načti ho a přidej
-    const product = await loadProductById(newProductId);
+// **OPRAVA: Handler pro okamžité načtení vybraného produktu**
+const handleProductSelect = async (productId: string | null) => {
+  if (!productId) return;
+
+  // Pokud produkt není v seznamu, načti ho a přidej OKAMŽITĚ
+  if (!autocompleteProducts.value.find(p => p.id === productId)) {
+    const product = await loadProductById(productId);
     if (product && !autocompleteProducts.value.find(p => p.id === product.id)) {
       autocompleteProducts.value.push(product);
       console.log('✅ Produkt přidán do autocomplete seznamu:', product.name);
     }
   }
-});
+};
 
 const localItems = ref<InventoryTransactionItem[]>([]);
 
@@ -751,6 +753,7 @@ onMounted(() => {
               placeholder="Začněte psát pro vyhledání..."
               no-filter
               clearable
+              @update:model-value="handleProductSelect"
             >
               <template v-slot:item="{ props: itemProps, item }">
                 <v-list-item v-bind="itemProps">
