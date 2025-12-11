@@ -37,7 +37,8 @@ const loadingUoms = ref(false);
 const {
   products: autocompleteProducts,
   loading: loadingAutocomplete,
-  searchQuery: productSearchQuery
+  searchQuery: productSearchQuery,
+  loadProductById
 } = useProductAutocomplete();
 
 // **NOVÉ: Autocomplete pro dodavatele**
@@ -87,6 +88,18 @@ watch(() => formData.value.transactionDirection, (newDirection) => {
     // Pro příjemky resetovat název, pokud ještě není vyplněn
     if (formData.value.name === 'NaturalProtein') {
       formData.value.name = '';
+    }
+  }
+});
+
+// **OPRAVA: Watch pro udržení vybraného produktu v autocomplete seznamu**
+watch(() => newItem.value.productId, async (newProductId) => {
+  if (newProductId && !autocompleteProducts.value.find(p => p.id === newProductId)) {
+    // Produkt není v seznamu, načti ho a přidej
+    const product = await loadProductById(newProductId);
+    if (product && !autocompleteProducts.value.find(p => p.id === product.id)) {
+      autocompleteProducts.value.push(product);
+      console.log('✅ Produkt přidán do autocomplete seznamu:', product.name);
     }
   }
 });
