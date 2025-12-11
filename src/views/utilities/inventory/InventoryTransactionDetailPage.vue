@@ -411,6 +411,15 @@ const productAutocompleteItems = computed(() => {
   return items;
 });
 
+// **OPRAVA: Po výběru produktu resetovat search query**
+const handleProductSelect = (productId: string | null) => {
+  if (productId) {
+    // Resetovat search query aby se nespustil nový API call
+    productSearchQuery.value = '';
+    console.log('✅ Produkt vybrán, search query resetován');
+  }
+};
+
 onMounted(() => {
   loadTransaction();
   loadUoms();
@@ -957,6 +966,7 @@ onMounted(() => {
               placeholder="Začněte psát pro vyhledání..."
               no-filter
               clearable
+              @update:model-value="handleProductSelect"
             >
               <template v-slot:item="{ props: itemProps, item }">
                 <v-list-item v-bind="itemProps">
