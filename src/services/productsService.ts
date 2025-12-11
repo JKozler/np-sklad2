@@ -40,6 +40,8 @@ export interface Product {
   accountsNames?: Record<string, string>; // Nový atribut - mapování ID na jména dodavatelů
   accountsColumns?: Record<string, { supplierSku: string | null; costPrice: number | null }>; // Nový atribut - data dodavatelů
   minimumStockQuantity?: number; // Minimální skladové množství
+  ownProductionFlag?: boolean; // Vlastní výroba
+  automaticProductionFlag?: boolean; // Automatická výroba
 }
 
 export interface ProductsResponse {
@@ -103,6 +105,8 @@ export interface UpdateProductData {
   accountsNames?: Record<string, string>;
   accountsColumns?: Record<string, { supplierSku: string | null; costPrice: number | null }>;
   minimumStockQuantity?: number;
+  ownProductionFlag?: boolean;
+  automaticProductionFlag?: boolean;
 }
 
 export const productsService = {

@@ -392,7 +392,9 @@ const loadProduct = async () => {
       vatRate: product.value.vatRate,
       productGroupId: product.value.productGroupId,
       uomId: product.value.uomId || undefined,
-      minimumStockQuantity: product.value.minimumStockQuantity
+      minimumStockQuantity: product.value.minimumStockQuantity,
+      ownProductionFlag: product.value.ownProductionFlag,
+      automaticProductionFlag: product.value.automaticProductionFlag
     };
 
     // Vypni loading pro základní informace
@@ -532,7 +534,9 @@ const toggleEditMode = () => {
       vatRate: product.value.vatRate,
       productGroupId: product.value.productGroupId,
       uomId: product.value.uomId || undefined,
-      minimumStockQuantity: product.value.minimumStockQuantity
+      minimumStockQuantity: product.value.minimumStockQuantity,
+      ownProductionFlag: product.value.ownProductionFlag,
+      automaticProductionFlag: product.value.automaticProductionFlag
     };
   }
   editMode.value = !editMode.value;
@@ -1496,6 +1500,44 @@ onMounted(() => {
                     {{ product.minimumStockQuantity }} {{ product.uomName || 'ks' }}
                   </v-chip>
                   <div v-else class="text-body-1 font-weight-medium mt-2">—</div>
+                </div>
+              </v-col>
+
+              <v-col cols="12" md="6">
+                <v-switch
+                  v-if="editMode"
+                  v-model="editData.ownProductionFlag"
+                  label="Vlastní výroba"
+                  color="success"
+                  hide-details
+                ></v-switch>
+                <div v-else>
+                  <div class="text-subtitle-2 text-medium-emphasis">Vlastní výroba</div>
+                  <v-chip
+                    :color="product.ownProductionFlag ? 'success' : 'default'"
+                    class="mt-2"
+                  >
+                    {{ product.ownProductionFlag ? 'Ano' : 'Ne' }}
+                  </v-chip>
+                </div>
+              </v-col>
+
+              <v-col cols="12" md="6">
+                <v-switch
+                  v-if="editMode"
+                  v-model="editData.automaticProductionFlag"
+                  label="Automatická výroba"
+                  color="success"
+                  hide-details
+                ></v-switch>
+                <div v-else>
+                  <div class="text-subtitle-2 text-medium-emphasis">Automatická výroba</div>
+                  <v-chip
+                    :color="product.automaticProductionFlag ? 'success' : 'default'"
+                    class="mt-2"
+                  >
+                    {{ product.automaticProductionFlag ? 'Ano' : 'Ne' }}
+                  </v-chip>
                 </div>
               </v-col>
             </v-row>

@@ -338,7 +338,7 @@ onMounted(() => {
                     v-model="formData.stockType"
                     :items="[
                       { title: 'Zboží', value: 'typZasoby.zbozi' },
-                      { title: 'Materiál', value: 'typZasoby.material' }
+                      { title: 'Surovina', value: 'typZasoby.material' }
                     ]"
                     label="Typ zásob"
                     variant="outlined"
