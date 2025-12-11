@@ -67,6 +67,15 @@ export function useProductAutocomplete() {
       return;
     }
 
+    // **OPRAVA: Pokud query je PŘESNĚ název nějakého už načteného produktu, nedělej API call**
+    // (Toto se stane když Vuetify nastaví search na název vybraného produktu)
+    const exactMatch = products.value.find(p => p.name === newQuery);
+    if (exactMatch) {
+      loading.value = false;
+      console.log('⏭️ Search query odpovídá již načtenému produktu, přeskakuji API call');
+      return;
+    }
+
     // Nastav nový timeout
     loading.value = true;
     searchTimeout = window.setTimeout(() => {
