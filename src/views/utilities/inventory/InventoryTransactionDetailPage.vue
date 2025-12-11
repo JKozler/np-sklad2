@@ -384,19 +384,32 @@ watch(searchQuery, () => {
   }, 500); // 500ms debounce
 });
 
-// **OPRAVA: Handler pro okamžité načtení vybraného produktu**
-const handleProductSelect = async (productId: string | null) => {
-  if (!productId) return;
+// **OPRAVA: Lokální cache produktů - NIKDY se nevyprázdní**
+const productCache = ref<typeof autocompleteProducts.value>([]);
 
-  // Pokud produkt není v seznamu, načti ho a přidej OKAMŽITĚ
-  if (!autocompleteProducts.value.find(p => p.id === productId)) {
-    const product = await loadProductById(productId);
-    if (product && !autocompleteProducts.value.find(p => p.id === product.id)) {
-      autocompleteProducts.value.push(product);
-      console.log('✅ Produkt přidán do autocomplete seznamu:', product.name);
+// Watch pro přidání nových produktů z autocomplete do cache
+watch(autocompleteProducts, (newProducts) => {
+  newProducts.forEach(product => {
+    if (!productCache.value.find(p => p.id === product.id)) {
+      productCache.value.push(product);
     }
-  }
-};
+  });
+});
+
+// Computed property pro items - obsahuje cache + aktuální výsledky vyhledávání
+const productAutocompleteItems = computed(() => {
+  // Začni s cache
+  const items = [...productCache.value];
+
+  // Přidej nové produkty z autocomplete (pokud už nejsou v cache)
+  autocompleteProducts.value.forEach(product => {
+    if (!items.find(p => p.id === product.id)) {
+      items.push(product);
+    }
+  });
+
+  return items;
+});
 
 onMounted(() => {
   loadTransaction();
@@ -934,7 +947,7 @@ onMounted(() => {
             <v-autocomplete
               v-model="newItem.productId"
               v-model:search="productSearchQuery"
-              :items="autocompleteProducts"
+              :items="productAutocompleteItems"
               item-title="name"
               item-value="id"
               label="Produkt *"
@@ -944,7 +957,6 @@ onMounted(() => {
               placeholder="Začněte psát pro vyhledání..."
               no-filter
               clearable
-              @update:model-value="handleProductSelect"
             >
               <template v-slot:item="{ props: itemProps, item }">
                 <v-list-item v-bind="itemProps">
