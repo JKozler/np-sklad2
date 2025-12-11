@@ -12,6 +12,6 @@ const items = shallowRef([
 
 <template>
     <v-card-text style="height: 70vh;">
-      <iframe style="width: 100%; height: 100%;border: none;" src="https://grafana.naturalprotein.cz/modules/grafana/service/public-dashboards/118af7179b31468f87d963012b7cd254"></iframe>
+      <iframe style="width: 100%; height: 100%;border: none;" src="https://grafana.naturalprotein.cz/modules/grafana/service/public-dashboards/118af7179b31468f87d963012b7cd254?kiosk=tv"></iframe>
     </v-card-text>
 </template>
