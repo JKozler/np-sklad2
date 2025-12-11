@@ -88,7 +88,7 @@ const statusOptions = ref([
 ]);
 
 const paymentMethodOptions = ref([
-  { title: 'Karta', value: 'card' },
+  { title: 'Kartou', value: 'card' },
   { title: 'Hotově', value: 'cash' },
   { title: 'Dobírka', value: 'cod' },
   { title: 'Bankovní převod', value: 'bank-transfer' }
@@ -141,6 +141,17 @@ const formatDate = (dateString: string) => {
     hour: '2-digit',
     minute: '2-digit'
   });
+};
+
+const paymentMethodLabels: Record<string, string> = {
+  'cod': 'Dobírka',
+  'card': 'Kartou',
+  'cash': 'Hotově',
+  'bank-transfer': 'Bankovní převod'
+};
+
+const formatPaymentMethod = (paymentMethod: string): string => {
+  return paymentMethodLabels[paymentMethod] || paymentMethod;
 };
 
 const getCustomerName = (order: SalesOrder) => {
@@ -631,7 +642,7 @@ onMounted(() => {
                   | Dopravce: {{ carriers.find(c => c.id === filters.carrierId)?.name }}
                 </span>
                 <span v-if="filters.paymentMethod && filters.paymentMethod.length > 0" class="ml-2">
-                  | Platba: {{ filters.paymentMethod.join(', ') }}
+                  | Platba: {{ filters.paymentMethod.map(pm => formatPaymentMethod(pm)).join(', ') }}
                 </span>
                 <span v-if="filters.email?.trim()" class="ml-2">
                   | Email: "{{ filters.email }}"

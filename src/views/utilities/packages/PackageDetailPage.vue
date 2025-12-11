@@ -74,6 +74,15 @@ const formatDate = (dateString: string) => {
   return `${day}.${month}.${year} ${hours}:${minutes}`;
 };
 
+const paymentMethodLabels: Record<string, string> = {
+  'cod': 'Dobírka',
+  'card': 'Kartou'
+};
+
+const formatPaymentMethod = (paymentMethod: string): string => {
+  return paymentMethodLabels[paymentMethod] || paymentMethod;
+};
+
 const getCarrierColor = (carrierName: string) => {
   const name = carrierName.toLowerCase();
 
@@ -454,7 +463,7 @@ onMounted(() => {
                   </tr>
                   <tr>
                     <td class="text-medium-emphasis font-weight-medium">Způsob platby:</td>
-                    <td class="text-end">{{ packageDetail.paymentMethod }}</td>
+                    <td class="text-end">{{ formatPaymentMethod(packageDetail.paymentMethod) }}</td>
                   </tr>
                 </tbody>
               </v-table>
