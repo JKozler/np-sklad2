@@ -580,7 +580,7 @@ const shouldShowVoucherButton = computed(() => {
 // Otevřít stránku pro získání dárkového poukazu
 const openVoucherPage = () => {
   if (!order.value) return;
-  const url = `https://www.naturalprotein.cz/admin/cs/eshop.orders.orders/export?newVoucher=1&orderId=${order.value.eshopId}`;
+  const url = `https://www.naturalprotein.cz/admin/cs/eshop.orders.orders/export?newVoucher=1&orderId=${order.value.name}`;
   window.open(url, '_blank');
 };
 
