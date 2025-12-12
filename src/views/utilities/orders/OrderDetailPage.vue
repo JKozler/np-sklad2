@@ -565,6 +565,25 @@ const applyDiscount = () => {
   window.open(url, '_blank');
 };
 
+// Kontrola, zda objednávka obsahuje dárkový poukaz
+const hasGiftVoucher = computed(() => {
+  return items.value.some(item => item.name === 'Dárkový poukaz');
+});
+
+// Kontrola, zda by se mělo zobrazit tlačítko "Získat poukaz"
+const shouldShowVoucherButton = computed(() => {
+  if (!order.value) return false;
+  const isDeliveredOrSent = order.value.status === 'delivered' || order.value.status === 'sent';
+  return isDeliveredOrSent && hasGiftVoucher.value;
+});
+
+// Otevřít stránku pro získání dárkového poukazu
+const openVoucherPage = () => {
+  if (!order.value) return;
+  const url = `https://www.naturalprotein.cz/admin/cs/eshop.orders.orders/export?newVoucher=1&orderId=${order.value.eshopId}`;
+  window.open(url, '_blank');
+};
+
 const regeneratePackage = async () => {
   if (!order.value) return;
 
@@ -919,7 +938,20 @@ onMounted(() => {
             Rozdělit balík
           </v-btn> -->
 
+          <!-- Tlačítko "Získat poukaz" pokud je objednávka doručená/odeslaná a obsahuje dárkový poukaz -->
           <v-btn
+            v-if="shouldShowVoucherButton"
+            @click="openVoucherPage"
+            color="success"
+            size="large"
+            prepend-icon="mdi-gift"
+          >
+            Získat poukaz
+          </v-btn>
+
+          <!-- Tlačítko "Aplikovat 10% slevu" ve všech ostatních případech -->
+          <v-btn
+            v-else
             @click="applyDiscount"
             color="warning"
             size="large"
