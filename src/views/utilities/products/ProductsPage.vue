@@ -86,34 +86,28 @@ const headers = computed(() => {
     // Seznam SUROVIN: jméno / kód / cena za jednotku / měrná jednotka / skladová položka / akce
     return [
       { title: 'Jméno', key: 'name', sortable: true },
-      { title: tf('code'), key: 'code', sortable: true },
       { title: 'Nákladová cena', key: 'costPrice', sortable: true },
       { title: 'Prodejní cena', key: 'priceWithoutVat', sortable: true },
       { title: 'Měrná jednotka', key: 'uomName', sortable: false },
-      { title: tf('isStockItem'), key: 'isStockItem', sortable: true },
       { title: tlGlobal('Actions'), key: 'actions', sortable: false }
     ];
   } else if (activeTab.value === 'vyrobek') {
     // Seznam PRODUKTŮ: jméno / kód / náklad / prodej / měrná jednotka / skladová položka / akce
     return [
       { title: 'Jméno', key: 'name', sortable: true },
-      { title: tf('code'), key: 'code', sortable: true },
       { title: 'Nákladová cena', key: 'costPrice', sortable: true },
       { title: 'Prodejní cena', key: 'priceWithoutVat', sortable: true },
       { title: 'Měrná jednotka', key: 'uomName', sortable: false },
-      { title: tf('isStockItem'), key: 'isStockItem', sortable: true },
       { title: tlGlobal('Actions'), key: 'actions', sortable: false }
     ];
   } else {
     // Výchozí sloupce pro tab "Vše" a "Chybějící"
     return [
-      { title: tf('name'), key: 'name', sortable: true },
-      { title: tf('code'), key: 'code', sortable: true },
-      { title: tf('stockType'), key: 'stockType', sortable: true },
+      { title: "Jméno", key: 'name', sortable: true },
+      { title: "Typ ve skladu", key: 'stockType', sortable: true },
       { title: 'Nákladová cena', key: 'costPrice', sortable: true },
       { title: 'Prodejní cena', key: 'priceWithoutVat', sortable: true },
       { title: 'Měrná jednotka', key: 'uomName', sortable: false },
-      { title: tf('isStockItem'), key: 'isStockItem', sortable: true },
       { title: tlGlobal('Actions'), key: 'actions', sortable: false }
     ];
   }
